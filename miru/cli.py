@@ -3,9 +3,11 @@
 import typer
 
 from miru import __version__
+from miru.commands.chat import chat
 from miru.commands.info import info
 from miru.commands.list import list_models
 from miru.commands.pull import pull
+from miru.commands.run import run
 
 app = typer.Typer(
     name="miru",
@@ -24,6 +26,8 @@ def version() -> None:
 app.command(name="list")(list_models)
 app.command(name="info")(info)
 app.command(name="pull")(pull)
+app.command(name="run")(run)
+app.command(name="chat")(chat)
 
 
 def main() -> None:
