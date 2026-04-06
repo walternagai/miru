@@ -91,20 +91,130 @@ async def process_tool_calls(
         tool_name = call.get("name", "")
         arguments = call.get("arguments", {})
 
-        if not quiet:
-            console.print(
-                f"\n[bold cyan][Tool][/bold cyan] Executando: [yellow]{tool_name}[/yellow]({arguments})\n"
-            )
-
+        # Execute tool silently
         result, error = tool_manager.execute_tool(tool_name, arguments)
 
         if error and not quiet:
-            console.print(f"[red bold][Tool] Erro:[/red bold] {error}\n")
+            console.print(f"[red bold]Error:[/red bold] {error}\n")
 
         tool_result_msg = create_tool_result_message(tool_name, result, error)
         messages.append(tool_result_msg)
 
     return messages
+
+
+async def generate_query_variations(
+    client: OllamaClient,
+    model: str,
+    original_query: str,
+    max_variations: int = 3,
+) -> list[str]:
+    """Generate search query variations using the model.
+
+    Args:
+        client: Ollama client
+        model: Model name
+        original_query: Original search query
+        max_variations: Maximum number of variations to generate
+
+    Returns:
+        List of query variations (including original)
+    """
+    from miru.tools.utils import create_tool_call_message
+
+    prompt = f"""Generate {max_variations} different search queries to find comprehensive information about: "{original_query}"
+
+Rules:
+- Each query should approach the topic from a different angle
+- Queries should be in the same language as the original
+- Return ONLY the queries, one per line, no numbering or explanation
+- Make queries specific and search-engine friendly
+- Include technical terms, synonyms, and related concepts
+
+Example:
+Original: "Python decorators"
+Variations:
+Python decorators tutorial examples
+how do Python decorators work under the hood
+Python decorator syntax best practices
+common Python decorator patterns"""
+
+    messages_variation = [{"role": "user", "content": prompt}]
+
+    variations = [original_query]
+
+    try:
+        chunks = client.chat(model, messages_variation, stream=True)
+        response_parts = []
+
+        async for chunk in chunks:
+            content = chunk.get("message", {}).get("content", "")
+            if content:
+                response_parts.append(content)
+
+        variation_text = "".join(response_parts).strip()
+
+        # Parse variations from response
+        for line in variation_text.split("\n"):
+            line = line.strip()
+            # Remove numbering if present
+            if line and not line.startswith("#"):
+                # Remove common prefixes
+                for prefix in ["- ", "* ", "• ", "1. ", "2. ", "3. ", "4. ", "5. "]:
+                    if line.startswith(prefix):
+                        line = line[len(prefix) :]
+                        break
+                if line and len(line) > 5:
+                    variations.append(line)
+                    if len(variations) >= max_variations + 1:  # +1 for original
+                        break
+    except Exception:
+        # If variation generation fails, just use original
+        pass
+
+    return variations[: max_variations + 1]
+
+
+async def enhance_tavily_search(
+    client: OllamaClient,
+    model: str,
+    query: str,
+    tool_manager: ToolExecutionManager,
+    max_results: int = 5,
+) -> tuple[str, Exception | None]:
+    """Enhance Tavily search with query variations.
+
+    Args:
+        client: Ollama client
+        model: Model name
+        query: Original search query
+        tool_manager: Tool execution manager
+        max_results: Results per query
+
+    Returns:
+        Tuple of (combined_results, error)
+    """
+    # Generate query variations
+    variations = await generate_query_variations(client, model, query, max_variations=2)
+
+    all_results = []
+    seen_urls = set()
+
+    for search_query in variations:
+        result, error = tool_manager.execute_tool(
+            "tavily_search", {"query": search_query, "max_results": max_results}
+        )
+
+        if error:
+            return "", error
+
+        # Parse and deduplicate results
+        if result and result not in all_results:
+            all_results.append(result)
+
+    # Combine unique results
+    combined = "\n\n---\n\n".join(all_results)
+    return combined, None
 
 
 async def execute_tool_loop(
@@ -133,9 +243,6 @@ async def execute_tool_loop(
     tools = tool_manager.get_tool_definitions()
 
     for iteration in range(max_iterations):
-        if not quiet:
-            console.print(f"\n[dim]⟳ Iteração {iteration + 1}/{max_iterations}[/]")
-
         chunks = client.chat_with_tools(model, messages, tools=tools, options=options, stream=True)
 
         response_parts = []
@@ -149,10 +256,27 @@ async def execute_tool_loop(
                 content = chunk.get("message", {}).get("content", "")
                 if content:
                     response_parts.append(content)
-                    # Don't print during streaming - will render Markdown at the end
 
         if current_tool_calls:
             for call in current_tool_calls:
+                tool_name = call.get("name", "")
+                arguments = call.get("arguments", {})
+
+                # Enhance Tavily search with query variations
+                if tool_name == "tavily_search" and "query" in arguments:
+                    enhanced_result, error = await enhance_tavily_search(
+                        client, model, arguments["query"], tool_manager, max_results=5
+                    )
+                    if error:
+                        result, error = tool_manager.execute_tool(tool_name, arguments)
+                    else:
+                        result = enhanced_result
+                else:
+                    result, error = tool_manager.execute_tool(tool_name, arguments)
+
+                if error and not quiet:
+                    console.print(f"[red bold]Error:[/red bold] {error}\n")
+
                 messages.append(
                     {
                         "role": "assistant",
@@ -160,17 +284,16 @@ async def execute_tool_loop(
                         "tool_calls": [
                             {
                                 "function": {
-                                    "name": call["name"],
-                                    "arguments": call["arguments"],
+                                    "name": tool_name,
+                                    "arguments": arguments,
                                 }
                             }
                         ],
                     }
                 )
 
-            messages = await process_tool_calls(
-                client, model, messages, current_tool_calls, tool_manager, quiet
-            )
+                tool_result_msg = create_tool_result_message(tool_name, result, error)
+                messages.append(tool_result_msg)
         else:
             # No tool calls - this is the final response
             final_response = "".join(response_parts)

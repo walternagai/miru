@@ -90,12 +90,6 @@ async def _chat_async(
                 print(f"miru chat · {model}")
                 if system_prompt:
                     print(f"System: {system_prompt[:50]}{'...' if len(system_prompt) > 50 else ''}")
-                if tool_manager and (enable_tavily or enable_tools):
-                    tools = tool_manager.list_tools()
-                    if enable_tavily:
-                        console.print("[dim cyan]🔍 Tavily web search habilitado[/]")
-                    elif enable_tools:
-                        console.print(f"[dim cyan]🔧 {len(tools)} tools habilitadas[/]")
                 print("Digite /exit para sair · /clear para novo contexto")
                 print("─" * 50)
 
