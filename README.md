@@ -403,6 +403,47 @@ miru config get tavily_api_key
 miru config list
 ```
 
+**Configurar Tools Automaticamente:**
+
+```bash
+# Habilitar Tavily por padrão
+miru config set enable_tavily true
+
+# Habilitar todas as tools por padrão
+miru config set enable_tools true
+
+# Configurar modo automático
+miru config set tool_mode auto_safe
+
+# Configurar sandbox para operações de arquivo
+miru config set sandbox_dir ./workspace
+
+# Verificar configuração
+miru config list
+```
+
+**Obter API Key:**
+1. Acesse: https://tavily.com
+2. Crie uma conta gratuita
+3. Copie sua API key (formato: `tvly-...`)
+4. Configure: `miru config set tavily_api_key YOUR_KEY`
+
+**Limites Gratuitos:**
+- 1.000 requisições/mês
+- Rate limit: 60 requisições/minuto
+
+**Uso:**
+
+```bash
+# Com flag (sobrescreve config)
+miru run gemma3 --tavily "Quais são as novidades do Python 3.13?"
+
+# Com config habilitado (automático)
+miru config set enable_tavily true
+miru run gemma3 "Quais são as novidades do Python 3.13?"
+# ↑ Usa Tavily automaticamente (config)
+```
+
 | Tool | Descrição | Segurança |
 |------|-----------|-----------|
 | `tavily_search` | Busca web por informações | ✅ Safe |
