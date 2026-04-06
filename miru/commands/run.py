@@ -310,6 +310,20 @@ def run(
 
     model = resolve_alias(model)
 
+    # Resolve tool settings from config if not specified via CLI
+    from miru.config_manager import (
+        resolve_enable_tools,
+        resolve_enable_tavily,
+        resolve_tool_mode,
+        resolve_sandbox_dir,
+    )
+
+    # Use config values if CLI params are at defaults
+    final_enable_tools = enable_tools if enable_tools else resolve_enable_tools()
+    final_enable_tavily = enable_tavily if enable_tavily else resolve_enable_tavily()
+    final_tool_mode = tool_mode if tool_mode != "auto_safe" else resolve_tool_mode()
+    final_sandbox_dir = sandbox_dir if sandbox_dir else resolve_sandbox_dir()
+
     final_system_prompt: str | None = None
     if system is not None and system_file is not None:
         from miru.renderer import render_error
@@ -357,10 +371,10 @@ def run(
                 output_format=format,
                 quiet=quiet,
                 timeout=timeout,
-                enable_tools=enable_tools,
-                enable_tavily=enable_tavily,
-                sandbox_dir=sandbox_dir,
-                tool_mode=tool_mode,
+                enable_tools=final_enable_tools,
+                enable_tavily=final_enable_tavily,
+                sandbox_dir=final_sandbox_dir,
+                tool_mode=final_tool_mode,
             )
         )
     except KeyboardInterrupt:

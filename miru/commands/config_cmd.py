@@ -38,17 +38,28 @@ def config_set(
         console.print("[dim]Valid keys: default_host, default_model, default_timeout,")
         console.print("[dim]  default_temperature, default_max_tokens, default_top_p,")
         console.print("[dim]  default_top_k, default_seed, history_enabled,")
-        console.print("[dim]  history_max_entries, verbose, tavily_api_key[/]")
+        console.print("[dim]  history_max_entries, verbose, tavily_api_key,")
+        console.print("[dim]  enable_tools, enable_tavily, tool_mode, sandbox_dir")
         sys.exit(1)
 
-    if key in ("history_enabled", "verbose"):
+    # Parse value based on key type
+    if key in ("history_enabled", "verbose", "enable_tools", "enable_tavily"):
+        # Boolean keys
         if value.lower() in ("true", "1", "yes"):
             parsed_value = True
         elif value.lower() in ("false", "0", "no"):
             parsed_value = False
         else:
             console.print(f"[red bold]✗[/] Invalid boolean value: {value}")
+            console.print("[dim]Valid values: true, false, 1, 0, yes, no")
             sys.exit(1)
+    elif key == "tool_mode":
+        # Validate tool_mode
+        if value not in ("manual", "auto", "auto_safe"):
+            console.print(f"[red bold]✗[/] Invalid tool_mode: {value}")
+            console.print("[dim]Valid values: manual, auto, auto_safe")
+            sys.exit(1)
+        parsed_value = value
     elif key in ("default_timeout", "default_temperature", "default_top_p"):
         try:
             parsed_value = float(value)
@@ -123,17 +134,21 @@ def config_list() -> None:
         "history_max_entries": 1000,
         "verbose": False,
         "tavily_api_key": None,
+        "enable_tools": False,
+        "enable_tavily": False,
+        "tool_mode": "auto_safe",
+        "sandbox_dir": None,
     }
 
     for key, default_value in defaults.items():
         current_value = getattr(config, key)
-        
+
         # Hide API key for security
         if key == "tavily_api_key":
             display_value = f"***{str(current_value)[-4:]}" if current_value else "Not set"
         else:
             display_value = str(current_value)
-        
+
         source = "default" if current_value == default_value else "config"
         table.add_row(key, display_value, source)
 

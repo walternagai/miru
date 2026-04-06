@@ -39,6 +39,13 @@ class Config:
     history_max_entries: int = 1000
     verbose: bool = False
     tavily_api_key: str | None = None
+
+    # Tools configuration
+    enable_tools: bool = False
+    enable_tavily: bool = False
+    tool_mode: str = "auto_safe"
+    sandbox_dir: str | None = None
+
     profiles: dict[str, dict[str, Any]] = field(default_factory=dict)
     current_profile: str | None = None
 
@@ -106,6 +113,10 @@ def save_config(config: Config) -> None:
         "history_max_entries": config.history_max_entries,
         "verbose": config.verbose,
         "tavily_api_key": config.tavily_api_key,
+        "enable_tools": config.enable_tools,
+        "enable_tavily": config.enable_tavily,
+        "tool_mode": config.tool_mode,
+        "sandbox_dir": config.sandbox_dir,
         "profiles": config.profiles,
         "current_profile": config.current_profile,
     }
@@ -178,3 +189,63 @@ def resolve_model(cli_override: str | None = None) -> str | None:
         return cli_override
 
     return get_config_value("default_model")
+
+
+def resolve_enable_tools(cli_override: bool | None = None) -> bool:
+    """Resolve enable_tools with precedence.
+
+    1. CLI override
+    2. Environment variable MIRU_ENABLE_TOOLS
+    3. Config file
+    4. Default (False)
+    """
+    if cli_override is not None:
+        return cli_override
+
+    return bool(get_config_value("enable_tools"))
+
+
+def resolve_enable_tavily(cli_override: bool | None = None) -> bool:
+    """Resolve enable_tavily with precedence.
+
+    1. CLI override
+    2. Environment variable MIRU_ENABLE_TAVILY
+    3. Config file
+    4. Default (False)
+    """
+    if cli_override is not None:
+        return cli_override
+
+    return bool(get_config_value("enable_tavily"))
+
+
+def resolve_tool_mode(cli_override: str | None = None) -> str:
+    """Resolve tool_mode with precedence.
+
+    1. CLI override
+    2. Environment variable MIRU_TOOL_MODE
+    3. Config file
+    4. Default (auto_safe)
+    """
+    if cli_override:
+        return cli_override
+
+    mode = get_config_value("tool_mode")
+    if mode and mode in ("manual", "auto", "auto_safe"):
+        return str(mode)
+
+    return "auto_safe"
+
+
+def resolve_sandbox_dir(cli_override: str | None = None) -> str | None:
+    """Resolve sandbox_dir with precedence.
+
+    1. CLI override
+    2. Environment variable MIRU_SANDBOX_DIR
+    3. Config file
+    4. Default (None)
+    """
+    if cli_override:
+        return cli_override
+
+    return get_config_value("sandbox_dir")
