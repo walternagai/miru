@@ -78,15 +78,28 @@ def render_metrics(metrics: dict[str, Any], compact: bool = False) -> None:
     total_duration_ns = metrics.get("total_duration", 0)
     eval_duration_ns = metrics.get("eval_duration", 0)
 
-    total_seconds = total_duration_ns / 1e9
-    eval_seconds = eval_duration_ns / 1e9
+    total_seconds = total_duration_ns / 1e9 if total_duration_ns else 0.0
 
-    tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+    # Calculate tokens per second, preferring eval_duration
+    # Fallback to total_duration if eval_duration is not available
+    if eval_duration_ns and eval_duration_ns > 0:
+        eval_seconds = eval_duration_ns / 1e9
+        tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+    elif total_duration_ns and total_duration_ns > 0:
+        tokens_per_second = eval_count / total_seconds if total_seconds > 0 else 0.0
+    else:
+        tokens_per_second = 0.0
 
     if compact:
-        print(f"[{eval_count} tok · {tokens_per_second:.1f} tok/s]")
+        if tokens_per_second > 0:
+            print(f"[{eval_count} tok · {tokens_per_second:.1f} tok/s]")
+        else:
+            print(f"[{eval_count} tok]")
     else:
-        print(f"✓ {eval_count} tokens · {total_seconds:.1f}s · {tokens_per_second:.1f} tok/s")
+        if tokens_per_second > 0:
+            print(f"✓ {eval_count} tokens · {total_seconds:.1f}s · {tokens_per_second:.1f} tok/s")
+        else:
+            print(f"✓ {eval_count} tokens · {total_seconds:.1f}s")
 
 
 def render_json_output(
@@ -115,8 +128,15 @@ def render_json_output(
         total_duration_ns = metrics.get("total_duration", 0)
         eval_duration_ns = metrics.get("eval_duration", 0)
 
-        eval_seconds = eval_duration_ns / 1e9
-        tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+        # Calculate tokens per second with fallback
+        if eval_duration_ns and eval_duration_ns > 0:
+            eval_seconds = eval_duration_ns / 1e9
+            tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+        elif total_duration_ns and total_duration_ns > 0:
+            total_seconds = total_duration_ns / 1e9
+            tokens_per_second = eval_count / total_seconds if total_seconds > 0 else 0.0
+        else:
+            tokens_per_second = 0.0
 
         output["metrics"] = {
             "eval_count": eval_count,
@@ -150,8 +170,15 @@ def _build_json_output(
     total_duration_ns = final_chunk.get("total_duration", 0)
     eval_duration_ns = final_chunk.get("eval_duration", 0)
 
-    eval_seconds = eval_duration_ns / 1e9
-    tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+    # Calculate tokens per second with fallback
+    if eval_duration_ns and eval_duration_ns > 0:
+        eval_seconds = eval_duration_ns / 1e9
+        tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+    elif total_duration_ns and total_duration_ns > 0:
+        total_seconds = total_duration_ns / 1e9
+        tokens_per_second = eval_count / total_seconds if total_seconds > 0 else 0.0
+    else:
+        tokens_per_second = 0.0
 
     result: dict[str, Any] = {
         "model": model or final_chunk.get("model", "unknown"),

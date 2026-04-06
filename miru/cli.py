@@ -11,14 +11,18 @@ from miru.commands.config_cmd import app as config_app
 from miru.commands.copy import copy
 from miru.commands.delete import delete
 from miru.commands.embed import embed
+from miru.commands.examples import examples
 from miru.commands.history_cmd import history_cmd, history_show
 from miru.commands.info import info
 from miru.commands.list import list_models
 from miru.commands.logs import clear_logs, logs
 from miru.commands.pull import pull
+from miru.commands.quick import quick
 from miru.commands.run import run
+from miru.commands.setup import setup
 from miru.commands.status import ps, search, status, stop
 from miru.completion import completion
+from miru.session import app as session_app
 from miru.template import app as template_app
 
 app = typer.Typer(
@@ -101,7 +105,7 @@ def run_cmd(
     host: str | None = typer.Option(None, "--host", help="Ollama host URL"),
     format: str = typer.Option("text", "--format", help="Output format (text/json)"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Minimal output"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    auto_pull: bool = typer.Option(False, "--auto-pull", help="Auto-download model if missing"),
 ) -> None:
     """Generate text with a single prompt.
 
@@ -109,6 +113,7 @@ def run_cmd(
         miru run gemma3:latest "Explain recursion"
         miru run llava:latest "Describe" --image photo.jpg
         miru run qwen2.5 --system "Be concise" "What is Python?"
+        miru run gemma3 --auto-pull "Hello"
     """
     run(
         model=model,
@@ -158,7 +163,6 @@ def chat_cmd(
         /system <p>    - Change system prompt
         /retry         - Retry last prompt
         /save <file>   - Save conversation
-        /help          - Show commands
 
     Examples:
         miru chat gemma3:latest
@@ -308,9 +312,83 @@ def logs_clear_cmd(
     clear_logs(force=force)
 
 
+@app.command("setup")
+def setup_cmd(
+    host: str | None = typer.Option(None, "--host", "-h", help="Ollama host URL"),
+    non_interactive: bool = typer.Option(
+        False, "--non-interactive", "-y", help="Non-interactive mode"
+    ),
+) -> None:
+    """Run setup wizard for first-time users.
+
+    Examples:
+        miru setup
+        miru setup --host http://localhost:11434
+        miru setup --non-interactive
+    """
+    setup(host=host, non_interactive=non_interactive)
+
+
+@app.command("quick")
+def quick_cmd(
+    command: str = typer.Argument(..., help="Quick command name"),
+    model: str | None = typer.Argument(None, help="Model name"),
+    param: list[str] = typer.Option([], "--param", "-p", help="Parameter in KEY=VALUE format"),
+    host: str | None = typer.Option(None, "--host", "-h", help="Ollama host URL"),
+    format: str = typer.Option("text", "--format", "-f", help="Output format"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Minimal output"),
+    list_commands: bool = typer.Option(False, "--list", "-l", help="List available commands"),
+) -> None:
+    """Run quick commands for common tasks.
+
+    Examples:
+        miru quick code gemma3 --param language=python --param task="sort list"
+        miru quick summarize gemma3 --param text="Long article..."
+        miru quick explain gemma3 --param topic="machine learning"
+        miru quick --list
+    """
+    quick(
+        command=command,
+        model=model,
+        param=param,
+        host=host,
+        format=format,
+        quiet=quiet,
+        list_commands=list_commands,
+    )
+
+
+@app.command("examples")
+def examples_cmd(
+    name: str | None = typer.Argument(None, help="Example name"),
+    list_examples: bool = typer.Option(False, "--list", "-l", help="List all examples"),
+    category: str | None = typer.Option(None, "--category", "-c", help="Filter by category"),
+    tag: str | None = typer.Option(None, "--tag", "-t", help="Filter by tag"),
+    copy: bool = typer.Option(False, "--copy", help="Copy command to clipboard"),
+    categories: bool = typer.Option(False, "--categories", help="List categories"),
+) -> None:
+    """Browse usage examples.
+
+    Examples:
+        miru examples --list
+        miru examples --category code
+        miru examples hello-world
+        miru examples hello-world --copy
+    """
+    examples(
+        name=name,
+        list_examples=list_examples,
+        category=category,
+        tag=tag,
+        copy=copy,
+        categories=categories,
+    )
+
+
 app.add_typer(config_app, name="config")
 app.add_typer(template_app, name="template")
 app.add_typer(alias_app, name="alias")
+app.add_typer(session_app, name="session")
 
 app.command("completion")(completion)
 

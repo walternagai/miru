@@ -34,12 +34,30 @@ class ModelResult:
     error: str | None = None
 
 
-def _calculate_tokens_per_second(eval_count: int, eval_duration_ns: int) -> float:
-    """Calculate tokens per second from evaluation metrics."""
-    if eval_duration_ns == 0:
-        return 0.0
-    eval_seconds = eval_duration_ns / 1e9
-    return eval_count / eval_seconds if eval_seconds > 0 else 0.0
+def _calculate_tokens_per_second(
+    eval_count: int, eval_duration_ns: int, total_duration_ns: int = 0
+) -> float:
+    """Calculate tokens per second from evaluation metrics.
+
+    Args:
+        eval_count: Number of tokens generated
+        eval_duration_ns: Time spent evaluating in nanoseconds
+        total_duration_ns: Total time in nanoseconds (fallback)
+
+    Returns:
+        Tokens per second, or 0.0 if cannot calculate
+    """
+    # Prefer eval_duration for accuracy
+    if eval_duration_ns and eval_duration_ns > 0:
+        eval_seconds = eval_duration_ns / 1e9
+        return eval_count / eval_seconds if eval_seconds > 0 else 0.0
+
+    # Fallback to total_duration if available
+    if total_duration_ns and total_duration_ns > 0:
+        total_seconds = total_duration_ns / 1e9
+        return eval_count / total_seconds if total_seconds > 0 else 0.0
+
+    return 0.0
 
 
 async def _execute_model(
@@ -96,7 +114,9 @@ async def _execute_model(
             eval_count = final_chunk.get("eval_count", 0)
             eval_duration_ns = final_chunk.get("eval_duration", 0)
             total_duration_ns = final_chunk.get("total_duration", 0)
-            tokens_per_second = _calculate_tokens_per_second(eval_count, eval_duration_ns)
+            tokens_per_second = _calculate_tokens_per_second(
+                eval_count, eval_duration_ns, total_duration_ns
+            )
 
             return ModelResult(
                 model=model,

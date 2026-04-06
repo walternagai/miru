@@ -103,12 +103,31 @@ def render_metrics(chunk: dict, quiet: bool = False) -> None:
     total_duration_ns = chunk.get("total_duration", 0)
     eval_duration_ns = chunk.get("eval_duration", 0)
 
-    total_seconds = total_duration_ns / 1e9
-    eval_seconds = eval_duration_ns / 1e9
+    # Also check for prompt_eval_duration which might be relevant
+    prompt_eval_duration_ns = chunk.get("prompt_eval_duration", 0)
 
-    tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+    total_seconds = total_duration_ns / 1e9 if total_duration_ns else 0.0
 
-    print(f"✓ {eval_count} tokens · {total_seconds:.1f}s · {tokens_per_second:.1f} tok/s")
+    # Calculate tokens per second using eval_duration if available
+    # Otherwise use total_duration as fallback
+    if eval_duration_ns and eval_duration_ns > 0:
+        eval_seconds = eval_duration_ns / 1e9
+        tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
+    elif total_duration_ns and total_duration_ns > 0:
+        # Fallback: use total_duration for rate calculation
+        # This includes prompt processing time so it's less accurate
+        tokens_per_second = eval_count / total_seconds if total_seconds > 0 else 0.0
+        # If we got zero but have tokens, show a dash
+        if tokens_per_second == 0.0 and eval_count > 0:
+            tokens_per_second = 0.0
+    else:
+        tokens_per_second = 0.0
+
+    # Format output
+    if tokens_per_second > 0:
+        print(f"✓ {eval_count} tokens · {total_seconds:.1f}s · {tokens_per_second:.1f} tok/s")
+    else:
+        print(f"✓ {eval_count} tokens · {total_seconds:.1f}s")
 
 
 def render_error(message: str, hint: str | None = None) -> None:
@@ -141,7 +160,7 @@ def render_warning(message: str) -> None:
 def render_model_table(models: list[dict], quiet: bool = False) -> None:
     """
     Display Rich table with available models.
-    
+
     Alias for render_models_table for backward compatibility.
 
     Args:
