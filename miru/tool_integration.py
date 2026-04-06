@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from rich.console import Console
+
 from miru.config_manager import get_config_value
 from miru.ollama.client import OllamaClient
 from miru.output.renderer import render_markdown
@@ -16,6 +18,8 @@ from miru.tools.utils import (
     extract_tool_calls,
     has_tool_calls,
 )
+
+console = Console()
 
 
 def create_tool_manager(
@@ -88,12 +92,14 @@ async def process_tool_calls(
         arguments = call.get("arguments", {})
 
         if not quiet:
-            print(f"\n[Tool] Executando: {tool_name}({arguments})\n")
+            console.print(
+                f"\n[bold cyan][Tool][/bold cyan] Executando: [yellow]{tool_name}[/yellow]({arguments})\n"
+            )
 
         result, error = tool_manager.execute_tool(tool_name, arguments)
 
         if error and not quiet:
-            print(f"[Tool] Erro: {error}\n")
+            console.print(f"[red bold][Tool] Erro:[/red bold] {error}\n")
 
         tool_result_msg = create_tool_result_message(tool_name, result, error)
         messages.append(tool_result_msg)
@@ -128,7 +134,7 @@ async def execute_tool_loop(
 
     for iteration in range(max_iterations):
         if not quiet:
-            print(f"\n[dim]⟳ Iteração {iteration + 1}/{max_iterations}[/]")
+            console.print(f"\n[dim]⟳ Iteração {iteration + 1}/{max_iterations}[/]")
 
         chunks = client.chat_with_tools(model, messages, tools=tools, options=options, stream=True)
 
@@ -143,14 +149,9 @@ async def execute_tool_loop(
                 content = chunk.get("message", {}).get("content", "")
                 if content:
                     response_parts.append(content)
-                    if not quiet:
-                        print(content, end="", flush=True)
+                    # Don't print during streaming - will render Markdown at the end
 
         if current_tool_calls:
-            # Show newline after partial response if any
-            if not quiet and response_parts:
-                print()
-
             for call in current_tool_calls:
                 messages.append(
                     {
@@ -174,13 +175,11 @@ async def execute_tool_loop(
             # No tool calls - this is the final response
             final_response = "".join(response_parts)
             if not quiet:
-                # Already printed during streaming, just add newline and render Markdown
-                print()
                 render_markdown(final_response)
             return final_response
 
     if not quiet:
-        print("\n[yellow]⚠ Limite de iterações de tools atingido[/]\n")
+        console.print("\n[yellow]⚠ Limite de iterações de tools atingido[/]\n")
 
     return "".join(response_parts)
 

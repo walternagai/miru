@@ -93,9 +93,9 @@ async def _chat_async(
                 if tool_manager and (enable_tavily or enable_tools):
                     tools = tool_manager.list_tools()
                     if enable_tavily:
-                        print("[dim cyan]🔍 Tavily web search habilitado[/]")
+                        console.print("[dim cyan]🔍 Tavily web search habilitado[/]")
                     elif enable_tools:
-                        print(f"[dim cyan]🔧 {len(tools)} tools habilitadas[/]")
+                        console.print(f"[dim cyan]🔧 {len(tools)} tools habilitadas[/]")
                 print("Digite /exit para sair · /clear para novo contexto")
                 print("─" * 50)
 

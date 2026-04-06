@@ -140,11 +140,12 @@ async def _run_async(
             if tool_manager:
                 tools = tool_manager.get_tool_definitions()
                 from miru.tool_integration import execute_tool_loop
+                from miru.output.renderer import console
 
                 if not quiet and enable_tavily:
-                    print("[dim cyan]🔍 Tavily web search habilitado[/]")
+                    console.print("[dim cyan]🔍 Tavily web search habilitado[/]")
                 elif not quiet and enable_tools:
-                    print(f"[dim cyan]🔧 Tools habilitadas ({len(tools)} disponíveis)[/]")
+                    console.print(f"[dim cyan]🔧 Tools habilitadas ({len(tools)} disponíveis)[/]")
 
                 response_text = await execute_tool_loop(
                     client=client,
