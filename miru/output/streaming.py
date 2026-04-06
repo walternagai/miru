@@ -1,13 +1,8 @@
-"""Output rendering module for inference results."""
+"""Output streaming utilities (backward compatible module)."""
 
 import json
-import sys
 from collections.abc import AsyncIterator
 from typing import Any
-
-from rich.console import Console
-
-console = Console()
 
 
 async def render_stream(
@@ -175,7 +170,9 @@ def _build_json_output(
     return result
 
 
-async def collect_stream(chunks: AsyncIterator[dict[str, Any]]) -> tuple[str, dict[str, Any] | None, str | None]:
+async def collect_stream(
+    chunks: AsyncIterator[dict[str, Any]],
+) -> tuple[str, dict[str, Any] | None, str | None]:
     """
     Collect all tokens from stream without rendering.
 

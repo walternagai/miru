@@ -1,8 +1,12 @@
-"""Tests for miru/renderer.py."""
+"""Tests for miru/output/renderer.py."""
+
+import sys
+from io import StringIO
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from miru.renderer import format_date, format_size
+from miru.output.renderer import format_date, format_size, render_empty_models
 
 
 class TestFormatSize:
@@ -37,6 +41,16 @@ class TestFormatSize:
         result = format_size(0)
         assert "0 B" == result
 
+    def test_format_size_exact_gb(self) -> None:
+        """Should format exact GB."""
+        result = format_size(1_073_741_824)
+        assert result == "1.0 GB"
+
+    def test_format_size_exact_mb(self) -> None:
+        """Should format exact MB."""
+        result = format_size(1_048_576)
+        assert result == "1 MB"
+
 
 class TestFormatDate:
     """Tests for format_date function."""
@@ -60,3 +74,22 @@ class TestFormatDate:
         """Should handle invalid date."""
         result = format_date("invalid")
         assert "invalid" == result
+
+    def test_format_date_none(self) -> None:
+        """Should handle None."""
+        result = format_date(None)
+        assert "-" == result
+
+
+class TestRenderEmptyModels:
+    """Tests for render_empty_models function."""
+
+    @patch("miru.output.renderer.console.print")
+    def test_empty_message(self, mock_print: MagicMock) -> None:
+        """Should display empty message."""
+        render_empty_models()
+        
+        assert mock_print.call_count == 1
+        call_arg = str(mock_print.call_args[0][0])
+        assert "Nenhum modelo instalado" in call_arg
+        assert "miru pull" in call_arg
