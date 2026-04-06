@@ -1,6 +1,7 @@
 """CLI entry point for miru."""
 
 import typer
+from rich.console import Console
 
 from miru import __version__
 from miru.alias import app as alias_app
@@ -25,17 +26,31 @@ from miru.completion import completion
 from miru.session import app as session_app
 from miru.template import app as template_app
 
+console = Console()
+
 app = typer.Typer(
     name="miru",
-    help="CLI Python para servidor Ollama local",
+    help="""CLI Python para servidor Ollama local.
+
+Miru (見る) means 'to see' or 'to look' in Japanese. 
+It represents the ability to visualize and interact with AI models,
+making the invisible visible through clear, intuitive commands.
+""",
     add_completion=False,
 )
 
 
 @app.command()
 def version() -> None:
-    """Show miru version."""
-    typer.echo(f"miru {__version__}")
+    """Show miru version and description.
+
+    Miru (見る) means 'to see' in Japanese - visualizing AI interactions.
+    """
+    console.print(f"[bold cyan]miru[/] {__version__}")
+    console.print()
+    console.print("[dim]CLI Python para servidor Ollama local[/]")
+    console.print("[dim]Miru (見る): 'ver' ou 'olhar' em japonês[/]")
+    console.print("[dim]Visualizando interações com modelos de IA[/]")
 
 
 @app.command("list")
