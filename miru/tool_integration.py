@@ -242,69 +242,149 @@ async def execute_tool_loop(
     """
     tools = tool_manager.get_tool_definitions()
 
-    for iteration in range(max_iterations):
-        chunks = client.chat_with_tools(model, messages, tools=tools, options=options, stream=True)
+    # Show progress indicator during tool execution
+    if not quiet:
+        import asyncio
+        import sys
 
-        response_parts = []
-        current_tool_calls = []
+        async def show_progress():
+            chars = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+            idx = 0
+            while True:
+                sys.stdout.write(f"\r{chars[idx % len(chars)]} Processando...")
+                sys.stdout.flush()
+                await asyncio.sleep(0.1)
+                idx += 1
 
-        async for chunk in chunks:
-            if has_tool_calls(chunk):
-                calls = extract_tool_calls(chunk)
-                current_tool_calls.extend(calls)
-            else:
-                content = chunk.get("message", {}).get("content", "")
-                if content:
-                    response_parts.append(content)
+        progress_task = asyncio.create_task(show_progress())
 
-        if current_tool_calls:
-            for call in current_tool_calls:
-                tool_name = call.get("name", "")
-                arguments = call.get("arguments", {})
-
-                # Enhance Tavily search with query variations
-                if tool_name == "tavily_search" and "query" in arguments:
-                    enhanced_result, error = await enhance_tavily_search(
-                        client, model, arguments["query"], tool_manager, max_results=5
-                    )
-                    if error:
-                        result, error = tool_manager.execute_tool(tool_name, arguments)
-                    else:
-                        result = enhanced_result
-                else:
-                    result, error = tool_manager.execute_tool(tool_name, arguments)
-
-                if error and not quiet:
-                    console.print(f"[red bold]Error:[/red bold] {error}\n")
-
-                messages.append(
-                    {
-                        "role": "assistant",
-                        "content": "",
-                        "tool_calls": [
-                            {
-                                "function": {
-                                    "name": tool_name,
-                                    "arguments": arguments,
-                                }
-                            }
-                        ],
-                    }
+        try:
+            for iteration in range(max_iterations):
+                chunks = client.chat_with_tools(
+                    model, messages, tools=tools, options=options, stream=True
                 )
 
-                tool_result_msg = create_tool_result_message(tool_name, result, error)
-                messages.append(tool_result_msg)
-        else:
-            # No tool calls - this is the final response
-            final_response = "".join(response_parts)
-            if not quiet:
-                render_markdown(final_response)
-            return final_response
+                response_parts = []
+                current_tool_calls = []
 
-    if not quiet:
+                async for chunk in chunks:
+                    if has_tool_calls(chunk):
+                        calls = extract_tool_calls(chunk)
+                        current_tool_calls.extend(calls)
+                    else:
+                        content = chunk.get("message", {}).get("content", "")
+                        if content:
+                            response_parts.append(content)
+
+                if current_tool_calls:
+                    for call in current_tool_calls:
+                        tool_name = call.get("name", "")
+                        arguments = call.get("arguments", {})
+
+                        # Enhance Tavily search with query variations
+                        if tool_name == "tavily_search" and "query" in arguments:
+                            enhanced_result, error = await enhance_tavily_search(
+                                client, model, arguments["query"], tool_manager, max_results=5
+                            )
+                            if error:
+                                result, error = tool_manager.execute_tool(tool_name, arguments)
+                            else:
+                                result = enhanced_result
+                        else:
+                            result, error = tool_manager.execute_tool(tool_name, arguments)
+
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "function": {
+                                            "name": tool_name,
+                                            "arguments": arguments,
+                                        }
+                                    }
+                                ],
+                            }
+                        )
+
+                        tool_result_msg = create_tool_result_message(tool_name, result, error)
+                        messages.append(tool_result_msg)
+                else:
+                    # No tool calls - this is the final response
+                    sys.stdout.write("\r" + " " * 30 + "\r")
+                    sys.stdout.flush()
+                    final_response = "".join(response_parts)
+                    render_markdown(final_response)
+                    return final_response
+        finally:
+            progress_task.cancel()
+            try:
+                await progress_task
+            except asyncio.CancelledError:
+                pass
+
+        sys.stdout.write("\r" + " " * 30 + "\r")
+        sys.stdout.flush()
         console.print("\n[yellow]⚠ Limite de iterações de tools atingido[/]\n")
+        return "".join(response_parts)
+    else:
+        # Quiet mode - no progress indicator
+        for iteration in range(max_iterations):
+            chunks = client.chat_with_tools(
+                model, messages, tools=tools, options=options, stream=True
+            )
 
-    return "".join(response_parts)
+            response_parts = []
+            current_tool_calls = []
+
+            async for chunk in chunks:
+                if has_tool_calls(chunk):
+                    calls = extract_tool_calls(chunk)
+                    current_tool_calls.extend(calls)
+                else:
+                    content = chunk.get("message", {}).get("content", "")
+                    if content:
+                        response_parts.append(content)
+
+            if current_tool_calls:
+                for call in current_tool_calls:
+                    tool_name = call.get("name", "")
+                    arguments = call.get("arguments", {})
+
+                    # Enhance Tavily search with query variations
+                    if tool_name == "tavily_search" and "query" in arguments:
+                        enhanced_result, error = await enhance_tavily_search(
+                            client, model, arguments["query"], tool_manager, max_results=5
+                        )
+                        if error:
+                            result, error = tool_manager.execute_tool(tool_name, arguments)
+                        else:
+                            result = enhanced_result
+                    else:
+                        result, error = tool_manager.execute_tool(tool_name, arguments)
+
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": tool_name,
+                                        "arguments": arguments,
+                                    }
+                                }
+                            ],
+                        }
+                    )
+
+                    tool_result_msg = create_tool_result_message(tool_name, result, error)
+                    messages.append(tool_result_msg)
+            else:
+                # No tool calls - this is the final response
+                final_response = "".join(response_parts)
+                return final_response
 
 
 def validate_tools_config(enable_tavily: bool, enable_tools: bool) -> None:
