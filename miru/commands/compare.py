@@ -46,6 +46,7 @@ async def _execute_model(
     client: OllamaClient,
     model: str,
     prompt: str,
+    system_prompt: str | None,
     images: list[str] | None,
     options: dict | None,
     stream: bool,
@@ -56,17 +57,35 @@ async def _execute_model(
     final_chunk = None
 
     try:
-        chunks = client.generate(model, prompt, images=images, options=options, stream=stream)
+        # Use chat API when system prompt present, generate otherwise
+        if system_prompt:
+            messages = []
+            messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
 
-        async for chunk in chunks:
-            text = chunk.get("response", "")
-            if text:
-                response_parts.append(text)
-                if not quiet and stream:
-                    print(text, end="", flush=True)
+            chunks = client.chat(model, messages, options=options, stream=stream)
 
-            if chunk.get("done"):
-                final_chunk = chunk
+            async for chunk in chunks:
+                content = chunk.get("message", {}).get("content", "")
+                if content:
+                    response_parts.append(content)
+                    if not quiet and stream:
+                        print(content, end="", flush=True)
+
+                if chunk.get("done"):
+                    final_chunk = chunk
+        else:
+            chunks = client.generate(model, prompt, images=images, options=options, stream=stream)
+
+            async for chunk in chunks:
+                text = chunk.get("response", "")
+                if text:
+                    response_parts.append(text)
+                    if not quiet and stream:
+                        print(text, end="", flush=True)
+
+                if chunk.get("done"):
+                    final_chunk = chunk
 
         if not quiet and stream:
             print()
@@ -240,6 +259,7 @@ def _read_prompt_file(prompt_file: str) -> str:
 async def _compare_async(
     models: list[str],
     prompt: str,
+    system_prompt: str | None,
     host: str,
     images: list[str],
     temperature: float | None,
@@ -319,6 +339,7 @@ async def _compare_async(
                 client=client,
                 model=model,
                 prompt=prompt,
+                system_prompt=system_prompt,
                 images=encoded_images,
                 options=options,
                 stream=not no_stream,
@@ -347,9 +368,21 @@ async def _compare_async(
 def compare(
     models: Annotated[list[str], typer.Argument(help="Model names to compare (min 2)")],
     prompt: Annotated[str | None, typer.Option("--prompt", "-p", help="Prompt text")] = None,
-    prompt_file: Annotated[str | None, typer.Option("--prompt-file", "-f", help="Read prompt from file")] = None,
-    image: Annotated[list[str], typer.Option("--image", "-i", help="Image file path (repeatable)")] = [],
-    file: Annotated[list[str], typer.Option("--file", help="File path to include (repeatable)")] = [],
+    prompt_file: Annotated[
+        str | None, typer.Option("--prompt-file", "-f", help="Read prompt from file")
+    ] = None,
+    system: Annotated[
+        str | None, typer.Option("--system", "-s", help="System prompt to set model behavior")
+    ] = None,
+    system_file: Annotated[
+        str | None, typer.Option("--system-file", help="Read system prompt from file")
+    ] = None,
+    image: Annotated[
+        list[str], typer.Option("--image", "-i", help="Image file path (repeatable)")
+    ] = [],
+    file: Annotated[
+        list[str], typer.Option("--file", help="File path to include (repeatable)")
+    ] = [],
     audio: Annotated[str | None, typer.Option("--audio", help="Audio file to transcribe")] = None,
     temperature: Annotated[float | None, typer.Option(help="Sampling temperature")] = None,
     top_p: Annotated[float | None, typer.Option(help="Nucleus sampling probability")] = None,
@@ -381,6 +414,25 @@ def compare(
         console.print(f"[red bold]✗[/] Formato inválido: {format}. Use 'text' ou 'json'.")
         sys.exit(1)
 
+    # Handle system prompt
+    final_system_prompt: str | None = None
+    if system is not None and system_file is not None:
+        console.print("[red bold]✗[/] Use --system OU --system-file, não ambos")
+        sys.exit(1)
+
+    if system_file is not None:
+        try:
+            system_path = Path(system_file)
+            if not system_path.exists():
+                console.print(f"[red bold]✗[/] Arquivo não encontrado: {system_file}")
+                sys.exit(1)
+            final_system_prompt = system_path.read_text(encoding="utf-8").strip()
+        except Exception as e:
+            console.print(f"[red bold]✗[/] Erro ao ler arquivo de system prompt: {e}")
+            sys.exit(1)
+    elif system is not None:
+        final_system_prompt = system.strip()
+
     final_prompt: str
     if prompt_file:
         final_prompt = _read_prompt_file(prompt_file)
@@ -398,6 +450,7 @@ def compare(
             _compare_async(
                 models=models,
                 prompt=final_prompt,
+                system_prompt=final_system_prompt,
                 host=resolved_host,
                 images=image,
                 temperature=temperature,

@@ -71,7 +71,11 @@ class TestOllamaClientListModels:
         """Should return list of models."""
         mock_response = {
             "models": [
-                {"name": "gemma3:latest", "size": 5368709120, "modified_at": "2026-04-01T00:00:00Z"},
+                {
+                    "name": "gemma3:latest",
+                    "size": 5368709120,
+                    "modified_at": "2026-04-01T00:00:00Z",
+                },
                 {"name": "llava:latest", "size": 4294967296, "modified_at": "2026-04-02T00:00:00Z"},
             ]
         }
@@ -528,6 +532,92 @@ class TestOllamaClientErrors:
 
                 assert exc_info.value.status_code == 500
                 assert "internal server error" in exc_info.value.message
+
+
+class TestDeleteModel:
+    """Tests for delete_model method."""
+
+    @pytest.mark.asyncio
+    async def test_delete_model_success(self) -> None:
+        """Should delete model successfully."""
+        client = OllamaClient(host="http://localhost:11434")
+
+        mock_http_client = MagicMock(spec=httpx.AsyncClient)
+        mock_http_client.request = AsyncMock(return_value=MagicMock(json=lambda: {}))
+
+        with patch.object(client, "_get_client", return_value=mock_http_client):
+            async with client:
+                result = await client.delete_model("gemma3:latest")
+
+                assert result == {}
+                mock_http_client.request.assert_called_once_with(
+                    "DELETE", "http://localhost:11434/api/delete", json={"model": "gemma3:latest"}
+                )
+
+    @pytest.mark.asyncio
+    async def test_delete_model_not_found(self) -> None:
+        """Should raise OllamaModelNotFound when model does not exist."""
+        client = OllamaClient(host="http://localhost:11434")
+
+        response = MagicMock()
+        response.status_code = 404
+        response.json = MagicMock(return_value={"error": "model not found"})
+        response.text = "model not found"
+
+        http_error = httpx.HTTPStatusError("404", request=MagicMock(), response=response)
+
+        mock_http_client = MagicMock(spec=httpx.AsyncClient)
+        mock_http_client.request = AsyncMock(side_effect=http_error)
+
+        with patch.object(client, "_get_client", return_value=mock_http_client):
+            async with client:
+                with pytest.raises(OllamaModelNotFound, match="model not found"):
+                    await client.delete_model("nonexistent")
+
+
+class TestCopyModel:
+    """Tests for copy_model method."""
+
+    @pytest.mark.asyncio
+    async def test_copy_model_success(self) -> None:
+        """Should copy model successfully."""
+        client = OllamaClient(host="http://localhost:11434")
+
+        mock_http_client = MagicMock(spec=httpx.AsyncClient)
+        mock_http_client.request = AsyncMock(
+            return_value=MagicMock(json=lambda: {"status": "copying"})
+        )
+
+        with patch.object(client, "_get_client", return_value=mock_http_client):
+            async with client:
+                result = await client.copy_model("gemma3:latest", "backup")
+
+                assert result == {"status": "copying"}
+                mock_http_client.request.assert_called_once_with(
+                    "POST",
+                    "http://localhost:11434/api/copy",
+                    json={"source": "gemma3:latest", "destination": "backup"},
+                )
+
+    @pytest.mark.asyncio
+    async def test_copy_model_not_found(self) -> None:
+        """Should raise OllamaModelNotFound when source model does not exist."""
+        client = OllamaClient(host="http://localhost:11434")
+
+        response = MagicMock()
+        response.status_code = 404
+        response.json = MagicMock(return_value={"error": "model not found"})
+        response.text = "model not found"
+
+        http_error = httpx.HTTPStatusError("404", request=MagicMock(), response=response)
+
+        mock_http_client = MagicMock(spec=httpx.AsyncClient)
+        mock_http_client.request = AsyncMock(side_effect=http_error)
+
+        with patch.object(client, "_get_client", return_value=mock_http_client):
+            async with client:
+                with pytest.raises(OllamaModelNotFound, match="model not found"):
+                    await client.copy_model("nonexistent", "backup")
 
 
 class TestOllamaAPIError:

@@ -110,6 +110,84 @@ class TestGetCapabilities:
             assert caps.families == []
 
     @pytest.mark.asyncio
+    async def test_none_families_value(self) -> None:
+        """Should handle None families value (some models return None instead of [])."""
+        mock_response = {
+            "details": {"families": None, "parameter_size": "7B"},
+            "modelinfo": {},
+            "parameters": "",
+        }
+
+        client = OllamaClient(host="http://localhost:11434")
+
+        with patch.object(client, "show_model", new_callable=AsyncMock) as mock_show:
+            mock_show.return_value = mock_response
+
+            async with client:
+                caps = await get_capabilities(client, "glm-5:cloud")
+
+            assert caps.supports_vision is False
+            assert caps.families == []
+
+    @pytest.mark.asyncio
+    async def test_vision_capability_from_capabilities_field(self) -> None:
+        """Should detect vision from capabilities field (cloud models)."""
+        mock_response = {
+            "details": {"families": None, "parameter_size": "27B"},
+            "model_info": {"gemma3.context_length": 131072},
+            "capabilities": ["completion", "vision"],
+        }
+
+        client = OllamaClient(host="http://localhost:11434")
+
+        with patch.object(client, "show_model", new_callable=AsyncMock) as mock_show:
+            mock_show.return_value = mock_response
+
+            async with client:
+                caps = await get_capabilities(client, "gemma3:27b-cloud")
+
+            assert caps.supports_vision is True
+            assert caps.max_context == 131072
+
+    @pytest.mark.asyncio
+    async def test_architecture_specific_context_length(self) -> None:
+        """Should detect context length from architecture-specific field."""
+        mock_response = {
+            "details": {"families": [], "parameter_size": "27B"},
+            "model_info": {"gemma3.context_length": 131072, "general.architecture": "gemma3"},
+            "parameters": "",
+        }
+
+        client = OllamaClient(host="http://localhost:11434")
+
+        with patch.object(client, "show_model", new_callable=AsyncMock) as mock_show:
+            mock_show.return_value = mock_response
+
+            async with client:
+                caps = await get_capabilities(client, "gemma3:27b")
+
+            assert caps.max_context == 131072
+
+    @pytest.mark.asyncio
+    async def test_none_capabilities_field(self) -> None:
+        """Should handle None capabilities value."""
+        mock_response = {
+            "details": {"families": None, "parameter_size": "7B"},
+            "model_info": {},
+            "capabilities": None,
+        }
+
+        client = OllamaClient(host="http://localhost:11434")
+
+        with patch.object(client, "show_model", new_callable=AsyncMock) as mock_show:
+            mock_show.return_value = mock_response
+
+            async with client:
+                caps = await get_capabilities(client, "test-model")
+
+            assert caps.supports_vision is False
+
+    @pytest.mark.asyncio
     async def test_max_context_from_modelinfo(self) -> None:
         """Should read max_context from modelinfo.llm.context_length."""
         mock_response = {

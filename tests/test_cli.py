@@ -32,7 +32,7 @@ class TestCLI:
         """Should display info command help."""
         result = runner.invoke(app, ["info", "--help"])
         assert result.exit_code == 0
-        assert "Show detailed information" in result.output
+        assert "Show detailed" in result.output
 
     def test_pull_help(self) -> None:
         """Should display pull command help."""

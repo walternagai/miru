@@ -59,20 +59,35 @@ async def get_capabilities(client: OllamaClient, model: str) -> ModelCapabilitie
     data = await client.show_model(model)
 
     details = data.get("details", {})
-    families: list[str] = details.get("families", [])
+    families: list[str] = details.get("families") or []
     parameter_size = details.get("parameter_size", "unknown")
     quantization = details.get("quantization_level", "unknown")
 
-    supports_vision = "clip" in families
+    # Check for vision support:
+    # 1. "clip" in families (local models)
+    # 2. "vision" in capabilities (cloud/remote models)
+    raw_capabilities = data.get("capabilities") or []
+    supports_vision = "clip" in families or "vision" in raw_capabilities
 
-    model_info = data.get("modelinfo", {})
+    model_info = data.get("modelinfo", data.get("model_info", {}))
     parameters = data.get("parameters", "")
 
     max_context: int | None = None
 
-    if "llm.context_length" in model_info:
-        max_context = int(model_info["llm.context_length"])
-    elif parameters:
+    # Try different context length field patterns:
+    # - llm.context_length (llama-based models)
+    # - gemma3.context_length (gemma models)
+    # - <arch>.context_length (architecture-specific)
+    for key, value in model_info.items():
+        if "context_length" in key:
+            try:
+                max_context = int(value)
+                break
+            except (ValueError, TypeError):
+                pass
+
+    # Fallback to parameters string
+    if max_context is None and parameters:
         extracted = _extract_num_ctx(parameters)
         if extracted:
             max_context = extracted

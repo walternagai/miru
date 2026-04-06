@@ -98,7 +98,9 @@ class OllamaClient:
         except httpx.ConnectError as e:
             raise OllamaConnectionError(f"Cannot connect to Ollama server at {self._host}") from e
         except httpx.ConnectTimeout as e:
-            raise OllamaConnectionError(f"Connection timeout to Ollama server at {self._host}") from e
+            raise OllamaConnectionError(
+                f"Connection timeout to Ollama server at {self._host}"
+            ) from e
         except httpx.TimeoutException as e:
             raise OllamaConnectionError(f"Request timeout to Ollama server at {self._host}") from e
         except httpx.HTTPStatusError as e:
@@ -133,7 +135,7 @@ class OllamaClient:
         Returns:
             Complete model metadata dict
         """
-        return await self._request("GET", "/api/show", json={"model": model})
+        return await self._request("POST", "/api/show", json={"model": model})
 
     async def generate(
         self,
@@ -258,3 +260,67 @@ class OllamaClient:
                         yield chunk
         finally:
             await client_with_timeout.aclose()
+
+    async def delete_model(self, model: str) -> dict[str, Any]:
+        """
+        Delete a model from local storage.
+
+        Args:
+            model: Model name to delete
+
+        Returns:
+            Empty dict on success
+
+        Raises:
+            OllamaModelNotFound: If model not found
+        """
+        return await self._request("DELETE", "/api/delete", json={"model": model})
+
+    async def copy_model(self, source: str, destination: str) -> dict[str, Any]:
+        """
+        Copy/create a new model from an existing one.
+
+        Args:
+            source: Source model name
+            destination: New model name
+
+        Returns:
+            Status message
+
+        Raises:
+            OllamaModelNotFound: If source model not found
+        """
+        return await self._request(
+            "POST", "/api/copy", json={"source": source, "destination": destination}
+        )
+
+    async def embed(
+        self,
+        model: str,
+        prompt: str,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Generate embedding vector for text.
+
+        Args:
+            model: Model name (e.g., "nomic-embed-text")
+            prompt: Text to embed
+            options: Optional generation parameters
+
+        Returns:
+            Dict with 'embedding' (list of floats) and metadata
+
+        Example:
+            result = await client.embed("nomic-embed-text", "Hello world")
+            embedding = result["embedding"]  # [0.123, -0.456, ...]
+        """
+        body: dict[str, Any] = {
+            "model": model,
+            "prompt": prompt,
+        }
+
+        if options:
+            body["options"] = options
+
+        return await self._request("POST", "/api/embeddings", json=body)
