@@ -41,9 +41,24 @@ async def _run_async(
     output_format: str,
     quiet: bool,
     timeout: float | None,
+    enable_tools: bool,
+    enable_tavily: bool,
+    sandbox_dir: str | None,
+    tool_mode: str,
 ) -> None:
     """Async implementation of run command."""
+    from miru.tool_integration import create_tool_manager, execute_tool_loop, validate_tools_config
+
     model = resolve_alias(model)
+
+    validate_tools_config(enable_tavily=enable_tavily, enable_tools=enable_tools)
+
+    tool_manager = create_tool_manager(
+        enable_tools=enable_tools,
+        enable_tavily=enable_tavily,
+        sandbox_dir=sandbox_dir,
+        tool_mode=tool_mode,
+    )
 
     async with OllamaClient(host, timeout=timeout) as client:
         try:
@@ -117,12 +132,29 @@ async def _run_async(
                 ctx=ctx,
             )
 
+            messages = []
             if system_prompt:
-                messages = []
-                if system_prompt:
-                    messages.append({"role": "system", "content": system_prompt})
-                messages.append({"role": "user", "content": final_prompt})
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": final_prompt})
 
+            if tool_manager:
+                tools = tool_manager.get_tool_definitions()
+                from miru.tool_integration import execute_tool_loop
+
+                if not quiet and enable_tavily:
+                    print("[dim cyan]🔍 Tavily web search habilitado[/]")
+                elif not quiet and enable_tools:
+                    print(f"[dim cyan]🔧 Tools habilitadas ({len(tools)} disponíveis)[/]")
+
+                response_text = await execute_tool_loop(
+                    client=client,
+                    model=model,
+                    messages=messages,
+                    tool_manager=tool_manager,
+                    options=options,
+                    quiet=quiet,
+                )
+            elif system_prompt:
                 if output_format == "json" or no_stream:
                     response_text, final_chunk, model_name = await _collect_chat_stream(
                         client.chat(model, messages, options=options, stream=False)
@@ -241,13 +273,34 @@ def run(
         float | None,
         typer.Option("--timeout", "-t", help="Request timeout in seconds (default: 30)"),
     ] = None,
+    enable_tools: Annotated[
+        bool, typer.Option("--enable-tools", help="Enable all tools (file, system, tavily)")
+    ] = False,
+    enable_tavily: Annotated[
+        bool, typer.Option("--tavily", help="Enable Tavily web search tool")
+    ] = False,
+    sandbox_dir: Annotated[
+        str | None, typer.Option("--sandbox-dir", help="Sandbox directory for file tools")
+    ] = None,
+    tool_mode: Annotated[
+        str, typer.Option("--tool-mode", help="Tool execution mode (manual/auto/auto_safe)")
+    ] = "auto_safe",
 ) -> None:
     """Generate text with a single prompt.
 
+    Tools (Function Calling):
+        --enable-tools    Enable all tools (file, system, tavily)
+        --tavily          Enable Tavily web search specifically
+        --sandbox-dir     Directory for file operations (default: ./.miru_sandbox)
+        --tool-mode       Execution mode: manual/auto/auto_safe (default: auto_safe)
+
+    \b
     Examples:
         miru run gemma3:latest "Explain recursion"
         miru run llava:latest "Describe" --image photo.jpg
         miru run qwen2.5 --system "Be concise" "What is Python?"
+        miru run gemma3 --tavily "What are the latest Python features?"
+        miru run qwen --enable-tools "Search for Python 3.13 and save to file"
     """
     if format not in ("text", "json"):
         from miru.renderer import render_error
@@ -304,6 +357,10 @@ def run(
                 output_format=format,
                 quiet=quiet,
                 timeout=timeout,
+                enable_tools=enable_tools,
+                enable_tavily=enable_tavily,
+                sandbox_dir=sandbox_dir,
+                tool_mode=tool_mode,
             )
         )
     except KeyboardInterrupt:

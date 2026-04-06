@@ -86,7 +86,7 @@ miru embed nomic-embed-text "Teste" --quiet
 
 ```bash
 miru run gemma3:latest "Explique recursão"
-miru run gemma3:latest "Descreva a imagem" --image foto.png
+miru run llava:latest "Descreva a imagem" --image foto.png
 miru run gemma3:latest "Analise o código" --file main.py
 miru run gemma3:latest "Transcreva" --audio reuniao.mp3
 
@@ -103,6 +103,36 @@ miru run gemma3:latest "Teste" --auto-pull
 # Formatos de saída
 miru run gemma3:latest "Teste" --format json
 miru run gemma3:latest "Teste" --quiet
+
+# Com Tavily web search (requer API key)
+miru config set tavily_api_key tvly-sua-api-key
+miru run gemma3:latest --tavily "Quais são as novidades do Python 3.13?"
+
+# Com todas as tools habilitadas (file, system, tavily)
+miru run gemma3:latest --enable-tools --sandbox-dir ./workspace "Busque informações e salve em arquivo"
+```
+
+### Chat interativo
+
+```bash
+miru chat gemma3:latest
+miru chat llava:latest --image foto.png
+
+# Com system prompt
+miru chat gemma3:latest --system "Você é um tutor paciente. Explique com exemplos."
+miru chat qwen2.5:7b --system-file personagem.txt
+
+# Modelo padrão configurado
+miru config set default_model gemma3:latest
+miru chat  # Usa modelo padrão
+
+# Com Tavily web search
+miru chat gemma3:latest --tavily
+>>> Quais são as últimas notícias sobre IA?
+
+# Com todas as tools habilitadas
+miru chat qwen2.5:7b --enable-tools --sandbox-dir ./workspace
+>>> Analise este arquivo e busque mais informações na web
 ```
 
 ### Chat interativo

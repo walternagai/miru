@@ -128,6 +128,16 @@ def run_cmd(
     timeout: float | None = typer.Option(
         None, "--timeout", "-t", help="Request timeout in seconds (default: 30)"
     ),
+    enable_tools: bool = typer.Option(
+        False, "--enable-tools", help="Enable all tools (file, system, tavily)"
+    ),
+    enable_tavily: bool = typer.Option(False, "--tavily", help="Enable Tavily web search tool"),
+    sandbox_dir: str | None = typer.Option(
+        None, "--sandbox-dir", help="Sandbox directory for file tools"
+    ),
+    tool_mode: str = typer.Option(
+        "auto_safe", "--tool-mode", help="Tool execution mode (manual/auto/auto_safe)"
+    ),
 ) -> None:
     """Generate text with a single prompt.
 
@@ -137,6 +147,7 @@ def run_cmd(
         miru run llava:latest "Describe" --image photo.jpg
         miru run qwen2.5 --system "Be concise" "What is Python?"
         miru run gemma3 --auto-pull "Hello"
+        miru run gemma3 --tavily "Latest Python features"
     """
     run(
         model=model,
@@ -159,6 +170,10 @@ def run_cmd(
         quiet=quiet,
         auto_pull=auto_pull,
         timeout=timeout,
+        enable_tools=enable_tools,
+        enable_tavily=enable_tavily,
+        sandbox_dir=sandbox_dir,
+        tool_mode=tool_mode,
     )
 
 
@@ -179,6 +194,16 @@ def chat_cmd(
     timeout: float | None = typer.Option(
         None, "--timeout", "-t", help="Request timeout in seconds (default: 30)"
     ),
+    enable_tools: bool = typer.Option(
+        False, "--enable-tools", help="Enable all tools (file, system, tavily)"
+    ),
+    enable_tavily: bool = typer.Option(False, "--tavily", help="Enable Tavily web search tool"),
+    sandbox_dir: str | None = typer.Option(
+        None, "--sandbox-dir", help="Sandbox directory for file tools"
+    ),
+    tool_mode: str = typer.Option(
+        "auto_safe", "--tool-mode", help="Tool execution mode (manual/auto/auto_safe)"
+    ),
 ) -> None:
     """Start interactive chat session.
 
@@ -192,12 +217,14 @@ def chat_cmd(
         /system <p>    - Change system prompt
         /retry         - Retry last prompt
         /save <file>   - Save conversation
-        /export <fmt>  - Export (json/md/txt)
+        /help          - Show commands
 
     \b
     Examples:
         miru chat gemma3:latest
         miru chat --system "You are a helpful assistant"
+        miru chat qwen2.5:7b --system-file prompt.txt
+        miru chat gemma3 --tavily
     """
     chat(
         model=model,
@@ -213,6 +240,10 @@ def chat_cmd(
         host=host,
         quiet=quiet,
         timeout=timeout,
+        enable_tools=enable_tools,
+        enable_tavily=enable_tavily,
+        sandbox_dir=sandbox_dir,
+        tool_mode=tool_mode,
     )
 
 

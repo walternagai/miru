@@ -47,9 +47,24 @@ async def _chat_async(
     ctx: int | None,
     quiet: bool,
     timeout: float | None,
+    enable_tools: bool = False,
+    enable_tavily: bool = False,
+    sandbox_dir: str | None = None,
+    tool_mode: str = "auto_safe",
 ) -> None:
     """Async implementation of chat command."""
+    from miru.tool_integration import create_tool_manager, execute_tool_loop, validate_tools_config
+
     model = resolve_alias(model)
+
+    validate_tools_config(enable_tavily=enable_tavily, enable_tools=enable_tools)
+
+    tool_manager = create_tool_manager(
+        enable_tools=enable_tools,
+        enable_tavily=enable_tavily,
+        sandbox_dir=sandbox_dir,
+        tool_mode=tool_mode,
+    )
 
     async with OllamaClient(host, timeout=timeout) as client:
         try:
@@ -75,6 +90,12 @@ async def _chat_async(
                 print(f"miru chat · {model}")
                 if system_prompt:
                     print(f"System: {system_prompt[:50]}{'...' if len(system_prompt) > 50 else ''}")
+                if tool_manager and (enable_tavily or enable_tools):
+                    tools = tool_manager.list_tools()
+                    if enable_tavily:
+                        print("[dim cyan]🔍 Tavily web search habilitado[/]")
+                    elif enable_tools:
+                        print(f"[dim cyan]🔧 {len(tools)} tools habilitadas[/]")
                 print("Digite /exit para sair · /clear para novo contexto")
                 print("─" * 50)
 
@@ -207,12 +228,25 @@ async def _chat_async(
 
                 messages.append({"role": "user", "content": user_input})
 
-                chunks = client.chat(current_model, messages, options=options, stream=True)
-                from miru.output.renderer import render_stream_as_markdown
+                if tool_manager:
+                    from miru.tool_integration import execute_tool_loop
 
-                response_text, final_chunk = await render_stream_as_markdown(
-                    chunks, quiet=quiet, show_metrics=not quiet
-                )
+                    response_text = await execute_tool_loop(
+                        client=client,
+                        model=current_model,
+                        messages=messages,
+                        tool_manager=tool_manager,
+                        options=options,
+                        quiet=quiet,
+                    )
+                    final_chunk = None
+                else:
+                    chunks = client.chat(current_model, messages, options=options, stream=True)
+                    from miru.output.renderer import render_stream_as_markdown
+
+                    response_text, final_chunk = await render_stream_as_markdown(
+                        chunks, quiet=quiet, show_metrics=not quiet
+                    )
 
                 if final_chunk and not quiet:
                     eval_count = final_chunk.get("eval_count", 0)
@@ -271,6 +305,18 @@ def chat(
         float | None,
         typer.Option("--timeout", "-t", help="Request timeout in seconds (default: 30)"),
     ] = None,
+    enable_tools: Annotated[
+        bool, typer.Option("--enable-tools", help="Enable all tools (file, system, tavily)")
+    ] = False,
+    enable_tavily: Annotated[
+        bool, typer.Option("--tavily", help="Enable Tavily web search tool")
+    ] = False,
+    sandbox_dir: Annotated[
+        str | None, typer.Option("--sandbox-dir", help="Sandbox directory for file tools")
+    ] = None,
+    tool_mode: Annotated[
+        str, typer.Option("--tool-mode", help="Tool execution mode (manual/auto/auto_safe)")
+    ] = "auto_safe",
 ) -> None:
     """Start interactive chat session.
 
@@ -285,10 +331,19 @@ def chat(
         /save <file>   - Save conversation
         /help          - Show commands
 
+    Tools (Function Calling):
+        --enable-tools    Enable all tools (file, system, tavily)
+        --tavily          Enable Tavily web search specifically
+        --sandbox-dir     Directory for file operations (default: ./.miru_sandbox)
+        --tool-mode       Execution mode: manual/auto/auto_safe (default: auto_safe)
+
+    \b
     Examples:
         miru chat gemma3:latest
         miru chat --system "You are a helpful assistant"
         miru chat qwen2.5:7b --system-file prompt.txt
+        miru chat gemma3 --tavily
+        miru chat qwen --enable-tools --sandbox-dir ./workspace
     """
     config = load_config()
 
@@ -345,6 +400,10 @@ def chat(
                 ctx=ctx,
                 quiet=quiet,
                 timeout=timeout,
+                enable_tools=enable_tools,
+                enable_tavily=enable_tavily,
+                sandbox_dir=sandbox_dir,
+                tool_mode=tool_mode,
             )
         )
     except KeyboardInterrupt:
