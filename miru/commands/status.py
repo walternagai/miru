@@ -254,7 +254,7 @@ def search(
         console.print(f"[dim]Nenhum modelo encontrado para '{query}'[/]")
         return
 
-    from miru.output.renderer import format_size, format_date
+    from miru.output.renderer import format_date, format_size
 
     table = Table(title=f"Modelos matching '{query}'", show_header=True, header_style="bold cyan")
     table.add_column("Modelo", style="green")

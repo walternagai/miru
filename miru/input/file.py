@@ -100,7 +100,7 @@ def extract_text(path: str | Path) -> tuple[str, str]:
 
 def _extract_text_file(path: Path) -> str:
     """Extract text from plain text file."""
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
+    with open(path, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 

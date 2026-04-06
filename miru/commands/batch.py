@@ -13,8 +13,6 @@ from rich.table import Table
 
 from miru.config import get_host
 from miru.inference_params import build_options
-from miru.input import encode_images
-from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
 
 console = Console()
@@ -63,7 +61,7 @@ def _read_prompts_file(prompt_file: str) -> list[str]:
     lines = [line.strip() for line in content.split("\n") if line.strip()]
 
     if not lines:
-        console.print(f"[red bold]✗[/] Arquivo vazio ou sem prompts válidos")
+        console.print("[red bold]✗[/] Arquivo vazio ou sem prompts válidos")
         sys.exit(1)
 
     # Parse JSONL if lines start with {
@@ -208,7 +206,7 @@ def _render_results_table(results: list[BatchResult], quiet: bool = False) -> No
     avg_tokens_per_sec = total_tokens / total_time if total_time > 0 else 0.0
 
     console.print()
-    console.print(f"[bold]Resumo:[/]")
+    console.print("[bold]Resumo:[/]")
     console.print(f"  Total: {len(results)} prompts")
     console.print(f"  Sucesso: {success_count} | Erro: {len(results) - success_count}")
     console.print(f"  Tokens gerados: {total_tokens}")

@@ -1,9 +1,8 @@
 """History management for prompts and sessions."""
 
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from miru.config_manager import HISTORY_FILE, ensure_config_dir
@@ -91,7 +90,7 @@ def _append_history(entry: HistoryEntry, max_entries: int) -> None:
 
     if HISTORY_FILE.exists():
         try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            with open(HISTORY_FILE, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line:
@@ -127,7 +126,7 @@ def get_history(limit: int = 50, command: str | None = None) -> list[HistoryEntr
 
     entries = []
     try:
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+        with open(HISTORY_FILE, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -165,7 +164,7 @@ def search_history(query: str, limit: int = 20) -> list[HistoryEntry]:
     query_lower = query.lower()
 
     try:
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+        with open(HISTORY_FILE, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:

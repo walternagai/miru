@@ -1,7 +1,7 @@
 """miru list command - list available models."""
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 import typer
 
@@ -16,7 +16,7 @@ from miru.renderer import (
 
 
 def list_models(
-    host: Optional[str] = typer.Option(
+    host: str | None = typer.Option(
         None,
         "--host",
         "-h",

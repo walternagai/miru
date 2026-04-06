@@ -144,7 +144,7 @@ async def _chat_async(
 
                 if stripped == "/stats":
                     if not quiet:
-                        console.print(f"[bold]Estatísticas da Sessão[/]")
+                        console.print("[bold]Estatísticas da Sessão[/]")
                         console.print(f"  Modelo: {current_model}")
                         console.print(f"  Turnos: {turn_count}")
                         console.print(f"  Tokens: {total_tokens}")
@@ -176,7 +176,7 @@ async def _chat_async(
                     messages = [{"role": "system", "content": new_system}] + [
                         m for m in messages if m.get("role") != "system"
                     ]
-                    console.print(f"[green]✓[/] System prompt atualizado")
+                    console.print("[green]✓[/] System prompt atualizado")
                     continue
 
                 if stripped == "/retry":

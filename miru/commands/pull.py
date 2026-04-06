@@ -1,7 +1,6 @@
 """miru pull command - download models."""
 
 import asyncio
-from typing import Optional
 
 import typer
 
@@ -16,7 +15,7 @@ from miru.renderer import (
 
 def pull(
     model: str = typer.Argument(..., help="Model name to download (e.g., gemma3:latest)"),
-    host: Optional[str] = typer.Option(
+    host: str | None = typer.Option(
         None,
         "--host",
         "-h",

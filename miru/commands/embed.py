@@ -48,7 +48,7 @@ async def _embed_async(
                     if "total_duration" in result:
                         duration_ms = result["total_duration"] / 1e6
                         print(f"Duration: {duration_ms:.2f}ms")
-                    print(f"\nEmbedding (first 10 values):")
+                    print("\nEmbedding (first 10 values):")
                     print(json.dumps(embedding[:10], indent=2))
                     if len(embedding) > 10:
                         print(f"... ({len(embedding) - 10} more values)")

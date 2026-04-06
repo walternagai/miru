@@ -1,7 +1,7 @@
 """miru info command - show model information."""
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 import typer
 
@@ -17,7 +17,7 @@ from miru.renderer import (
 
 def info(
     model: str = typer.Argument(..., help="Model name (e.g., gemma3:latest)"),
-    host: Optional[str] = typer.Option(
+    host: str | None = typer.Option(
         None,
         "--host",
         "-h",

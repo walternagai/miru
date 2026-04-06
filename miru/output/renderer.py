@@ -1,17 +1,22 @@
 """Renderer module for terminal output formatting using Rich."""
 
-import sys
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
-from rich.text import Text
 
 if TYPE_CHECKING:
-    from miru.commands.compare import ModelResult
+    pass
 
 console = Console()
 console_stderr = Console(stderr=True)
@@ -294,7 +299,7 @@ async def render_pull_progress(
 
             if quiet:
                 if status == "success":
-                    print(f"✓ Concluído.")
+                    print("✓ Concluído.")
             else:
                 if status == "pulling manifest":
                     console.print("Obtendo manifesto...")

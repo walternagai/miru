@@ -243,6 +243,6 @@ def completion(
         elif shell == "zsh":
             console.print(f"  Adicione ao .zshrc: fpath+=({path.parent})")
         elif shell == "fish":
-            console.print(f"  O arquivo já está emFish completions directory")
+            console.print("  O arquivo já está emFish completions directory")
     else:
         print(script)

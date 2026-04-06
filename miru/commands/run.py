@@ -9,7 +9,6 @@ import typer
 
 from miru.alias import resolve_alias
 from miru.config import get_host
-from miru.config_manager import load_config
 from miru.history import record_history
 from miru.inference_params import build_options
 from miru.input import encode_images, extract_text, format_for_prompt, transcribe

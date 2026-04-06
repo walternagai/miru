@@ -1,6 +1,12 @@
 """Renderer module for backward compatibility - delegates to output module."""
 
 # Re-export all functions from output module for backward compatibility
+# Additional functions from old renderer not in output module
+from typing import Any
+
+from rich.console import Console
+from rich.text import Text
+
 from miru.output import (  # type: ignore
     console,
     create_progress_bar,
@@ -22,13 +28,6 @@ from miru.output import (  # type: ignore
     stream_tokens,
     to_json,
 )
-
-# Additional functions from old renderer not in output module
-from typing import Any
-
-from rich.console import Console
-from rich.progress import Progress, BarColumn, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
-from rich.text import Text
 
 _console = Console()
 
@@ -62,8 +61,9 @@ def render_models_json(models: list[dict[str, Any]], quiet: bool = False) -> Non
         models: List of model dicts from /api/tags
         quiet: If True, output compact JSON
     """
-    from miru.output.formatter import models_to_json
     import json
+
+    from miru.output.formatter import models_to_json
 
     output = models_to_json(models)
 

@@ -2,7 +2,7 @@
 
 import json
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -72,7 +72,7 @@ def _list_templates() -> list[PromptTemplate]:
 
     for file in TEMPLATE_DIR.glob("*.json"):
         try:
-            with open(file, "r", encoding="utf-8") as f:
+            with open(file, encoding="utf-8") as f:
                 data = json.load(f)
                 templates.append(PromptTemplate.from_dict(data))
         except Exception:
@@ -232,7 +232,7 @@ def template_show(
         sys.exit(1)
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         template = PromptTemplate.from_dict(data)
     except Exception as e:
@@ -297,10 +297,9 @@ def template_run(
         miru template run code-review gemma3:latest --param code="def hello(): pass"
         miru template run summarize qwen2.5 --param text="Long article..."
     """
-    import asyncio
 
     from miru.commands.run import run
-    from miru.config_manager import resolve_host, load_config
+    from miru.config_manager import load_config, resolve_host
 
     path = _get_template_path(name)
 
@@ -309,7 +308,7 @@ def template_run(
         sys.exit(1)
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         template = PromptTemplate.from_dict(data)
     except Exception as e:
@@ -371,7 +370,7 @@ def template_export(
         shutil.copy(path, output)
         console.print(f"[green bold]✓[/] Template exported to {output}")
     else:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             print(f.read())
 
 
@@ -387,7 +386,6 @@ def template_import(
     Example:
         miru template import template.json --name my-template
     """
-    import shutil
 
     path = Path(file)
 
@@ -396,7 +394,7 @@ def template_import(
         sys.exit(1)
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         template = PromptTemplate.from_dict(data)
     except Exception as e:

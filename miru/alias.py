@@ -1,6 +1,5 @@
 """Alias management for model shortcuts."""
 
-import json
 import sys
 from typing import Annotated
 

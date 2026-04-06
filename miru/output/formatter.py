@@ -1,7 +1,6 @@
 """Formatter module for data serialization (stdlib only, no Rich)."""
 
 import json
-from typing import Any
 
 
 def to_json(data: dict | list, indent: int = 2) -> str:

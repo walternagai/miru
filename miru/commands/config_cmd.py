@@ -8,8 +8,8 @@ from rich.console import Console
 from rich.table import Table
 
 from miru.config_manager import (
-    CONFIG_FILE,
     CONFIG_DIR,
+    CONFIG_FILE,
     load_config,
     save_config,
 )

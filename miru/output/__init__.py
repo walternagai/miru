@@ -27,8 +27,10 @@ from miru.output.renderer import (
 from miru.output.streaming import (
     collect_stream,
     render_json_output,
-    render_metrics as streaming_render_metrics,
     render_stream,
+)
+from miru.output.streaming import (
+    render_metrics as streaming_render_metrics,
 )
 
 __all__ = [

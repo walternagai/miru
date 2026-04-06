@@ -73,7 +73,7 @@ def history_cmd(
 
     if entries:
         console.print()
-        console.print(f"[dim]Use: miru history show <index> para ver detalhes[/]")
+        console.print("[dim]Use: miru history show <index> para ver detalhes[/]")
 
 
 def history_show(
@@ -98,7 +98,7 @@ def history_show(
     console.print(f"[bold]Status:[/] {'✓ Success' if entry.success else '✗ Failed'}")
 
     if entry.system_prompt:
-        console.print(f"[bold]System Prompt:[/]")
+        console.print("[bold]System Prompt:[/]")
         console.print(
             f"  {entry.system_prompt[:100]}{'...' if len(entry.system_prompt) > 100 else ''}"
         )

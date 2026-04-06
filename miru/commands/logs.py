@@ -1,6 +1,5 @@
 """Logs command for viewing execution logs."""
 
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -78,7 +77,7 @@ def logs(
         console.print(f"[bold]{log_file.name}[/]")
 
         try:
-            with open(log_file, "r", encoding="utf-8") as f:
+            with open(log_file, encoding="utf-8") as f:
                 log_lines = f.readlines()
 
             for line in log_lines[-lines:]:
@@ -113,7 +112,7 @@ def logs(
             import json
 
             console.print("[dim]Following... (Ctrl+C to stop)[/]")
-            with open(log_file, "r", encoding="utf-8") as f:
+            with open(log_file, encoding="utf-8") as f:
                 f.seek(0, 2)
 
                 try:
