@@ -324,3 +324,71 @@ class OllamaClient:
             body["options"] = options
 
         return await self._request("POST", "/api/embeddings", json=body)
+
+    async def chat_with_tools(
+        self,
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        options: dict[str, Any] | None = None,
+        stream: bool = True,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """
+        Chat completion with function calling support (streaming).
+
+        Args:
+            model: Model name
+            messages: List of message dicts with 'role', 'content', and optionally 'tool_calls'
+            tools: Optional list of tool definitions in Ollama format
+            options: Optional generation parameters
+            stream: Whether to stream response (must be True)
+
+        Yields:
+            Dict chunks with response content, may include 'tool_calls'
+
+        Example:
+            tools = [{
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather for a city",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "city": {"type": "string", "description": "City name"}
+                        },
+                        "required": ["city"]
+                    }
+                }
+            }]
+            messages = [{"role": "user", "content": "What's the weather in Tokyo?"}]
+            async for chunk in client.chat_with_tools("llama3.2", messages, tools):
+                if "tool_calls" in chunk.get("message", {}):
+                    # Handle tool calls
+                    pass
+        """
+        client = self._get_client()
+        url = f"{self._host}/api/chat"
+
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "stream": stream,
+        }
+
+        if tools:
+            body["tools"] = tools
+
+        if options:
+            filtered_options = {k: v for k, v in options.items() if v is not None}
+            if filtered_options:
+                body["options"] = filtered_options
+
+        async with client.stream("POST", url, json=body) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if line:
+                    chunk: dict[str, Any] = json.loads(line)
+                    yield chunk
+                    if chunk.get("done"):
+                        break

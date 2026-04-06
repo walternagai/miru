@@ -1,7 +1,7 @@
 [project]
 name = "miru"
-version = "0.1.0"
-description = "CLI Python para servidor Ollama local"
+version = "0.3.0"
+description = "CLI Python para servidor Ollama local com suporte a tools/function calling"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

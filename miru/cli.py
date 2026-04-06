@@ -301,11 +301,12 @@ def history_main(
     limit: int = typer.Option(20, "--limit", "-n", help="Number of entries"),
     command: str | None = typer.Option(None, "--command", "-c", help="Filter by command"),
     search: str | None = typer.Option(None, "--search", "-s", help="Search query"),
+    clear: bool = typer.Option(False, "--clear", help="Clear all history"),
     format: str = typer.Option("text", "--format", "-f", help="Output format (text/json)"),
 ) -> None:
     """View and manage prompt history."""
     if ctx.invoked_subcommand is None:
-        history_cmd(limit=limit, command=command, search=search, clear=False, format=format)
+        history_cmd(limit=limit, command=command, search=search, clear=clear, format=format)
 
 
 @history_app.command("show")

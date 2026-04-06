@@ -1,8 +1,8 @@
 # miru
 
-**CLI Python para servidor Ollama local com suporte multimodal e benchmarking.**
+**CLI Python para servidor Ollama local com suporte multimodal, benchmarking e tools/function calling.**
 
-Miru (見る) significa "ver" ou "olhar" em japonês. Representa a capacidade de visualizar e interagir com modelos de IA, tornando o invisível visível através de comandos claros e intuitivos.
+Miru (見る) significa "ver" ou "olhar" em japonês. Representa a capacidade de visualizar e interagir com modelos de IA através de comandos claros e intuitivos, com suporte completo a function calling para que modelos executem ações no seu sistema.
 
 ## Instalação
 
@@ -282,6 +282,290 @@ miru examples --categories
 ```
 
 Categorias disponíveis: `basics`, `code`, `text`, `translation`, `learning`, `chat`, `advanced`, `multimodal`, `document`, `templates`, `config`
+
+## 🆕 Tools / Function Calling
+
+O miru suporta **function calling** nativo do Ollama, permitindo que modelos executem ações no seu sistema de forma segura e controlada.
+
+### Conceitos
+
+- **Tools**: Funções que o modelo pode chamar durante uma conversa
+- **Sandbox**: Diretório restrito para operações de arquivo (previne acesso não autorizado)
+- **Whitelist**: Lista de comandos/variáveis permitidas (segurança por padrão)
+- **Approval**: Sistema de aprovação interativa para ferramentas perigosas
+
+### Arquitetura de Segurança
+
+```
+┌─────────────────────────────────────────────┐
+│         Model Response (Ollama)            │
+│  "I need to read the file README.md..."    │
+└─────────────────┬───────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────┐
+│      ToolExecutionManager (miru)            │
+│  - Verifica se tool está habilitada        │
+│  - Verifica se sandbox permite operação    │
+│  - Verifica modo de execução               │
+└─────────────────┬───────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────┐
+│         Security Checks                      │
+│  - Sandbox path validation                  │
+│  - Whitelist verification                   │
+│  - Permission check (read/write/del)       │
+└─────────────────┬───────────────────────────┘
+                  │
+                  ▼ (APPROVED)
+┌─────────────────────────────────────────────┐
+│          Tool Execution                     │
+│  read_file("README.md")                    │
+└─────────────────┬───────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────┐
+│       Response to Model (Ollama)            │
+│  "# README.md\n\nContent of file..."        │
+└─────────────────────────────────────────────┘
+```
+
+### Tools Disponíveis
+
+#### File Tools (Operações de Arquivo)
+
+| Tool | Descrição | Segurança |
+|------|-----------|-----------|
+| `read_file` | Lê conteúdo de arquivo | ✅ Safe |
+| `write_file` | Escreve conteúdo em arquivo | ⚠️ Needs approval |
+| `edit_file` | Edita arquivo (replace) | ⚠️ Needs approval |
+| `list_files` | Lista arquivos por padrão | ✅ Safe |
+| `search_files` | Busca arquivos por nome | ✅ Safe |
+| `delete_file` | Deleta arquivo | 🔴 Dangerous |
+| `file_exists` | Verifica se arquivo existe | ✅ Safe |
+| `get_file_info` | Obtém metadados do arquivo | ✅ Safe |
+
+#### System Tools (Operações de Sistema)
+
+| Tool | Descrição | Segurança |
+|------|-----------|-----------|
+| `run_command` | Executa comando shell | 🔴 Dangerous (whitelist) |
+| `get_env` | Lê variável de ambiente | ✅ Safe (whitelist) |
+| `get_current_dir` | Diretório atual | ✅ Safe |
+| `list_allowed_commands` | Lista comandos permitidos | ✅ Safe |
+| `list_allowed_env_vars` | Lista variáveis permitidas | ✅ Safe |
+
+### Modos de Execução
+
+```python
+from miru.tools import ToolExecutionMode
+
+# 1. DISABLED: Tools desabilitadas (segurança máxima)
+mode = ToolExecutionMode.DISABLED
+
+# 2. MANUAL: Pede aprovação para CADA tool (controle total)
+mode = ToolExecutionMode.MANUAL
+
+# 3. AUTO: Executa TODAS as tools automaticamente (produtividade máxima)
+mode = ToolExecutionMode.AUTO
+
+# 4. AUTO_SAFE: Auto para safe, aprovação para dangerous (recomendado)
+mode = ToolExecutionMode.AUTO_SAFE
+```
+
+### Uso Programático
+
+```python
+from pathlib import Path
+from miru.ollama.client import OllamaClient
+from miru.tools import ToolExecutionManager, ToolExecutionMode
+from miru.tools.utils import extract_tool_calls
+
+# Configurar tools
+manager = ToolExecutionManager(
+    mode=ToolExecutionMode.AUTO_SAFE,  # Auto para safe, aprovação para dangerous
+    sandbox_dir=Path("./workspace"),
+    allow_write=True,
+    allow_delete=False,  # Segurança: nunca permitir delete por padrão
+    allow_commands=False,  # Segurança: desabilitar comandos por padrão
+)
+
+# Obter definições para Ollama
+tool_definitions = manager.get_tool_definitions()
+
+# Usar com chat
+messages = [{"role": "user", "content": "Liste os arquivos Python no projeto"}]
+
+async with OllamaClient("http://localhost:11434") as client:
+    async for chunk in client.chat_with_tools("llama3.2", messages, tools=tool_definitions):
+        tool_calls = extract_tool_calls(chunk)
+        
+        if tool_calls:
+            # Processar tool calls
+            for call in tool_calls:
+                tool_name = call["name"]
+                arguments = call["arguments"]
+                
+                # Verificar se deve executar
+                should_exec, reason = manager.should_execute_tool(tool_name, arguments)
+                
+                if should_exec:
+                    # Executar
+                    result, error = manager.execute_tool(tool_name, arguments)
+                    # Adicionar resultado ao histórico...
+                else:
+                    # Pular ou pedir aprovação...
+                    pass
+```
+
+### Sandbox de Arquivos
+
+O sandbox isola operações de arquivo a um diretório específico, prevenindo path traversal attacks:
+
+```python
+from miru.tools import FileSandbox
+
+# Sandbox com write habilitado
+sandbox = FileSandbox(
+    root=Path("./workspace"),
+    allow_write=True,
+    allow_delete=False,  # Segurança
+    allowed_extensions=[".txt", ".md", ".py"],  # Opcional
+)
+
+# Paths são validados automaticamente
+sandbox.resolve_path("test.txt")  # ✅ OK: ./workspace/test.txt
+sandbox.resolve_path("../../../etc/passwd")  # ❌ ERROR: SecurityError
+```
+
+### Whitelist de Comandos
+
+Apenas comandos explícitamente permitidos podem ser executados:
+
+```python
+from miru.tools import CommandWhitelist, create_system_tools
+
+# Configurar whitelist
+whitelist = CommandWhitelist()
+whitelist.allow("ls", "List directory")
+whitelist.allow("git", "Version control", dangerous=True)  # Precisa de aprovação
+whitelist.allow("docker", "Containers", allowed_args=["ps", "images"])
+
+# Criar tools
+tools = create_system_tools(
+    cmd_whitelist=whitelist,
+    allow_commands=True,
+)
+```
+
+### Whitelist de Variáveis de Ambiente
+
+Apenas variáveis permitidas podem ser lidas:
+
+```python
+from miru.tools import EnvironmentWhitelist, create_system_tools
+
+# Configurar whitelist
+env_whitelist = EnvironmentWhitelist()
+env_whitelist.allow("HOME", "User home directory")
+env_whitelist.allow("PATH", "Executable search path")
+env_whitelist.allow("USER", "Current username")
+
+# Criar tools
+tools = create_system_tools(
+    env_whitelist=env_whitelist,
+    allow_env=True,
+)
+```
+
+### Sistema de Aprovação Interativa
+
+Para ferramentas perigosas, o sistema pode pedir aprovação:
+
+```python
+from miru.tools import ToolApprovalFlow
+
+# Configurar flow com auto-aprove para safe tools
+flow = ToolApprovalFlow(auto_approve_safe=True)
+
+# Verificar se precisa de aprovação
+if flow.should_request_approval("write_file"):
+    # Pedir aprovação ao usuário
+    approved = flow.request_approval(
+        "write_file",
+        {"path": "test.txt", "content": "Hello"},
+        reason="Writing to filesystem"
+    )
+    
+    if approved:
+        # Executar
+        result, error = manager.execute_tool("write_file", {...})
+```
+
+### Exemplos de Uso
+
+#### Leitura Segura de Arquivos
+
+```python
+from pathlib import Path
+from miru.tools import ToolExecutionManager, ToolExecutionMode
+
+manager = ToolExecutionManager(
+    mode=ToolExecutionMode.AUTO_SAFE,
+    sandbox_dir=Path("./my_project"),  # Isolado a ./my_project
+    allow_write=False,  # Apenas leitura
+)
+
+# Executar tool
+result, error = manager.execute_tool("read_file", {"path": "README.md"})
+print(result)  # Conteúdo do arquivo
+```
+
+#### Escrita com Aprovação
+
+```python
+from miru.tools import ToolExecutionManager, ToolExecutionMode
+
+manager = ToolExecutionManager(
+    mode=ToolExecutionMode.MANUAL,  # Pede aprovação para tudo
+    sandbox_dir=Path("./workspace"),
+    allow_write=True,
+)
+
+# Precisa aprovar manualmente
+result, error = manager.execute_tool(
+    "write_file",
+    {"path": "test.txt", "content": "Hello World"}
+)
+```
+
+### Segurança
+
+Camadas de proteção:
+
+1. **Path Traversal Prevention**: Impossível acessar arquivos fora do sandbox
+2. **Whitelist Obrigatória**: Comandos/variáveis não listados são automaticamente bloqueados
+3. **Permission Flags**: Write/delete podem ser desabilitados independentemente
+4. **Approval Flow**: Ferramentas perigosas requerem aprovação manual
+5. **Dangerous Classification**: Tools classificadas como safe/dangerous automaticamente
+
+### Próximos Passos
+
+- ✅ FASE 1: Infraestrutura de tools
+- ✅ FASE 2: File e System tools
+- ✅ FASE 3: Execução e aprovação
+- 📋 FASE 4: Integração CLI (`miru tools list/exec`)
+- 📋 FASE 5: Rate limiting e auditoria
+- 📋 FASE 6: Tools customizadas
+
+### Documentação
+
+- `docs/tools-plan.md`: Plano completo de implementação
+- `docs/FASE1-COMPLETED.md`: Infraestrutura
+- `docs/FASE2-COMPLETED.md`: File e System tools
+- `docs/FASE3-COMPLETED.md`: Execução e aprovação
+- `CHANGELOG.md`: Histórico de mudanças
 
 ## Gerenciamento de Modelos
 
