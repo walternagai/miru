@@ -127,6 +127,9 @@ async def execute_tool_loop(
     tools = tool_manager.get_tool_definitions()
 
     for iteration in range(max_iterations):
+        if not quiet:
+            print(f"\n[dim]⟳ Iteração {iteration + 1}/{max_iterations}[/]")
+
         chunks = client.chat_with_tools(model, messages, tools=tools, options=options, stream=True)
 
         response_parts = []
@@ -140,8 +143,14 @@ async def execute_tool_loop(
                 content = chunk.get("message", {}).get("content", "")
                 if content:
                     response_parts.append(content)
+                    if not quiet:
+                        print(content, end="", flush=True)
 
         if current_tool_calls:
+            # Show newline after partial response if any
+            if not quiet and response_parts:
+                print()
+
             for call in current_tool_calls:
                 messages.append(
                     {
@@ -162,8 +171,11 @@ async def execute_tool_loop(
                 client, model, messages, current_tool_calls, tool_manager, quiet
             )
         else:
+            # No tool calls - this is the final response
             final_response = "".join(response_parts)
             if not quiet:
+                # Already printed during streaming, just add newline and render Markdown
+                print()
                 render_markdown(final_response)
             return final_response
 
