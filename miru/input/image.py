@@ -1,51 +1,98 @@
 """Image encoding module for vision models."""
 
 import base64
+import sys
 from pathlib import Path
 
 
-def encode_image(image_path: str) -> str:
+class ImageNotFoundError(Exception):
+    """Raised when image file is not found."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        super().__init__(f"Image not found: {path}")
+
+
+class ImageFormatError(Exception):
+    """Raised when image format is not supported."""
+
+    SUPPORTED = ["JPEG", "PNG", "GIF", "WEBP"]
+
+    def __init__(self, path: str, detected_format: str | None) -> None:
+        self.path = path
+        self.detected_format = detected_format
+        if detected_format:
+            msg = f"Formato {detected_format} não suportado. Suportados: {', '.join(self.SUPPORTED)}"
+        else:
+            msg = f"Formato não suportado. Suportados: {', '.join(self.SUPPORTED)}"
+        super().__init__(msg)
+
+
+def encode_image(path: str | Path) -> str:
     """
-    Encode image file to base64 string.
+    Validate, optionally resize, and return image as base64 string.
 
     Args:
-        image_path: Path to image file
+        path: Path to image file
 
     Returns:
-        Base64-encoded string
+        Base64-encoded string (pure, no data URI prefix)
 
     Raises:
-        FileNotFoundError: If image file does not exist
-        ValueError: If file is not a valid image
+        ImageNotFoundError: File does not exist
+        ImageFormatError: Format is not supported
     """
-    path = Path(image_path)
+    path_obj = Path(path)
 
-    if not path.exists():
-        raise FileNotFoundError(f"Image not found: {image_path}")
+    if not path_obj.exists():
+        raise ImageNotFoundError(str(path))
 
-    if not path.is_file():
-        raise ValueError(f"Not a file: {image_path}")
+    if not path_obj.is_file():
+        raise ImageNotFoundError(str(path))
 
-    valid_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
-    if path.suffix.lower() not in valid_extensions:
-        raise ValueError(f"Not a valid image format: {path.suffix}")
+    size_bytes = path_obj.stat().st_size
+    size_mb = size_bytes / (1024 * 1024)
 
-    with open(path, "rb") as f:
+    if size_mb > 10:
+        print(
+            f"⚠ {path_obj.name} tem {size_mb:.1f}MB — imagens grandes podem impactar performance.",
+            file=sys.stderr,
+        )
+
+    valid_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    suffix = path_obj.suffix.lower()
+
+    try:
+        from PIL import Image  # type: ignore
+
+        with Image.open(path_obj) as img:
+            img_format = img.format
+            if img_format not in ImageFormatError.SUPPORTED:
+                raise ImageFormatError(str(path), img_format)
+    except ImportError:
+        if suffix not in valid_extensions:
+            raise ImageFormatError(str(path), None)
+    except ImageFormatError:
+        raise
+    except Exception as e:
+        raise ImageFormatError(str(path), None) from e
+
+    with open(path_obj, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
-def encode_images(image_paths: list[str]) -> list[str]:
+def encode_images(paths: list[str | Path]) -> list[str]:
     """
-    Encode multiple image files to base64 strings.
+    Process a list of images and return list of base64 strings.
 
     Args:
-        image_paths: List of image file paths
+        paths: List of image file paths
 
     Returns:
         List of base64-encoded strings
 
     Raises:
-        FileNotFoundError: If any image file does not exist
-        ValueError: If any file is not valid
+        ImageNotFoundError: If any image file does not exist
+        ImageFormatError: If any file is not valid
     """
-    return [encode_image(path) for path in image_paths]
+    return [encode_image(path) for path in paths]

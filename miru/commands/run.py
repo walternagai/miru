@@ -9,7 +9,7 @@ import typer
 
 from miru.config import get_host
 from miru.inference_params import build_options
-from miru.input import encode_images, extract_file_content, transcribe_audio
+from miru.input import encode_images, extract_text, format_for_prompt, transcribe
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
 from miru.output import collect_stream, render_json_output, render_metrics
@@ -69,27 +69,22 @@ async def _run_async(
             
             if audio:
                 try:
-                    transcription = transcribe_audio(audio)
+                    transcription = transcribe(audio)
                     context_parts.append(f"[Transcrição de áudio]\n{transcription}\n")
-                except FileNotFoundError as e:
-                    from miru.renderer import render_error
-                    render_error(str(e))
-                    sys.exit(1)
-                except ValueError as e:
+                except Exception as e:
                     from miru.renderer import render_error
                     render_error(str(e))
                     sys.exit(1)
 
             for file_path in files:
                 try:
-                    filename = Path(file_path).name
-                    content = extract_file_content(file_path)
-                    context_parts.append(f"[Conteúdo de {filename}]\n{content}\n[Fim de {filename}]")
+                    filename, content = extract_text(file_path)
+                    context_parts.append(format_for_prompt(filename, content))
                 except FileNotFoundError as e:
                     from miru.renderer import render_error
                     render_error(str(e))
                     sys.exit(1)
-                except ValueError as e:
+                except Exception as e:
                     from miru.renderer import render_error
                     render_error(str(e))
                     sys.exit(1)
