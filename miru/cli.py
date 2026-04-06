@@ -46,6 +46,7 @@ def list_cmd(
 ) -> None:
     """List available models.
 
+    \b
     Examples:
         miru list
         miru list --format json
@@ -63,6 +64,7 @@ def info_cmd(
 ) -> None:
     """Show detailed model information.
 
+    \b
     Examples:
         miru info gemma3:latest
         miru info llava --format json
@@ -78,6 +80,7 @@ def pull_cmd(
 ) -> None:
     """Download a model from registry.
 
+    \b
     Examples:
         miru pull gemma3:latest
         miru pull llava:latest --quiet
@@ -109,6 +112,7 @@ def run_cmd(
 ) -> None:
     """Generate text with a single prompt.
 
+    \b
     Examples:
         miru run gemma3:latest "Explain recursion"
         miru run llava:latest "Describe" --image photo.jpg
@@ -154,6 +158,7 @@ def chat_cmd(
 ) -> None:
     """Start interactive chat session.
 
+    \b
     Chat commands:
         /exit, /quit   - End session
         /clear         - Clear history
@@ -163,7 +168,9 @@ def chat_cmd(
         /system <p>    - Change system prompt
         /retry         - Retry last prompt
         /save <file>   - Save conversation
+        /export <fmt>  - Export (json/md/txt)
 
+    \b
     Examples:
         miru chat gemma3:latest
         miru chat --system "You are a helpful assistant"
@@ -341,6 +348,19 @@ def quick_cmd(
 ) -> None:
     """Run quick commands for common tasks.
 
+    \b
+    Available commands:
+        code         - Generate code
+        translate-pt  - Translate to Portuguese
+        translate-en  - Translate to English
+        summarize    - Summarize text
+        explain      - Explain a topic
+        fix-code     - Fix code bugs
+        review-code  - Code review
+        refactor     - Refactor code
+        test         - Generate unit tests
+
+    \b
     Examples:
         miru quick code gemma3 --param language=python --param task="sort list"
         miru quick summarize gemma3 --param text="Long article..."
@@ -369,11 +389,13 @@ def examples_cmd(
 ) -> None:
     """Browse usage examples.
 
+    \b
     Examples:
         miru examples --list
         miru examples --category code
         miru examples hello-world
         miru examples hello-world --copy
+        miru examples --categories
     """
     examples(
         name=name,

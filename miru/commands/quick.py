@@ -209,6 +209,7 @@ def quick(
 ) -> None:
     """Run quick commands for common tasks.
 
+    \b
     Available commands:
         code        - Generate code
         translate-pt - Translate to Portuguese
@@ -226,6 +227,7 @@ def quick(
         expand      - Expand text
         simplify    - Simplify text
 
+    \b
     Examples:
         miru quick code gemma3 --param language=python --param task="sort list"
         miru quick summarize gemma3 --param text="Long article..."

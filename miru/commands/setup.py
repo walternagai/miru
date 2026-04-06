@@ -219,6 +219,7 @@ def setup(
 ) -> None:
     """Run the setup wizard for first-time users.
 
+    \b
     Examples:
         miru setup
         miru setup --host http://localhost:11434
