@@ -271,40 +271,62 @@ def search_cmd(
     search(query=query, host=host, format=format)
 
 
-@app.command("history")
-def history_main(
+history_app = typer.Typer(help="View and manage prompt history")
+app.add_typer(history_app, name="history")
+
+
+@history_app.command("list")
+def history_list_cmd(
     limit: int = typer.Option(20, "--limit", "-n", help="Number of entries"),
     command: str | None = typer.Option(None, "--command", "-c", help="Filter by command"),
     search: str | None = typer.Option(None, "--search", "-s", help="Search query"),
     clear: bool = typer.Option(False, "--clear", help="Clear all history"),
     format: str = typer.Option("text", "--format", "-f", help="Output format (text/json)"),
 ) -> None:
-    """View and manage prompt history.
+    """List prompt history.
 
     Examples:
-        miru history
-        miru history --limit 50
-        miru history --command run
-        miru history --search "python"
-        miru history --clear
+        miru history list
+        miru history list --limit 50
+        miru history list --command run
+        miru history list --search "python"
+        miru history list --clear
     """
     history_cmd(limit=limit, command=command, search=search, clear=clear, format=format)
 
 
-@app.command("history-show")
+@history_app.callback(invoke_without_command=True)
+def history_main(
+    ctx: typer.Context,
+    limit: int = typer.Option(20, "--limit", "-n", help="Number of entries"),
+    command: str | None = typer.Option(None, "--command", "-c", help="Filter by command"),
+    search: str | None = typer.Option(None, "--search", "-s", help="Search query"),
+    format: str = typer.Option("text", "--format", "-f", help="Output format (text/json)"),
+) -> None:
+    """View and manage prompt history."""
+    if ctx.invoked_subcommand is None:
+        history_cmd(limit=limit, command=command, search=search, clear=False, format=format)
+
+
+@history_app.command("show")
 def history_show_cmd(
     index: int = typer.Argument(0, help="History entry index"),
 ) -> None:
     """Show detailed history entry.
 
     Example:
-        miru history-show 0
+        miru history show 0
     """
     history_show(index=index)
 
 
-@app.command("logs")
-def logs_cmd(
+logs_app = typer.Typer(help="View and manage execution logs")
+app.add_typer(logs_app, name="logs")
+
+
+@logs_app.callback(invoke_without_command=True)
+def logs_main(
+    ctx: typer.Context,
     follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output"),
     lines: int = typer.Option(50, "--lines", "-n", help="Number of lines"),
     latest: bool = typer.Option(False, "--latest", "-l", help="Show only latest log"),
@@ -319,17 +341,18 @@ def logs_cmd(
         miru logs --latest
         miru logs --list
     """
-    logs(follow=follow, lines=lines, latest=latest, list_files=list)
+    if ctx.invoked_subcommand is None:
+        logs(follow=follow, lines=lines, latest=latest, list_files=list)
 
 
-@app.command("logs-clear")
+@logs_app.command("clear")
 def logs_clear_cmd(
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
 ) -> None:
     """Clear all logs.
 
     Example:
-        miru logs-clear --force
+        miru logs clear --force
     """
     clear_logs(force=force)
 
