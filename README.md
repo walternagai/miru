@@ -402,7 +402,10 @@ miru history --format json
 miru history --clear
 
 # Ver detalhes de uma entrada
-miru history-show 0
+miru history show 0
+
+# Listar histórico explicitamente
+miru history list
 ```
 
 ## Session Save/Restore
@@ -537,7 +540,7 @@ miru logs --latest
 miru logs --list
 
 # Limpar logs
-miru logs-clear --force
+miru logs clear --force
 ```
 
 ## Shell Completion
@@ -755,4 +758,4 @@ Cliente HTTP async com suporte a:
 
 ## Licença
 
-MIT
+Apache License 2.0 - Veja o arquivo [LICENSE](LICENSE) para detalhes.
