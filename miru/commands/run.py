@@ -35,11 +35,12 @@ async def _run_async(
     no_stream: bool,
     output_format: str,
     quiet: bool,
+    timeout: float | None,
 ) -> None:
     """Async implementation of run command."""
     model = resolve_alias(model)
 
-    async with OllamaClient(host) as client:
+    async with OllamaClient(host, timeout=timeout) as client:
         try:
             encoded_images: list[str] | None = None
             if images:
@@ -274,6 +275,13 @@ def run(
     host: Annotated[str | None, typer.Option(help="Ollama host URL")] = None,
     format: Annotated[str, typer.Option(help="Output format (text/json)")] = "text",
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Minimal output")] = False,
+    auto_pull: Annotated[
+        bool, typer.Option("--auto-pull", help="Auto-download model if missing")
+    ] = False,
+    timeout: Annotated[
+        float | None,
+        typer.Option("--timeout", "-t", help="Request timeout in seconds (default: 30)"),
+    ] = None,
 ) -> None:
     """Generate text with a single prompt.
 
@@ -336,6 +344,7 @@ def run(
                 no_stream=no_stream,
                 output_format=format,
                 quiet=quiet,
+                timeout=timeout,
             )
         )
     except KeyboardInterrupt:

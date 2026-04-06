@@ -26,6 +26,7 @@ class OllamaAPIError(Exception):
 
 DEFAULT_TIMEOUT = 30.0
 PULL_TIMEOUT = 300.0
+CONNECT_TIMEOUT = 30.0
 
 
 class OllamaClient:
@@ -37,21 +38,34 @@ class OllamaClient:
             models = await client.list_models()
     """
 
-    def __init__(self, host: str, timeout: float = DEFAULT_TIMEOUT) -> None:
+    def __init__(self, host: str, timeout: float | None = None) -> None:
         """
         Initialize Ollama client.
 
         Args:
             host: Base URL of Ollama server (e.g., http://localhost:11434)
-            timeout: Default timeout in seconds for requests
+            timeout: Timeout in seconds for non-streaming requests (default: 30)
         """
         self._host = host.rstrip("/")
-        self._timeout = timeout
+        self._timeout = timeout if timeout is not None else DEFAULT_TIMEOUT
         self._client: httpx.AsyncClient | None = None
+
+        # Pre-compute timeout configurations
+        # For non-streaming requests (list_models, embed, etc.)
+        self._http_timeout = httpx.Timeout(self._timeout)
+
+        # For streaming: connect/write/pool with timeout, read unlimited
+        # Large models may take time to start generating first token
+        self._stream_timeout = httpx.Timeout(
+            connect=self._timeout,
+            read=None,  # Unlimited - data arrives progressively
+            write=self._timeout,
+            pool=self._timeout,
+        )
 
     async def __aenter__(self) -> "OllamaClient":
         """Enter async context manager."""
-        self._client = httpx.AsyncClient(timeout=self._timeout)
+        self._client = httpx.AsyncClient()
         return self
 
     async def __aexit__(self, *args: Any) -> None:
@@ -92,7 +106,7 @@ class OllamaClient:
         url = f"{self._host}{endpoint}"
 
         try:
-            response = await client.request(method, url, **kwargs)
+            response = await client.request(method, url, **kwargs, timeout=self._http_timeout)
             response.raise_for_status()
             return cast(dict[str, Any], response.json())
         except httpx.ConnectError as e:
@@ -179,7 +193,9 @@ class OllamaClient:
             if filtered_options:
                 body["options"] = filtered_options
 
-        async with client.stream("POST", url, json=body) as response:
+        # Use unlimited read timeout for streaming (large models may take time to start)
+        timeout_config = self._stream_timeout if stream else self._http_timeout
+        async with client.stream("POST", url, json=body, timeout=timeout_config) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
                 if line:
@@ -226,7 +242,9 @@ class OllamaClient:
             if filtered_options:
                 body["options"] = filtered_options
 
-        async with client.stream("POST", url, json=body) as response:
+        # Use unlimited read timeout for streaming (large models may take time to start)
+        timeout_config = self._stream_timeout if stream else self._http_timeout
+        async with client.stream("POST", url, json=body, timeout=timeout_config) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
                 if line:
@@ -245,7 +263,6 @@ class OllamaClient:
         Yields:
             Dict chunks with 'status', 'completed', 'total' fields
         """
-        client = self._get_client()
         client_with_timeout = httpx.AsyncClient(timeout=PULL_TIMEOUT)
 
         url = f"{self._host}/api/pull"
@@ -384,7 +401,9 @@ class OllamaClient:
             if filtered_options:
                 body["options"] = filtered_options
 
-        async with client.stream("POST", url, json=body) as response:
+        # Use unlimited read timeout for streaming (large models may take time to start)
+        timeout_config = self._stream_timeout if stream else self._http_timeout
+        async with client.stream("POST", url, json=body, timeout=timeout_config) as response:
             response.raise_for_status()
             async for line in response.aiter_lines():
                 if line:

@@ -22,6 +22,7 @@ from miru.commands.quick import quick
 from miru.commands.run import run
 from miru.commands.setup import setup
 from miru.commands.status import ps, search, status, stop
+from miru.commands.tools_cmd import app as tools_app
 from miru.completion import completion
 from miru.session import app as session_app
 from miru.template import app as template_app
@@ -32,7 +33,7 @@ app = typer.Typer(
     name="miru",
     help="""CLI Python para servidor Ollama local.
 
-Miru (見る) means 'to see' or 'to look' in Japanese. 
+Miru (見る) means 'to see' or 'to look' in Japanese.
 It represents the ability to visualize and interact with AI models,
 making the invisible visible through clear, intuitive commands.
 """,
@@ -124,6 +125,9 @@ def run_cmd(
     format: str = typer.Option("text", "--format", help="Output format (text/json)"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Minimal output"),
     auto_pull: bool = typer.Option(False, "--auto-pull", help="Auto-download model if missing"),
+    timeout: float | None = typer.Option(
+        None, "--timeout", "-t", help="Request timeout in seconds (default: 30)"
+    ),
 ) -> None:
     """Generate text with a single prompt.
 
@@ -153,6 +157,8 @@ def run_cmd(
         host=host,
         format=format,
         quiet=quiet,
+        auto_pull=auto_pull,
+        timeout=timeout,
     )
 
 
@@ -170,6 +176,9 @@ def chat_cmd(
     ctx: int | None = typer.Option(None, help="Context window"),
     host: str | None = typer.Option(None, "--host", help="Ollama host URL"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Minimal output"),
+    timeout: float | None = typer.Option(
+        None, "--timeout", "-t", help="Request timeout in seconds (default: 30)"
+    ),
 ) -> None:
     """Start interactive chat session.
 
@@ -203,6 +212,7 @@ def chat_cmd(
         ctx=ctx,
         host=host,
         quiet=quiet,
+        timeout=timeout,
     )
 
 
@@ -450,6 +460,7 @@ app.add_typer(config_app, name="config")
 app.add_typer(template_app, name="template")
 app.add_typer(alias_app, name="alias")
 app.add_typer(session_app, name="session")
+app.add_typer(tools_app, name="tools")
 
 app.command("completion")(completion)
 

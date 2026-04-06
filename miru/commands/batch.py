@@ -276,6 +276,7 @@ async def _batch_async(
     output_format: str,
     quiet: bool,
     stop_on_error: bool,
+    timeout: float | None,
 ) -> None:
     """Async implementation of batch command."""
     options = build_options(
@@ -291,7 +292,7 @@ async def _batch_async(
     results: list[BatchResult] = []
     success_count = 0
 
-    async with OllamaClient(host) as client:
+    async with OllamaClient(host, timeout=timeout) as client:
         if not quiet and output_format == "text":
             console.print(f"[bold]Processando {len(prompts)} prompts com {model}[/]")
             console.print()
@@ -370,6 +371,10 @@ def batch(
     stop_on_error: Annotated[
         bool, typer.Option("--stop-on-error", help="Stop processing on first error")
     ] = False,
+    timeout: Annotated[
+        float | None,
+        typer.Option("--timeout", "-t", help="Request timeout in seconds (default: 30)"),
+    ] = None,
 ) -> None:
     """Process multiple prompts from a file in batch.
 
@@ -424,6 +429,7 @@ def batch(
                 output_format=format,
                 quiet=quiet,
                 stop_on_error=stop_on_error,
+                timeout=timeout,
             )
         )
     except KeyboardInterrupt:

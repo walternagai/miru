@@ -217,7 +217,7 @@ class TestOllamaClientGenerate:
 
         captured_body = None
 
-        def capture_body(method, url, json):
+        def capture_body(method, url, json, timeout=None):
             nonlocal captured_body
             captured_body = json
             return stream_context()
@@ -261,7 +261,7 @@ class TestOllamaClientGenerate:
         async def stream_context(*args, **kwargs):
             yield mock_response
 
-        def capture_body(method, url, json):
+        def capture_body(method, url, json, timeout=None):
             nonlocal captured_body
             captured_body = json
             return stream_context()
@@ -305,7 +305,7 @@ class TestOllamaClientGenerate:
         async def stream_context(*args, **kwargs):
             yield mock_response
 
-        def capture_body(method, url, json):
+        def capture_body(method, url, json, timeout=None):
             nonlocal captured_body
             captured_body = json
             return stream_context()
@@ -550,9 +550,12 @@ class TestDeleteModel:
                 result = await client.delete_model("gemma3:latest")
 
                 assert result == {}
-                mock_http_client.request.assert_called_once_with(
-                    "DELETE", "http://localhost:11434/api/delete", json={"model": "gemma3:latest"}
-                )
+                # Verify request was called with correct method, url, and json
+                assert mock_http_client.request.call_count == 1
+                call_args = mock_http_client.request.call_args
+                assert call_args[0][0] == "DELETE"
+                assert call_args[0][1] == "http://localhost:11434/api/delete"
+                assert call_args[1]["json"] == {"model": "gemma3:latest"}
 
     @pytest.mark.asyncio
     async def test_delete_model_not_found(self) -> None:
@@ -593,11 +596,12 @@ class TestCopyModel:
                 result = await client.copy_model("gemma3:latest", "backup")
 
                 assert result == {"status": "copying"}
-                mock_http_client.request.assert_called_once_with(
-                    "POST",
-                    "http://localhost:11434/api/copy",
-                    json={"source": "gemma3:latest", "destination": "backup"},
-                )
+                # Verify request was called with correct method, url, and json
+                assert mock_http_client.request.call_count == 1
+                call_args = mock_http_client.request.call_args
+                assert call_args[0][0] == "POST"
+                assert call_args[0][1] == "http://localhost:11434/api/copy"
+                assert call_args[1]["json"] == {"source": "gemma3:latest", "destination": "backup"}
 
     @pytest.mark.asyncio
     async def test_copy_model_not_found(self) -> None:

@@ -46,11 +46,12 @@ async def _chat_async(
     repeat_penalty: float | None,
     ctx: int | None,
     quiet: bool,
+    timeout: float | None,
 ) -> None:
     """Async implementation of chat command."""
     model = resolve_alias(model)
 
-    async with OllamaClient(host) as client:
+    async with OllamaClient(host, timeout=timeout) as client:
         try:
             all_models = await client.list_models()
             model_names = [m.get("name", "") for m in all_models]
@@ -282,6 +283,10 @@ def chat(
     ctx: Annotated[int | None, typer.Option(help="Context window size")] = None,
     host: Annotated[str | None, typer.Option(help="Ollama host URL")] = None,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Minimal output")] = False,
+    timeout: Annotated[
+        float | None,
+        typer.Option("--timeout", "-t", help="Request timeout in seconds (default: 30)"),
+    ] = None,
 ) -> None:
     """Start interactive chat session.
 
@@ -355,6 +360,7 @@ def chat(
                 repeat_penalty=repeat_penalty,
                 ctx=ctx,
                 quiet=quiet,
+                timeout=timeout,
             )
         )
     except KeyboardInterrupt:
