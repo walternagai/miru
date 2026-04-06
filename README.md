@@ -1,6 +1,8 @@
 # miru
 
-CLI Python para servidor Ollama local com suporte multimodal e benchmarking.
+**CLI Python para servidor Ollama local com suporte multimodal e benchmarking.**
+
+Miru (見る) significa "ver" ou "olhar" em japonês. Representa a capacidade de visualizar e interagir com modelos de IA, tornando o invisível visível através de comandos claros e intuitivos.
 
 ## Instalação
 
@@ -8,11 +10,20 @@ CLI Python para servidor Ollama local com suporte multimodal e benchmarking.
 pip install miru
 ```
 
-## Uso
+## Início Rápido
 
 ```bash
+# Setup interativo para novos usuários
+miru setup
+
+# Ver todos os comandos disponíveis
 miru --help
+
+# Ver versão e descrição
+miru version
 ```
+
+## Uso
 
 ### Comandos Básicos
 
@@ -86,6 +97,9 @@ miru run gemma3:latest "Analise" --system-file prompt_sistema.txt --file relator
 # Com parâmetros de inferência
 miru run gemma3:latest "Teste" --temperature 0.7 --seed 42 --max-tokens 200
 
+# Download automático se modelo não existir
+miru run gemma3:latest "Teste" --auto-pull
+
 # Formatos de saída
 miru run gemma3:latest "Teste" --format json
 miru run gemma3:latest "Teste" --quiet
@@ -118,6 +132,7 @@ miru chat  # Usa modelo padrão
 >>> /system <prompt>   # Alterar system prompt
 >>> /retry             # Re-executar último prompt
 >>> /save <arquivo>    # Salvar conversa em arquivo
+>>> /export <formato>  # Exportar (json/md/txt)
 ```
 
 ### Comparar modelos (benchmark)
@@ -163,6 +178,110 @@ miru batch gemma3 --prompts prompts.txt --stop-on-error
 # Com parâmetros de inferência
 miru batch gemma3 --prompts prompts.txt --temperature 0.7 --max-tokens 100
 ```
+
+## Quick Commands
+
+Comandos rápidos para tarefas comuns:
+
+```bash
+# Gerar código
+miru quick code gemma3 --param language=python --param task="sort a list"
+
+# Resumir texto
+miru quick summarize gemma3 --param text="Long article..."
+
+# Explicar tópico
+miru quick explain gemma3 --param topic="machine learning"
+
+# Traduzir para português
+miru quick translate-pt gemma3 --param text="Hello world"
+
+# Traduzir para inglês
+miru quick translate-en gemma3 --param text="Olá mundo"
+
+# Revisar código
+miru quick review-code gemma3 --param language=python --param code="$(cat main.py)"
+
+# Corrigir bugs
+miru quick fix-code gemma3 --param language=python --param code="$(cat broken.py)"
+
+# Gerar testes unitários
+miru quick test gemma3 --param language=python --param code="$(cat main.py)"
+
+# Refatorar código
+miru quick refactor gemma3 --param language=python --param code="$(cat main.py)"
+
+# Documentar código
+miru quick document gemma3 --param language=python --param code="$(cat main.py)"
+
+# Otimizar código
+miru quick optimize gemma3 --param language=python --param code="$(cat main.py)"
+
+# Analisar texto
+miru quick analyze gemma3 --param text="Article..."
+
+# Corrigir gramática
+miru quick grammar gemma3 --param text="Text with errors..."
+
+# Expandir texto
+miru quick expand gemma3 --param text="Short text..."
+
+# Simplificar texto
+miru quick simplify gemma3 --param text="Complex text..."
+
+# Listar todos os comandos
+miru quick --list
+```
+
+## Setup Wizard
+
+Primeira configuração interativa:
+
+```bash
+miru setup
+```
+
+O wizard interativo:
+- Verifica se Ollama está rodando
+- Lista modelos disponíveis
+- Permite escolher modelo padrão
+- Configura histórico de prompts
+- Configura aliases
+- Salva preferências em `~/.miru/config.toml`
+
+```bash
+# Não-interativo (usa defaults)
+miru setup --non-interactive
+
+# Com host customizado
+miru setup --host http://custom:11434
+```
+
+## Examples Browser
+
+Navegador de exemplos de uso:
+
+```bash
+# Listar todos os exemplos
+miru examples --list
+
+# Filtrar por categoria
+miru examples --category code
+
+# Filtrar por tag
+miru examples --tag python
+
+# Ver exemplo específico
+miru examples hello-world
+
+# Copiar comando para clipboard
+miru examples hello-world --copy
+
+# Listar categorias
+miru examples --categories
+```
+
+Categorias disponíveis: `basics`, `code`, `text`, `translation`, `learning`, `chat`, `advanced`, `multimodal`, `document`, `templates`, `config`
 
 ## Gerenciamento de Modelos
 
@@ -234,6 +353,9 @@ miru config reset --force
 # Criar profile
 miru config profile create work
 
+# Configurar profile
+miru config set default_host http://work-server:11434  # (com profile 'work' ativo)
+
 # Alternar profile
 miru config profile switch work
 
@@ -281,6 +403,38 @@ miru history --clear
 
 # Ver detalhes de uma entrada
 miru history-show 0
+```
+
+## Session Save/Restore
+
+### comandos de sessão
+
+```bash
+# Listar sessões salvas
+miru session list
+
+# Ver detalhes de uma sessão
+miru session show my-session
+
+# Deletar sessão
+miru session delete my-session --force
+
+# Exportar sessão
+miru session export my-session --output session.json
+miru session export my-session --output session.md --format markdown
+miru session export my-session --output session.txt --format txt
+
+# Renomear sessão
+miru session rename old-name new-name
+```
+
+### Durante o chat
+
+```
+>>> /save my-session    # Salvar sessão atual
+>>> /export json        # Exportar sessão para JSON
+>>> /export md          # Exportar sessão para Markdown
+>>> /export txt         # Exportar sessão para TXT
 ```
 
 ## Templates de Prompts
@@ -452,6 +606,7 @@ Opções:
   --host HOST            URL do servidor Ollama
   --format [text|json]   Formato de saída
   --quiet                Output minimal
+  --auto-pull            Baixar modelo automaticamente se não existir
 ```
 
 ## Variáveis de Ambiente
@@ -461,6 +616,7 @@ Opções:
 - `MIRU_DEFAULT_MODEL` - Modelo padrão
 - `MIRU_HISTORY_ENABLED` - Habilitar histórico (true/false)
 - `MIRU_HISTORY_MAX_ENTRIES` - Máximo de entradas no histórico
+- `MIRU_VERBOSE` - Modo verboso padrão
 
 ## Desenvolvimento
 
@@ -489,19 +645,22 @@ miru/
 ├── alias.py            # Sistema de aliases
 ├── template.py         # Templates de prompts
 ├── completion.py       # Shell completion
+├── session.py          # Session save/restore
 ├── inference_params.py # Parâmetros de inferência
 ├── renderer.py         # Compatibilidade (delegação)
 ├── commands/           # Comandos CLI
-│   ├── chat.py        # Chat interativo
-│   ├── compare.py     # Benchmark de modelos
-│   ├── config_cmd.py  # Gerenciamento de configuração
-│   ├── status.py      # Status, ps, stop, search
-│   ├── history_cmd.py # Comandos de histórico
-│   ├── logs.py        # Visualização de logs
-│   ├── info.py        # Informações do modelo
-│   ├── list.py        # Listar modelos
-│   ├── pull.py        # Baixar modelo
-│   └── run.py         # Prompt único
+│   ├── batch.py        # Processamento em lote
+│   ├── chat.py         # Chat interativo
+│   ├── compare.py      # Benchmark de modelos
+│   ├── config_cmd.py   # Gerenciamento de configuração
+│   ├── examples.py     # Navegador de exemplos
+│   ├── history_cmd.py  # Comandos de histórico
+│   ├── logs.py         # Visualização de logs
+│   ├── quick.py        # Quick commands
+│   ├── run.py          # Prompt único
+│   ├── setup.py        # Setup wizard
+│   ├── status.py       # Status, ps, stop, search
+│   └── ...
 ├── input/              # Processamento multimodal
 │   ├── audio.py       # Transcrição Whisper
 │   ├── file.py        # Extração de texto
@@ -562,6 +721,12 @@ Cliente HTTP async com suporte a:
 - Formato estruturado JSON
 - Modo verbose para debugging
 
+### Sessions
+
+- Sessões salvas em `~/.miru/sessions/`
+- Exportação para JSON, Markdown, TXT
+- Restauração de contexto completo
+
 ## Dependências
 
 - `httpx` - Cliente HTTP async
@@ -572,6 +737,21 @@ Cliente HTTP async com suporte a:
 - `pillow` - Validação de imagens (opcional)
 - `pdfplumber` - Extração de PDF (opcional)
 - `python-docx` - Extração de DOCX (opcional)
+
+## Funcionalidades Principais
+
+| Funcionalidade | Comando | Descrição |
+|---------------|---------|-----------|
+| Setup Wizard | `miru setup` | Configuração interativa inicial |
+| Quick Commands | `miru quick <cmd>` | Comandos rápidos para tarefas comuns |
+| Examples Browser | `miru examples` | Navegador de exemplos de uso |
+| Session Management | `miru session` | Salvar/restaurar sessões de chat |
+| Model Aliases | `miru alias` | Atalhos para modelos frequentes |
+| Prompt Templates | `miru template` | Templates reutilizáveis |
+| History | `miru history` | Histórico de prompts |
+| Config Profiles | `miru config profile` | Multiplos ambientes |
+| Auto-pull | `--auto-pull` | Download automático de modelos |
+| Shell Completion | `miru completion` | Autocomplete para bash/zsh/fish |
 
 ## Licença
 
