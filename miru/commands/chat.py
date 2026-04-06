@@ -75,7 +75,7 @@ async def _chat_async(
                 print(f"miru chat · {model}")
                 if system_prompt:
                     print(f"System: {system_prompt[:50]}{'...' if len(system_prompt) > 50 else ''}")
-                print("Digite /help para ver comandos disponíveis")
+                print("Digite /exit para sair · /clear para novo contexto")
                 print("─" * 50)
 
             messages: list[dict[str, str]] = []
