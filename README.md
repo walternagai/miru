@@ -356,6 +356,78 @@ O miru suporta **function calling** nativo do Ollama, permitindo que modelos exe
 | `list_allowed_commands` | Lista comandos permitidos | ✅ Safe |
 | `list_allowed_env_vars` | Lista variáveis permitidas | ✅ Safe |
 
+#### Tavily Tools (Busca na Web)
+
+O miru integra com a API Tavily para busca na web, permitindo que modelos busquem informações atualizadas na internet.
+
+**Configuração:**
+
+```bash
+# Configurar API key
+miru config set tavily_api_key tvly-your-api-key-here
+
+# Verificar configuração (mostra apenas últimos 4 caracteres por segurança)
+miru config get tavily_api_key
+
+# Ver todas as configurações
+miru config list
+```
+
+| Tool | Descrição | Segurança |
+|------|-----------|-----------|
+| `tavily_search` | Busca web por informações | ✅ Safe |
+| `tavily_search_images` | Busca web com resultados de imagens | ✅ Safe |
+| `tavily_extract` | Extrai e limpa conteúdo de URLs | ✅ Safe |
+
+**Obter API Key:**
+1. Acesse: https://tavily.com
+2. Crie uma conta gratuita
+3. Copie sua API key (formato: `tvly-...`)
+4. Configure: `miru config set tavily_api_key YOUR_KEY`
+
+**Limites Gratuitos:**
+- 1.000 requisições/mês
+- Rate limit: 60 requisições/minuto
+
+**Uso Programático com Tavily:**
+
+```python
+from pathlib import Path
+from miru.tools import ToolExecutionManager, ToolExecutionMode
+
+# Configurar tools incluindo Tavily
+manager = ToolExecutionManager(
+    mode=ToolExecutionMode.AUTO_SAFE,
+    sandbox_dir=Path("./workspace"),
+    enable_tavily=True,  # Habilita Tavily web search
+)
+
+# Verificar tools registradas
+for tool in manager.list_tools():
+    print(f"{tool['name']}: {tool['description']}")
+
+# Executar busca
+result, error = manager.execute_tool(
+    "tavily_search",
+    {"query": "Python 3.13 new features", "max_results": 5}
+)
+
+if error:
+    print(f"Error: {error}")
+else:
+    print(result)
+```
+
+**Variável de Ambiente:**
+
+Alternativamente, você pode configurar via variável de ambiente:
+
+```bash
+export MIRU_TAVILY_API_KEY="tvly-your-api-key"
+```
+
+Precedência: variável de ambiente > arquivo de configuração.
+
 ### Modos de Execução
 
 ```python
@@ -389,6 +461,7 @@ manager = ToolExecutionManager(
     allow_write=True,
     allow_delete=False,  # Segurança: nunca permitir delete por padrão
     allow_commands=False,  # Segurança: desabilitar comandos por padrão
+    enable_tavily=True,  # Habilitar busca na web com Tavily (requer API key)
 )
 
 # Obter definições para Ollama

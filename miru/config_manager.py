@@ -38,6 +38,7 @@ class Config:
     history_enabled: bool = True
     history_max_entries: int = 1000
     verbose: bool = False
+    tavily_api_key: str | None = None
     profiles: dict[str, dict[str, Any]] = field(default_factory=dict)
     current_profile: str | None = None
 
@@ -104,6 +105,7 @@ def save_config(config: Config) -> None:
         "history_enabled": config.history_enabled,
         "history_max_entries": config.history_max_entries,
         "verbose": config.verbose,
+        "tavily_api_key": config.tavily_api_key,
         "profiles": config.profiles,
         "current_profile": config.current_profile,
     }

@@ -60,6 +60,13 @@ from miru.tools.system import (
     create_system_tools,
 )
 
+# Import Tavily tools
+from miru.tools.tavily import (
+    TavilyClient,
+    TavilyError,
+    create_tavily_tools,
+)
+
 # Import execution and approval
 from miru.tools.execution import ToolExecutionManager, ToolExecutionMode
 from miru.tools.approval import ToolApprovalFlow, ToolApprovalManager
@@ -77,6 +84,7 @@ __all__ = [
     "ToolRegistryError",
     "SecurityError",
     "SystemSecurityError",
+    "TavilyError",
     # Utilities
     "extract_tool_calls",
     "has_tool_calls",
@@ -89,6 +97,9 @@ __all__ = [
     "CommandWhitelist",
     "EnvironmentWhitelist",
     "create_system_tools",
+    # Tavily tools
+    "TavilyClient",
+    "create_tavily_tools",
     # Execution
     "ToolExecutionManager",
     "ToolExecutionMode",

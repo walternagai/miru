@@ -38,7 +38,7 @@ def config_set(
         console.print("[dim]Valid keys: default_host, default_model, default_timeout,")
         console.print("[dim]  default_temperature, default_max_tokens, default_top_p,")
         console.print("[dim]  default_top_k, default_seed, history_enabled,")
-        console.print("[dim]  history_max_entries, verbose[/]")
+        console.print("[dim]  history_max_entries, verbose, tavily_api_key[/]")
         sys.exit(1)
 
     if key in ("history_enabled", "verbose"):
@@ -61,6 +61,11 @@ def config_set(
         except ValueError:
             console.print(f"[red bold]✗[/] Invalid integer value: {value}")
             sys.exit(1)
+    elif key == "tavily_api_key":
+        # Validate API key format
+        if value and not value.startswith("tvly-"):
+            console.print("[yellow]Warning: API key doesn't match expected format (tvly-...)[/]")
+        parsed_value = value
     else:
         parsed_value = value
 
@@ -117,12 +122,20 @@ def config_list() -> None:
         "history_enabled": True,
         "history_max_entries": 1000,
         "verbose": False,
+        "tavily_api_key": None,
     }
 
     for key, default_value in defaults.items():
         current_value = getattr(config, key)
+        
+        # Hide API key for security
+        if key == "tavily_api_key":
+            display_value = f"***{str(current_value)[-4:]}" if current_value else "Not set"
+        else:
+            display_value = str(current_value)
+        
         source = "default" if current_value == default_value else "config"
-        table.add_row(key, str(current_value), source)
+        table.add_row(key, display_value, source)
 
     console.print(table)
     console.print(f"[dim]Config file: {CONFIG_FILE}[/]")

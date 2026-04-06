@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from miru.tools import (
     create_file_tools,
     create_system_tools,
 )
+from miru.tools.tavily import TavilyError, create_tavily_tools
 from miru.tools.utils import create_tool_result_message, extract_tool_calls, has_tool_calls
 
 
@@ -47,6 +49,8 @@ class ToolExecutionManager:
         allowed_extensions: list[str] | None = None,
         allow_commands: bool = False,
         allow_env: bool = True,
+        enable_tavily: bool = False,
+        tavily_api_key: str | None = None,
     ) -> None:
         """
         Initialize tool execution manager.
@@ -59,6 +63,8 @@ class ToolExecutionManager:
             allowed_extensions: List of allowed file extensions
             allow_commands: Allow command execution
             allow_env: Allow environment variable access
+            enable_tavily: Enable Tavily web search tools
+            tavily_api_key: Tavily API key (uses config/env if None)
         """
         self.mode = mode
         self.sandbox_dir = Path(sandbox_dir) if sandbox_dir else None
@@ -67,6 +73,8 @@ class ToolExecutionManager:
         self.allowed_extensions = allowed_extensions
         self.allow_commands = allow_commands
         self.allow_env = allow_env
+        self.enable_tavily = enable_tavily
+        self.tavily_api_key = tavily_api_key
 
         self.registry = ToolRegistry()
         self._initialize_tools()
@@ -91,6 +99,15 @@ class ToolExecutionManager:
             working_dir=self.sandbox_dir or Path.cwd(),
         ):
             self.registry.register(tool)
+
+        # Tavily web search tools
+        if self.enable_tavily:
+            try:
+                tavily_tools = create_tavily_tools(self.tavily_api_key)
+                for tool in tavily_tools:
+                    self.registry.register(tool)
+            except TavilyError as e:
+                warnings.warn(f"Failed to initialize Tavily tools: {e}", UserWarning)
 
     def get_tool_definitions(self) -> list[dict[str, Any]]:
         """
