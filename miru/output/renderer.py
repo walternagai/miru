@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -155,6 +156,99 @@ def render_warning(message: str) -> None:
         message: Warning message
     """
     console_stderr.print(f"[yellow]⚠[/] {message}")
+
+
+def render_markdown(text: str) -> None:
+    """
+    Render Markdown text with Rich formatting.
+
+    Displays headers, bold, italic, code blocks, tables, lists
+    with syntax highlighting and colors.
+
+    Args:
+        text: Markdown text to render
+    """
+    console.print(Markdown(text))
+
+
+async def render_stream_as_markdown(
+    chunks: AsyncIterator[dict],
+    quiet: bool = False,
+    show_metrics: bool = True,
+) -> tuple[str, dict | None]:
+    """
+    Consume stream with animated dots, render formatted Markdown at end.
+
+    During streaming: shows "Gerando resposta.", "..", "..." (animated)
+    After completion: renders formatted Markdown with colors/tables/code
+
+    Args:
+        chunks: Async iterator of response chunks
+        quiet: If True, suppress all output (only return text)
+        show_metrics: If True, show metrics after rendering
+
+    Returns:
+        Tuple of (full_response_text, final_chunk)
+    """
+    import asyncio
+    import sys
+
+    response_parts = []
+    final_chunk = None
+
+    if not quiet:
+
+        async def show_progress():
+            dots = [".", "..", "..."]
+            idx = 0
+            while True:
+                sys.stdout.write(f"\rGerando resposta{dots[idx]}")
+                sys.stdout.flush()
+                await asyncio.sleep(0.3)
+                idx = (idx + 1) % 3
+
+        progress_task = asyncio.create_task(show_progress())
+
+        try:
+            async for chunk in chunks:
+                text = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
+                if text:
+                    response_parts.append(text)
+
+                if chunk.get("done"):
+                    final_chunk = chunk
+        finally:
+            progress_task.cancel()
+            try:
+                await progress_task
+            except asyncio.CancelledError:
+                pass
+
+        sys.stdout.write("\r" + " " * 30 + "\r")
+        sys.stdout.flush()
+    else:
+        async for chunk in chunks:
+            text = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
+            if text:
+                response_parts.append(text)
+
+            if chunk.get("done"):
+                final_chunk = chunk
+
+    full_response = "".join(response_parts)
+
+    if quiet:
+        return full_response, final_chunk
+
+    if response_parts:
+        print()
+        console.print(Markdown(full_response))
+
+        if show_metrics and final_chunk:
+            print()
+            render_metrics(final_chunk)
+
+    return full_response, final_chunk
 
 
 def render_model_table(models: list[dict], quiet: bool = False) -> None:

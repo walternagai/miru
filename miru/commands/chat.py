@@ -207,20 +207,12 @@ async def _chat_async(
 
                 messages.append({"role": "user", "content": user_input})
 
-                response_parts = []
-                final_chunk = None
-
                 chunks = client.chat(current_model, messages, options=options, stream=True)
-                async for chunk in chunks:
-                    content = chunk.get("message", {}).get("content", "")
-                    if content:
-                        print(content, end="", flush=True)
-                        response_parts.append(content)
+                from miru.output.renderer import render_stream_as_markdown
 
-                    if chunk.get("done"):
-                        final_chunk = chunk
-
-                print()
+                response_text, final_chunk = await render_stream_as_markdown(
+                    chunks, quiet=quiet, show_metrics=not quiet
+                )
 
                 if final_chunk and not quiet:
                     eval_count = final_chunk.get("eval_count", 0)
@@ -230,17 +222,9 @@ async def _chat_async(
                     duration_ns = eval_duration_ns if eval_duration_ns > 0 else total_duration_ns
                     duration_seconds = duration_ns / 1e9
 
-                    if duration_seconds > 0 and eval_count > 0:
-                        tokens_per_second = eval_count / duration_seconds
-                        print(f"[{eval_count} tok · {tokens_per_second:.1f} tok/s]")
-                    else:
-                        print(f"[{eval_count} tok]")
-                    print()
-
                     total_tokens += eval_count
                     total_time_ns += duration_ns
 
-                response_text = "".join(response_parts)
                 messages.append({"role": "assistant", "content": response_text})
                 turn_count += 1
 

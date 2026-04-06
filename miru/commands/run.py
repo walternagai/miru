@@ -14,7 +14,12 @@ from miru.inference_params import build_options
 from miru.input import encode_images, extract_text, format_for_prompt, transcribe
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
-from miru.output import collect_stream, render_json_output, render_metrics
+from miru.output import (
+    collect_stream,
+    render_json_output,
+    render_metrics,
+    render_stream_as_markdown,
+)
 
 
 async def _run_async(
@@ -134,30 +139,7 @@ async def _run_async(
                             print(response_text)
                 else:
                     chunks = client.chat(model, messages, options=options, stream=True)
-
-                    response_parts = []
-                    final_chunk = None
-
-                    async for chunk in chunks:
-                        if not quiet:
-                            content = chunk.get("message", {}).get("content", "")
-                            if content:
-                                print(content, end="", flush=True)
-                                response_parts.append(content)
-                        else:
-                            content = chunk.get("message", {}).get("content", "")
-                            if content:
-                                response_parts.append(content)
-
-                        if chunk.get("done"):
-                            final_chunk = chunk
-
-                    if not quiet:
-                        print()
-                        if final_chunk:
-                            render_metrics(final_chunk)
-                    else:
-                        print("".join(response_parts), end="")
+                    await render_stream_as_markdown(chunks, quiet=quiet, show_metrics=True)
             else:
                 if output_format == "json" or no_stream:
                     response_text, final_chunk, model_name = await collect_stream(
@@ -183,30 +165,7 @@ async def _run_async(
                     chunks = client.generate(
                         model, final_prompt, images=encoded_images, options=options, stream=True
                     )
-
-                    response_parts = []
-                    final_chunk = None
-
-                    async for chunk in chunks:
-                        if not quiet:
-                            text = chunk.get("response", "")
-                            if text:
-                                print(text, end="", flush=True)
-                                response_parts.append(text)
-                        else:
-                            text = chunk.get("response", "")
-                            if text:
-                                response_parts.append(text)
-
-                        if chunk.get("done"):
-                            final_chunk = chunk
-
-                    if not quiet:
-                        print()
-                        if final_chunk:
-                            render_metrics(final_chunk)
-                    else:
-                        print("".join(response_parts), end="")
+                    await render_stream_as_markdown(chunks, quiet=quiet, show_metrics=True)
 
             record_history(
                 command="run",
