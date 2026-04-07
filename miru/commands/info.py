@@ -1,40 +1,28 @@
-"""miru info command - show model information."""
+"""miru info command - show model information.
+
+Refactored with i18n support.
+"""
 
 import asyncio
 from typing import Any
 
 import typer
 
-from miru.config import get_host
+from miru.alias import resolve_alias
+from miru.cli_options import Host, Format, Quiet, Model
+from miru.core.config import resolve_host
+from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.core.i18n import t
 from miru.model.capabilities import get_capabilities
-from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
-from miru.renderer import (
-    render_error,
-    render_model_info,
-    render_model_info_json,
-)
+from miru.ollama.client import OllamaClient
+from miru.renderer import render_error, render_model_info, render_model_info_json
 
 
 def info(
-    model: str = typer.Argument(..., help="Model name (e.g., gemma3:latest)"),
-    host: str | None = typer.Option(
-        None,
-        "--host",
-        "-h",
-        help="Ollama host URL (default: http://localhost:11434)",
-    ),
-    format: str = typer.Option(
-        "text",
-        "--format",
-        "-f",
-        help="Output format: text or json",
-    ),
-    quiet: bool = typer.Option(
-        False,
-        "--quiet",
-        "-q",
-        help="Minimal output for pipes and scripts",
-    ),
+    model: Model,
+    host: Host = None,
+    format: Format = "text",
+    quiet: Quiet = False,
 ) -> None:
     """
     Show detailed information about a model.
@@ -43,7 +31,8 @@ def info(
         miru info gemma3:latest
         miru info llava --format json
     """
-    ollama_host = get_host(host)
+    model = resolve_alias(model)
+    ollama_host = resolve_host(host)
 
     try:
         model_data, capabilities_data = asyncio.run(
@@ -55,17 +44,20 @@ def info(
         else:
             render_model_info(model, model_data, capabilities_data, quiet=quiet)
 
-    except OllamaModelNotFound:
-        render_error(
-            f'Modelo "{model}" não encontrado.',
-            f"Modelos disponíveis: miru list\n  Para baixar: miru pull {model}",
-        )
-        raise typer.Exit(code=1)
-    except OllamaConnectionError:
-        render_error(
-            f"Não foi possível conectar ao Ollama em {ollama_host}",
-            "Verifique se o Ollama está rodando: ollama serve",
-        )
+    except Exception:
+        # Try to get available models for suggestion
+        available = []
+        try:
+            async def get_models():
+                async with OllamaClient(host=ollama_host) as client:
+                    return await client.list_models()
+            models = asyncio.run(get_models())
+            available = [m.get("name", "") for m in models[:5]]
+        except Exception:
+            pass
+        
+        error = ModelNotFoundError(model, available)
+        render_error(error.message, error.suggestion)
         raise typer.Exit(code=1)
 
 

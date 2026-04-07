@@ -1,12 +1,18 @@
-"""miru list command - list available models."""
+"""miru list command - list available models.
+
+Refactored with i18n support.
+"""
 
 import asyncio
 from typing import Any
 
 import typer
 
-from miru.config import get_host
-from miru.ollama.client import OllamaClient, OllamaConnectionError
+from miru.cli_options import Host, Format, Quiet
+from miru.core.config import resolve_host
+from miru.core.errors import ConnectionError as MiruConnectionError
+from miru.core.i18n import t
+from miru.ollama.client import OllamaClient
 from miru.renderer import (
     render_empty_models,
     render_error,
@@ -16,24 +22,9 @@ from miru.renderer import (
 
 
 def list_models(
-    host: str | None = typer.Option(
-        None,
-        "--host",
-        "-h",
-        help="Ollama host URL (default: http://localhost:11434)",
-    ),
-    format: str = typer.Option(
-        "text",
-        "--format",
-        "-f",
-        help="Output format: text or json",
-    ),
-    quiet: bool = typer.Option(
-        False,
-        "--quiet",
-        "-q",
-        help="Minimal output for pipes and scripts",
-    ),
+    host: Host = None,
+    format: Format = "text",
+    quiet: Quiet = False,
 ) -> None:
     """
     List available models from Ollama server.
@@ -43,7 +34,7 @@ def list_models(
         miru list --format json
         miru list --quiet | head -5
     """
-    ollama_host = get_host(host)
+    ollama_host = resolve_host(host)
 
     try:
         models = asyncio.run(_list_models_async(ollama_host))
@@ -60,11 +51,9 @@ def list_models(
         else:
             render_models_table(models, quiet=quiet)
 
-    except OllamaConnectionError:
-        render_error(
-            f"Não foi possível conectar ao Ollama em {ollama_host}",
-            "Verifique se o Ollama está rodando: ollama serve",
-        )
+    except MiruConnectionError:
+        error = MiruConnectionError(ollama_host)
+        render_error(error.message, error.suggestion)
         raise typer.Exit(code=1)
 
 
