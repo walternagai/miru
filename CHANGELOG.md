@@ -5,6 +5,133 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-04-07
+
+### Added
+
+#### Chat Command Enhancements
+
+- **`/recall` command** - Recall previous prompts from history
+  - `/recall` - Interactive list of last 10 prompts
+  - `/recall <n>` - Direct recall by index
+  - Preserves context (model, system_prompt) in current session
+  - Full i18n support (en_US, pt_BR, es_ES)
+  - Example usage:
+    ```bash
+    >>> /recall           # Shows interactive list
+    >>> /recall 3         # Loads prompt #3 directly
+    ```
+
+- **Markdown rendering** in history display
+  - `miru history show <index>` now renders responses with Rich Markdown
+  - Headers, bold, italic, code blocks, tables properly formatted
+  - Same visual experience as `miru run` and `miru chat` streaming
+
+- **Markdown rendering** in `miru run --no-stream`
+  - Non-streaming mode now formats Markdown responses
+  - Headers, code blocks, lists rendered with Rich
+  - Consistent with streaming mode experience
+
+### Changed
+
+#### Improved User Experience
+
+- **History command** (`miru history show`) now displays Markdown responses beautifully
+  - Before: Plain text `**bold**` and `# headers`
+  - After: Rich formatted **bold** and proper headers
+
+- **Run command** (`miru run --no-stream`) renders Markdown
+  - Before: Raw Markdown syntax in output
+  - After: Formatted headers, code blocks, lists
+
+#### Code Quality
+
+- Added `render_markdown()` to commands that display complete responses
+- Consistent Markdown formatting across all output modes
+- Better separation between streaming (can't render Markdown progressively) and non-streaming (can render full Markdown)
+
+### Documentation
+
+- **Updated README.md**:
+  - Added `/recall` command documentation
+  - Updated chat commands section
+  - Added examples of recall functionality
+
+- **Updated TUTORIAL.md**:
+  - Added recall command tutorial
+  - Improved history section
+
+### Technical Details
+
+#### Files Modified
+
+- `miru/commands/chat.py`:
+  - Added `/recall` command handler
+  - Interactive prompt selection with history
+  - Direct index-based recall
+  - Full i18n support
+
+- `miru/commands/history_cmd.py`:
+  - Added `render_markdown()` import
+  - Response display uses Rich Markdown formatting
+
+- `miru/commands/run.py`:
+  - Added `render_markdown()` import
+  - Non-streaming mode renders Markdown (when not quiet/JSON)
+
+- `miru/core/i18n.py`:
+  - Added 5 new i18n keys for recall feature:
+    - `chat.commands.recall`
+    - `chat.recall_title`
+    - `chat.recall_empty`
+    - `chat.recall_prompt`
+    - `chat.recall_loaded`
+
+### Migration Guide
+
+#### Before (Plain Text History)
+
+```bash
+$ miru history show 0
+
+Prompt:
+Qual é o verso bíblico mais conhecido?
+
+Response:
+# Resposta com Markdown
+
+Aqui está uma explicação:
+
+## Código de Exemplo
+```python
+def soma(a, b):
+    return a + b
+```
+```
+
+#### After (Formatted Markdown)
+
+```bash
+$ miru history show 0
+
+Prompt:
+Qual é o verso bíblico mais conhecido?
+
+Response:
+                           Resposta com Markdown                           
+
+Aqui está uma explicação:
+
+Código de Exemplo
+
+                                                                                
+ def soma(a, b):                                                               
+     return a + b                                                               
+                                                                                
+```
+
+---
+
 ## [0.4.0] - 2026-04-07
 
 ### Added

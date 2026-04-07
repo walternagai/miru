@@ -129,9 +129,34 @@ stateDiagram-v2
 | `/stats` | Estatísticas da sessão |
 | `/model <nome>` | Troca de modelo |
 | `/system <prompt>` | Altera o system prompt |
+| `/recall [n]` | Resgata prompt anterior |
 | `/retry` | Re-executa último prompt |
 | `/save <nome>` | Salva sessão |
 | `/export <fmt>` | Exporta (json/md/txt) |
+
+#### Resgatando Prompts Anteriores
+
+O comando `/recall` permite reutilizar prompts de sessões anteriores:
+
+```bash
+# Modo interativo
+>>> /recall
+
+Previous Prompts
+  [0] 2026-04-07 09:30 - Qual é o verso bíblico mais conhecido?
+  [1] 2026-04-07 09:25 - Explique closures em Python
+  [2] 2026-04-07 09:20 - Como funciona async/await?
+
+Select prompt to recall (0-2) or press Enter to cancel
+>>> 1
+
+# Modo direto
+>>> /recall 2
+Prompt loaded from 2026-04-07 09:20
+>>> Como funciona async/await?
+```
+
+O prompt carregado mantém o model e system_prompt da sessão atual, apenas substituindo o texto do prompt.
 
 ## Multimodalidade
 
@@ -350,6 +375,8 @@ export MIRU_VERBOSE="false"
 
 ## Histórico
 
+O miru mantém um histórico completo de todos os prompts executados:
+
 ```bash
 # Ver histórico
 miru history
@@ -372,6 +399,37 @@ miru history --clear
 # Ver detalhes
 miru history show 0
 ```
+
+### Detalhes de uma Entrada
+
+```bash
+miru history show 0
+
+Data/Hora: 2026-04-07T09:33:38
+Comando: chat
+Modelo: gemma3:latest
+Status: ✓ Sucesso
+
+Prompt:
+Qual é o verso bíblico mais conhecido?
+
+Resposta:
+                           Resposta com Markdown                           
+
+Aqui está uma explicação:
+
+Código de Exemplo
+
+                                                                                
+ def hello():                                                                  
+     print('Hello World')                                                      
+                                                                                
+
+Métricas:
+  Tokens: 150
+```
+
+As respostas em `miru history show` são renderizadas com formatação Markdown completa (headers, código, tabelas, listas), proporcionando a mesma experiência visual do chat e run em tempo real.
 
 ## Aliases
 

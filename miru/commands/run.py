@@ -42,7 +42,7 @@ from miru.inference_params import build_options
 from miru.input import encode_images, extract_text, format_for_prompt, transcribe
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient
-from miru.output import collect_stream, render_json_output, render_metrics, stream_as_markdown_live
+from miru.output import collect_stream, render_json_output, render_metrics, render_markdown, stream_as_markdown_live
 from miru.ui.render import render_error
 
 
@@ -177,7 +177,7 @@ async def _run_async(
                         render_json_output(model, prompt, response_text, final_chunk)
                     else:
                         if not quiet:
-                            print(response_text)
+                            render_markdown(response_text)
                             if final_chunk:
                                 render_metrics(final_chunk)
                         else:
@@ -200,7 +200,7 @@ async def _run_async(
                         render_json_output(model, prompt, response_text, final_chunk)
                     else:
                         if not quiet:
-                            print(response_text)
+                            render_markdown(response_text)
                             if final_chunk:
                                 render_metrics(final_chunk)
                         else:

@@ -10,6 +10,7 @@ from rich.table import Table
 
 from miru.history import clear_history, get_history, search_history
 from miru.core.i18n import t
+from miru.output import render_markdown
 
 console = Console()
 
@@ -111,7 +112,7 @@ def history_show(
     if entry.response:
         console.print()
         console.print(f"[bold]{t('history.response_label')}[/]")
-        console.print(entry.response)
+        render_markdown(entry.response)
 
     if entry.metrics:
         console.print()

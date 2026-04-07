@@ -4,6 +4,27 @@
 
 Miru (見る) significa "ver" ou "olhar" em japonês. Representa a capacidade de visualizar e interagir com modelos de IA através de comandos claros e intuitivos, com suporte completo a function calling para que modelos executem ações no seu sistema.
 
+**Versão 0.5.0** - Novo: `/recall` para resgatar prompts anteriores e renderização Markdown em todos os comandos.
+
+## Novidades da Versão 0.5.0
+
+### `/recall` - Resgate Prompts Anteriores
+
+No modo interativo (`miru chat`), use `/recall` para reutilizar prompts de sessões anteriores:
+
+```bash
+>>> /recall           # Lista interativa dos últimos 10 prompts
+>>> /recall 3         # Carrega diretamente o prompt de índice 3
+```
+
+### Markdown Renderizado em Todo Lugar
+
+Agora as respostas em Markdown são exibidas com formatação Rich:
+
+- `miru history show <index>` - Respostas renderizadas
+- `miru run --no-stream` - Output formatado
+- Headers, código, tabelas, listas sempre bem formatados
+
 ## Instalação
 
 ```bash
@@ -224,6 +245,10 @@ miru chat gemma3:latest --tavily
 # Com todas as tools habilitadas
 miru chat qwen2.5:7b --enable-tools --sandbox-dir ./workspace
 >>> Analise este arquivo e busque mais informações na web
+
+# Resgatar prompts anteriores
+>>> /recall           # Lista interativa dos últimos 10 prompts
+>>> /recall 3         # Carrega diretamente o prompt de índice 3
 ```
 
 #### Comandos do chat interativo
@@ -236,10 +261,34 @@ miru chat qwen2.5:7b --enable-tools --sandbox-dir ./workspace
 >>> /stats             # Mostrar estatísticas da sessão
 >>> /model <name>      # Trocar modelo
 >>> /system <prompt>   # Alterar system prompt
+>>> /recall [n]        # Resgatar prompt anterior (interativo ou por índice)
 >>> /retry             # Re-executar último prompt
 >>> /save <arquivo>    # Salvar conversa em arquivo
 >>> /export <formato>  # Exportar (json/md/txt)
 ```
+
+### Histórico de Prompts
+
+O miru mantém um histórico de todos os prompts executados:
+
+```bash
+# Listar histórico
+miru history
+
+# Ver detalhes de uma entrada
+miru history show 0
+
+# Buscar no histórico
+miru history --search "python"
+
+# Filtrar por comando
+miru history --command run
+
+# Limpar histórico
+miru history --clear
+```
+
+As respostas em `miru history show` são renderizadas com formatação Markdown (headers, código, tabelas).
 
 ### Comparar modelos (benchmark)
 

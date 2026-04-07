@@ -5,7 +5,7 @@ Representa a capacidade de visualizar e interagir com modelos de IA
 através de comandos claros e intuitivos.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # Initialize i18n on import
 from miru.core.i18n import init_i18n
