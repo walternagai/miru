@@ -1,4 +1,7 @@
-"""Chat command for multi-turn interactive inference."""
+"""Chat command for multi-turn interactive inference.
+
+Refactored version using core module for i18n and errors.
+"""
 
 import asyncio
 import sys
@@ -9,11 +12,38 @@ import typer
 from rich.console import Console
 
 from miru.alias import resolve_alias
-from miru.config import get_host
-from miru.config_manager import load_config
+from miru.cli_options import (
+    AudioFile,
+    Context,
+    EnableTavily,
+    EnableTools,
+    Host,
+    ImageFiles,
+    InputFiles,
+    MaxTokens,
+    ModelOptional,
+    Quiet,
+    RepeatPenalty,
+    SandboxDir,
+    Seed,
+    SystemPrompt,
+    SystemPromptFile,
+    Temperature,
+    Timeout,
+    ToolMode,
+    TopK,
+    TopP,
+    get_model_with_fallback,
+)
+from miru.core.config import resolve_host
+from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.core.i18n import t, set_language
 from miru.history import record_history
 from miru.inference_params import build_options
-from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
+from miru.ollama.client import OllamaClient
+from miru.output import render_stream_as_markdown
+from miru.ui.prompts import prompt_choice
+from miru.ui.render import render_error, render_success
 
 console = Console()
 
@@ -21,16 +51,16 @@ console = Console()
 def _print_help() -> None:
     """Print chat commands help."""
     console.print()
-    console.print("[bold]Comandos do Chat:[/]")
-    console.print("  /exit, /quit   - Encerrar sessão")
-    console.print("  /clear         - Limpar histórico")
-    console.print("  /history       - Mostrar contagem de turnos")
-    console.print("  /stats         - Mostrar métricas da sessão")
-    console.print("  /model <name>  - Trocar modelo")
-    console.print("  /system <p>    - Alterar system prompt")
-    console.print("  /retry         - Re-executar último prompt")
-    console.print("  /save <file>   - Salvar conversa")
-    console.print("  /help          - Mostrar esta ajuda")
+    console.print(f"[bold]{t('chat.commands.help')}[/]")
+    console.print(f"  /exit, /quit   - {t('chat.commands.exit')}")
+    console.print(f"  /clear         - {t('chat.commands.clear')}")
+    console.print(f"  /history       - {t('chat.commands.history')}")
+    console.print(f"  /stats         - {t('chat.commands.stats')}")
+    console.print(f"  /model <name>  - {t('chat.commands.model')}")
+    console.print(f"  /system <p>    - {t('chat.commands.system')}")
+    console.print(f"  /retry         - {t('chat.commands.retry')}")
+    console.print(f"  /save <file>   - {t('chat.commands.save')}")
+    console.print(f"  /help          - Mostrar esta ajuda")
     console.print()
 
 
@@ -66,14 +96,14 @@ async def _chat_async(
         tool_mode=tool_mode,
     )
 
-    async with OllamaClient(host, timeout=timeout) as client:
-        try:
+    try:
+        async with OllamaClient(host, timeout=timeout) as client:
             all_models = await client.list_models()
             model_names = [m.get("name", "") for m in all_models]
+            
             if model not in model_names:
-                from miru.renderer import render_error
-
-                render_error(f'Modelo "{model}" não encontrado.', f"Para baixar: miru pull {model}")
+                error = ModelNotFoundError(model, model_names[:5])
+                render_error(error.message, error.suggestion)
                 sys.exit(1)
 
             options = build_options(
@@ -90,7 +120,7 @@ async def _chat_async(
                 print(f"miru chat · {model}")
                 if system_prompt:
                     print(f"System: {system_prompt[:50]}{'...' if len(system_prompt) > 50 else ''}")
-                print("Digite /exit para sair · /clear para novo contexto")
+                print(f"{t('prompt.enter')} · /exit {t('chat.commands.exit').lower()}")
                 print("─" * 50)
 
             messages: list[dict[str, str]] = []
@@ -114,12 +144,11 @@ async def _chat_async(
                     if not quiet:
                         print()
                         print("─" * 50)
-                        print(f"Sessão encerrada · {turn_count} turn(s) · {current_model}")
+                        speed_msg = ""
                         if total_tokens > 0 and total_time_ns > 0:
                             avg_speed = total_tokens / (total_time_ns / 1e9)
-                            print(
-                                f"Total: {total_tokens} tokens · Velocidade média: {avg_speed:.1f} tok/s"
-                            )
+                            speed_msg = f" · {t('chat.total_tokens', tokens=total_tokens, speed=avg_speed)}"
+                        print(f"{t('chat.session_ended', turns=turn_count, model=current_model)}{speed_msg}")
                     sys.exit(0)
 
                 if not user_input.strip():
@@ -130,12 +159,11 @@ async def _chat_async(
                 if stripped in ("/exit", "/quit"):
                     if not quiet:
                         print("─" * 50)
-                        print(f"Sessão encerrada · {turn_count} turn(s) · {current_model}")
+                        speed_msg = ""
                         if total_tokens > 0 and total_time_ns > 0:
                             avg_speed = total_tokens / (total_time_ns / 1e9)
-                            print(
-                                f"Total: {total_tokens} tokens · Velocidade média: {avg_speed:.1f} tok/s"
-                            )
+                            speed_msg = f" · {t('chat.total_tokens', tokens=total_tokens, speed=avg_speed)}"
+                        print(f"{t('chat.session_ended', turns=turn_count, model=current_model)}{speed_msg}")
                     break
 
                 if stripped == "/clear":
@@ -146,7 +174,7 @@ async def _chat_async(
                     total_tokens = 0
                     total_time_ns = 0
                     if not quiet:
-                        console.print("[green]✓[/] Histórico limpo.")
+                        render_success(t("chat.history_cleared"))
                     continue
 
                 if stripped == "/history":
@@ -160,15 +188,15 @@ async def _chat_async(
 
                 if stripped == "/stats":
                     if not quiet:
-                        console.print("[bold]Estatísticas da Sessão[/]")
-                        console.print(f"  Modelo: {current_model}")
-                        console.print(f"  Turnos: {turn_count}")
+                        console.print("[bold]Session Stats[/]")
+                        console.print(f"  Model: {current_model}")
+                        console.print(f"  Turns: {turn_count}")
                         console.print(f"  Tokens: {total_tokens}")
                         if total_time_ns > 0:
                             total_seconds = total_time_ns / 1e9
-                            console.print(f"  Tempo: {total_seconds:.1f}s")
+                            console.print(f"  Time: {total_seconds:.1f}s")
                             avg_speed = total_tokens / total_seconds
-                            console.print(f"  Velocidade média: {avg_speed:.1f} tok/s")
+                            console.print(f"  Average speed: {avg_speed:.1f} tok/s")
                         if current_system:
                             console.print(f"  System prompt: {current_system[:50]}...")
                     continue
@@ -178,12 +206,12 @@ async def _chat_async(
                     new_model = resolve_alias(new_model)
 
                     if new_model not in model_names:
-                        console.print(f"[red bold]✗[/] Modelo '{new_model}' não encontrado")
-                        console.print("[dim]Modelos disponíveis: miru list[/]")
+                        console.print(f"[red bold]✗[/] {ModelNotFoundError(new_model, model_names[:5])}")
+                        console.print("[dim]Available models: miru list[/]")
                         continue
 
                     current_model = new_model
-                    console.print(f"[green]✓[/] Modelo alterado para: {current_model}")
+                    render_success(t("chat.model_switched", model=current_model))
                     continue
 
                 if stripped.startswith("/system "):
@@ -192,12 +220,12 @@ async def _chat_async(
                     messages = [{"role": "system", "content": new_system}] + [
                         m for m in messages if m.get("role") != "system"
                     ]
-                    console.print("[green]✓[/] System prompt atualizado")
+                    render_success(t("chat.system_updated"))
                     continue
 
                 if stripped == "/retry":
                     if last_user_input is None:
-                        console.print("[yellow]Nenhum prompt anterior para repetir[/]")
+                        render_error(t("chat.no_previous_prompt"))
                         continue
                     user_input = last_user_input
                 else:
@@ -212,19 +240,15 @@ async def _chat_async(
                                 role = m.get("role", "unknown")
                                 content = m.get("content", "")
                                 f.write(f"## {role.upper()}\n{content}\n\n")
-                            f.write(
-                                f"## Session Stats\n- Turns: {turn_count}\n- Tokens: {total_tokens}\n"
-                            )
-                        console.print(f"[green]✓[/] Conversa salva em: {filename}")
+                            f.write(f"## Session Stats\n- Turns: {turn_count}\n- Tokens: {total_tokens}\n")
+                        render_success(t("success.session_saved", filename=filename))
                     except Exception as e:
-                        console.print(f"[red bold]✗[/] Erro ao salvar: {e}")
+                        render_error(f"Error saving: {e}")
                     continue
 
                 messages.append({"role": "user", "content": user_input})
 
                 if tool_manager:
-                    from miru.tool_integration import execute_tool_loop
-
                     response_text = await execute_tool_loop(
                         client=client,
                         model=current_model,
@@ -236,8 +260,6 @@ async def _chat_async(
                     final_chunk = None
                 else:
                     chunks = client.chat(current_model, messages, options=options, stream=True)
-                    from miru.output.renderer import render_stream_as_markdown
-
                     response_text, final_chunk = await render_stream_as_markdown(
                         chunks, quiet=quiet, show_metrics=not quiet
                     )
@@ -248,7 +270,6 @@ async def _chat_async(
                     total_duration_ns = final_chunk.get("total_duration", 0)
 
                     duration_ns = eval_duration_ns if eval_duration_ns > 0 else total_duration_ns
-                    duration_seconds = duration_ns / 1e9
 
                     total_tokens += eval_count
                     total_time_ns += duration_ns
@@ -266,54 +287,32 @@ async def _chat_async(
                     metrics={"eval_count": final_chunk.get("eval_count", 0) if final_chunk else 0},
                 )
 
-        except OllamaModelNotFound:
-            from miru.renderer import render_error
-
-            render_error(f'Modelo "{model}" não encontrado.', f"Para baixar: miru pull {model}")
-            sys.exit(1)
-        except OllamaConnectionError as e:
-            from miru.renderer import render_error
-
-            render_error(str(e))
-            sys.exit(1)
+    except MiruConnectionError as e:
+        render_error(e.message, e.suggestion)
+        sys.exit(1)
 
 
 def chat(
-    model: Annotated[str | None, typer.Argument(help="Model name")] = None,
-    system: Annotated[
-        str | None, typer.Option("--system", "-s", help="System prompt to set model behavior")
-    ] = None,
-    system_file: Annotated[
-        str | None, typer.Option("--system-file", help="Read system prompt from file")
-    ] = None,
-    temperature: Annotated[float | None, typer.Option(help="Sampling temperature")] = None,
-    top_p: Annotated[float | None, typer.Option(help="Nucleus sampling probability")] = None,
-    top_k: Annotated[int | None, typer.Option(help="Top-k sampling")] = None,
-    max_tokens: Annotated[int | None, typer.Option(help="Max tokens to generate")] = None,
-    seed: Annotated[int | None, typer.Option(help="Random seed")] = None,
-    repeat_penalty: Annotated[float | None, typer.Option(help="Repetition penalty")] = None,
-    ctx: Annotated[int | None, typer.Option(help="Context window size")] = None,
-    host: Annotated[str | None, typer.Option(help="Ollama host URL")] = None,
-    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Minimal output")] = False,
-    timeout: Annotated[
-        float | None,
-        typer.Option("--timeout", "-t", help="Request timeout in seconds (default: 30)"),
-    ] = None,
-    enable_tools: Annotated[
-        bool, typer.Option("--enable-tools", help="Enable all tools (file, system, tavily)")
-    ] = False,
-    enable_tavily: Annotated[
-        bool, typer.Option("--tavily", help="Enable Tavily web search tool")
-    ] = False,
-    sandbox_dir: Annotated[
-        str | None, typer.Option("--sandbox-dir", help="Sandbox directory for file tools")
-    ] = None,
-    tool_mode: Annotated[
-        str, typer.Option("--tool-mode", help="Tool execution mode (manual/auto/auto_safe)")
-    ] = "auto_safe",
+    model: ModelOptional = None,
+    system: SystemPrompt = None,
+    system_file: SystemPromptFile = None,
+    temperature: Temperature = None,
+    top_p: TopP = None,
+    top_k: TopK = None,
+    max_tokens: MaxTokens = None,
+    seed: Seed = None,
+    repeat_penalty: RepeatPenalty = None,
+    ctx: Context = None,
+    host: Host = None,
+    quiet: Quiet = False,
+    timeout: Timeout = None,
+    enable_tools: EnableTools = False,
+    enable_tavily: EnableTavily = False,
+    sandbox_dir: SandboxDir = None,
+    tool_mode: ToolMode = "auto_safe",
 ) -> None:
     """Start interactive chat session.
-
+    
     Chat commands:
         /exit, /quit   - End session
         /clear         - Clear history
@@ -324,14 +323,13 @@ def chat(
         /retry         - Retry last prompt
         /save <file>   - Save conversation
         /help          - Show commands
-
+        
     Tools (Function Calling):
         --enable-tools    Enable all tools (file, system, tavily)
         --tavily          Enable Tavily web search specifically
         --sandbox-dir     Directory for file operations (default: ./.miru_sandbox)
         --tool-mode       Execution mode: manual/auto/auto_safe (default: auto_safe)
-
-    \b
+        
     Examples:
         miru chat gemma3:latest
         miru chat --system "You are a helpful assistant"
@@ -339,38 +337,32 @@ def chat(
         miru chat gemma3 --tavily
         miru chat qwen --enable-tools --sandbox-dir ./workspace
     """
-    config = load_config()
+    from miru.core.config import get_config
 
-    if model is None:
-        model = config.default_model
-        if model is None:
-            console.print("[red bold]✗[/] Model não especificado")
-            console.print("[dim]Use: miru chat <model>[/]")
-            console.print(
-                "[dim]Ou configure default_model: miru config set default_model gemma3:latest[/]"
-            )
-            sys.exit(1)
-
-    model = resolve_alias(model)
+    config = get_config()
+    
+    # Set language from config
+    if config.language:
+        set_language(config.language)
+    
+    # Get model (with fallback to config)
+    model = get_model_with_fallback(model)
 
     # Resolve tool settings from config if not specified via CLI
-    from miru.config_manager import (
-        resolve_enable_tools,
-        resolve_enable_tavily,
-        resolve_tool_mode,
-        resolve_sandbox_dir,
+    from miru.core.config import (
+        resolve_enable_tools as _resolve_tools,
+        resolve_enable_tavily as _resolve_tavily,
+        resolve_tool_mode as _resolve_mode,
+        resolve_sandbox_dir as _resolve_sandbox,
     )
 
-    # Use config values if CLI params are at defaults
-    final_enable_tools = enable_tools if enable_tools else resolve_enable_tools()
-    final_enable_tavily = enable_tavily if enable_tavily else resolve_enable_tavily()
-    final_tool_mode = tool_mode if tool_mode != "auto_safe" else resolve_tool_mode()
-    final_sandbox_dir = sandbox_dir if sandbox_dir else resolve_sandbox_dir()
+    final_enable_tools = enable_tools if enable_tools else _resolve_tools()
+    final_enable_tavily = enable_tavily if enable_tavily else _resolve_tavily()
+    final_tool_mode = tool_mode if tool_mode != "auto_safe" else _resolve_mode()
+    final_sandbox_dir = sandbox_dir if sandbox_dir else _resolve_sandbox()
 
     if system is not None and system_file is not None:
-        from miru.renderer import render_error
-
-        render_error("Use --system OU --system-file, não ambos.")
+        render_error("Use --system OR --system-file, not both.")
         sys.exit(1)
 
     final_system_prompt: str | None = None
@@ -378,20 +370,16 @@ def chat(
         try:
             system_path = Path(system_file)
             if not system_path.exists():
-                from miru.renderer import render_error
-
-                render_error(f"Arquivo não encontrado: {system_file}")
+                render_error(f"File not found: {system_file}")
                 sys.exit(1)
             final_system_prompt = system_path.read_text(encoding="utf-8").strip()
         except Exception as e:
-            from miru.renderer import render_error
-
-            render_error(f"Erro ao ler arquivo de system prompt: {e}")
+            render_error(f"Error reading system prompt file: {e}")
             sys.exit(1)
     elif system is not None:
         final_system_prompt = system.strip()
 
-    resolved_host = get_host(host)
+    resolved_host = resolve_host(host)
 
     try:
         asyncio.run(
