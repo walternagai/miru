@@ -1,4 +1,7 @@
-"""Run command for single prompt inference."""
+"""Run command for single prompt inference.
+
+Refactored with i18n support and core/ui modules.
+"""
 
 import asyncio
 import sys
@@ -8,18 +11,39 @@ from typing import Annotated
 import typer
 
 from miru.alias import resolve_alias
-from miru.config import get_host
+from miru.cli_options import (
+    AudioFile,
+    Context,
+    EnableTavily,
+    EnableTools,
+    Host,
+    ImageFiles,
+    InputFiles,
+    MaxTokens,
+    Model,
+    Prompt,
+    Quiet,
+    RepeatPenalty,
+    SandboxDir,
+    Seed,
+    SystemPrompt,
+    SystemPromptFile,
+    Temperature,
+    Timeout,
+    ToolMode,
+    TopK,
+    TopP,
+)
+from miru.core.config import resolve_host
+from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.core.i18n import t
 from miru.history import record_history
 from miru.inference_params import build_options
 from miru.input import encode_images, extract_text, format_for_prompt, transcribe
 from miru.model.capabilities import get_capabilities
-from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
-from miru.output import (
-    collect_stream,
-    render_json_output,
-    render_metrics,
-    render_stream_as_markdown,
-)
+from miru.ollama.client import OllamaClient
+from miru.output import collect_stream, render_json_output, render_metrics, render_stream_as_markdown
+from miru.ui.render import render_error
 
 
 async def _run_async(
@@ -60,8 +84,8 @@ async def _run_async(
         tool_mode=tool_mode,
     )
 
-    async with OllamaClient(host, timeout=timeout) as client:
-        try:
+    try:
+        async with OllamaClient(host, timeout=timeout) as client:
             encoded_images: list[str] | None = None
             if images:
                 caps = await get_capabilities(client, model)
@@ -76,47 +100,43 @@ async def _run_async(
                         except Exception:
                             pass
 
-                    from miru.renderer import render_error
-
-                    render_error(
-                        f"{model} não suporta imagens.",
-                        "Modelos com visão disponíveis localmente:\n"
-                        + "\n".join(f"    • {m}" for m in vision_models)
-                        + f'\n  Use: miru run {vision_models[0] if vision_models else "llava:latest"} "<prompt>" --image <arquivo>'
-                        if vision_models
-                        else "Nenhum modelo com visão disponível. Use: miru pull llava:latest",
-                    )
+                    models_list = "\n".join(f"    • {m}" for m in vision_models[:5])
+                    if len(vision_models) > 5:
+                        models_list += f"\n    ... and {len(vision_models) - 5} more"
+                    
+                    suggestion = t(
+                        "suggestion.available_vision_models",
+                        models=models_list
+                    ) if vision_models else t("suggestion.pull_vision_model")
+                    
+                    if vision_models:
+                        suggestion += f"\n\n{t('suggestion.use_vision_model', model=vision_models[0])}"
+                    
+                    render_error(t("error.model_no_vision", model=model), suggestion)
                     sys.exit(1)
 
                 encoded_images = encode_images(images)
 
             final_prompt = prompt
-
             context_parts = []
 
             if audio:
                 try:
                     transcription = transcribe(audio)
-                    context_parts.append(f"[Transcrição de áudio]\n{transcription}\n")
+                    context_parts.append(f"[{t('audio.transcription')}]\n{transcription}\n")
                 except Exception as e:
-                    from miru.renderer import render_error
-
-                    render_error(str(e))
+                    render_error(t("error.audio_processing", file=audio, error=str(e)))
                     sys.exit(1)
 
             for file_path in files:
                 try:
                     filename, content = extract_text(file_path)
                     context_parts.append(format_for_prompt(filename, content))
-                except FileNotFoundError as e:
-                    from miru.renderer import render_error
-
-                    render_error(str(e))
+                except FileNotFoundError:
+                    render_error(t("error.file_not_found", path=file_path))
                     sys.exit(1)
                 except Exception as e:
-                    from miru.renderer import render_error
-
-                    render_error(str(e))
+                    render_error(t("error.file_processing", path=file_path, error=str(e)))
                     sys.exit(1)
 
             if context_parts:
@@ -139,8 +159,6 @@ async def _run_async(
 
             if tool_manager:
                 tools = tool_manager.get_tool_definitions()
-                from miru.tool_integration import execute_tool_loop
-
                 response_text = await execute_tool_loop(
                     client=client,
                     model=model,
@@ -174,7 +192,6 @@ async def _run_async(
                             model,
                             final_prompt,
                             images=encoded_images,
-                            options=options,
                             stream=False,
                         )
                     )
@@ -203,16 +220,27 @@ async def _run_async(
                 success=True,
             )
 
-        except OllamaModelNotFound:
-            from miru.renderer import render_error
-
-            render_error(f'Modelo "{model}" não encontrado.', f"Para baixar: miru pull {model}")
+    except Exception as e:
+        if "OllamaModelNotFound" in str(type(e).__name__):
+            all_models = []
+            try:
+                async with OllamaClient(host) as client:
+                    models = await client.list_models()
+                    all_models = [m.get("name", "") for m in models[:5]]
+            except Exception:
+                pass
+            
+            error = ModelNotFoundError(model, all_models)
+            render_error(error.message, error.suggestion)
             sys.exit(1)
-        except OllamaConnectionError as e:
-            from miru.renderer import render_error
-
-            render_error(str(e))
+        
+        if "OllamaConnectionError" in str(type(e).__name__):
+            error = MiruConnectionError(host)
+            render_error(error.message, error.suggestion)
             sys.exit(1)
+        
+        render_error(str(e))
+        sys.exit(1)
 
 
 async def _collect_chat_stream(stream):
@@ -233,53 +261,30 @@ async def _collect_chat_stream(stream):
 
 
 def run(
-    model: str,
-    prompt: str,
-    system: Annotated[
-        str | None, typer.Option("--system", "-s", help="System prompt to set model behavior")
-    ] = None,
-    system_file: Annotated[
-        str | None, typer.Option("--system-file", help="Read system prompt from file")
-    ] = None,
-    image: Annotated[
-        list[str], typer.Option("--image", "-i", help="Image file path (repeatable)")
-    ] = [],
-    file: Annotated[
-        list[str], typer.Option("--file", "-f", help="File path to include (repeatable)")
-    ] = [],
-    audio: Annotated[
-        str | None, typer.Option("--audio", "-a", help="Audio file to transcribe")
-    ] = None,
-    temperature: Annotated[float | None, typer.Option(help="Sampling temperature")] = None,
-    top_p: Annotated[float | None, typer.Option(help="Nucleus sampling probability")] = None,
-    top_k: Annotated[int | None, typer.Option(help="Top-k sampling")] = None,
-    max_tokens: Annotated[int | None, typer.Option(help="Max tokens to generate")] = None,
-    seed: Annotated[int | None, typer.Option(help="Random seed")] = None,
-    repeat_penalty: Annotated[float | None, typer.Option(help="Repetition penalty")] = None,
-    ctx: Annotated[int | None, typer.Option(help="Context window size")] = None,
+    model: Model,
+    prompt: Prompt,
+    system: SystemPrompt = None,
+    system_file: SystemPromptFile = None,
+    image: ImageFiles = [],
+    file: InputFiles = [],
+    audio: AudioFile = None,
+    temperature: Temperature = None,
+    top_p: TopP = None,
+    top_k: TopK = None,
+    max_tokens: MaxTokens = None,
+    seed: Seed = None,
+    repeat_penalty: RepeatPenalty = None,
+    ctx: Context = None,
     no_stream: Annotated[bool, typer.Option("--no-stream", help="Disable streaming")] = False,
-    host: Annotated[str | None, typer.Option(help="Ollama host URL")] = None,
-    format: Annotated[str, typer.Option(help="Output format (text/json)")] = "text",
-    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Minimal output")] = False,
-    auto_pull: Annotated[
-        bool, typer.Option("--auto-pull", help="Auto-download model if missing")
-    ] = False,
-    timeout: Annotated[
-        float | None,
-        typer.Option("--timeout", "-t", help="Request timeout in seconds (default: 30)"),
-    ] = None,
-    enable_tools: Annotated[
-        bool, typer.Option("--enable-tools", help="Enable all tools (file, system, tavily)")
-    ] = False,
-    enable_tavily: Annotated[
-        bool, typer.Option("--tavily", help="Enable Tavily web search tool")
-    ] = False,
-    sandbox_dir: Annotated[
-        str | None, typer.Option("--sandbox-dir", help="Sandbox directory for file tools")
-    ] = None,
-    tool_mode: Annotated[
-        str, typer.Option("--tool-mode", help="Tool execution mode (manual/auto/auto_safe)")
-    ] = "auto_safe",
+    host: Host = None,
+    format: Annotated[str, typer.Option("--format", "-f", help="Output format (text/json)")] = "text",
+    quiet: Quiet = False,
+    auto_pull: Annotated[bool, typer.Option("--auto-pull", help="Auto-download model if missing")] = False,
+    timeout: Timeout = None,
+    enable_tools: EnableTools = False,
+    enable_tavily: EnableTavily = False,
+    sandbox_dir: SandboxDir = None,
+    tool_mode: ToolMode = "auto_safe",
 ) -> None:
     """Generate text with a single prompt.
 
@@ -298,52 +303,43 @@ def run(
         miru run qwen --enable-tools "Search for Python 3.13 and save to file"
     """
     if format not in ("text", "json"):
-        from miru.renderer import render_error
-
-        render_error(f"Invalid format: {format}. Use 'text' or 'json'.")
+        render_error(t("error.invalid_format", format=format, valid_formats="text, json"))
         sys.exit(1)
 
     model = resolve_alias(model)
 
     # Resolve tool settings from config if not specified via CLI
-    from miru.config_manager import (
-        resolve_enable_tools,
-        resolve_enable_tavily,
-        resolve_tool_mode,
-        resolve_sandbox_dir,
+    from miru.core.config import (
+        resolve_enable_tools as _resolve_tools,
+        resolve_enable_tavily as _resolve_tavily,
+        resolve_tool_mode as _resolve_mode,
+        resolve_sandbox_dir as _resolve_sandbox,
     )
 
-    # Use config values if CLI params are at defaults
-    final_enable_tools = enable_tools if enable_tools else resolve_enable_tools()
-    final_enable_tavily = enable_tavily if enable_tavily else resolve_enable_tavily()
-    final_tool_mode = tool_mode if tool_mode != "auto_safe" else resolve_tool_mode()
-    final_sandbox_dir = sandbox_dir if sandbox_dir else resolve_sandbox_dir()
+    final_enable_tools = enable_tools if enable_tools else _resolve_tools()
+    final_enable_tavily = enable_tavily if enable_tavily else _resolve_tavily()
+    final_tool_mode = tool_mode if tool_mode != "auto_safe" else _resolve_mode()
+    final_sandbox_dir = sandbox_dir if sandbox_dir else _resolve_sandbox()
 
     final_system_prompt: str | None = None
     if system is not None and system_file is not None:
-        from miru.renderer import render_error
-
-        render_error("Use --system OU --system-file, não ambos.")
+        render_error("Use --system OR --system-file, not both.")
         sys.exit(1)
 
     if system_file is not None:
         try:
             system_path = Path(system_file)
             if not system_path.exists():
-                from miru.renderer import render_error
-
-                render_error(f"Arquivo não encontrado: {system_file}")
+                render_error(t("error.file_not_found", path=system_file))
                 sys.exit(1)
             final_system_prompt = system_path.read_text(encoding="utf-8").strip()
         except Exception as e:
-            from miru.renderer import render_error
-
-            render_error(f"Erro ao ler arquivo de system prompt: {e}")
+            render_error(t("error.system_prompt_file", error=str(e)))
             sys.exit(1)
     elif system is not None:
         final_system_prompt = system.strip()
 
-    resolved_host = get_host(host)
+    resolved_host = resolve_host(host)
 
     try:
         asyncio.run(

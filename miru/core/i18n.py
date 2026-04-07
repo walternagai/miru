@@ -22,6 +22,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.timeout": "Request timed out after {seconds} seconds.",
         "error.file_not_found": "File not found: '{path}'.",
         "error.invalid_format": "Invalid format: '{format}'. Use: {valid_formats}.",
+        "error.audio_processing": "Error processing audio file '{file}': {error}",
+        "error.file_processing": "Error processing file '{path}': {error}",
+        "error.system_prompt_file": "Error reading system prompt file: {error}",
+        "error.model_no_vision": "Model '{model}' does not support images.",
+        
+        "audio.transcription": "Audio transcription",
         
         # Suggestions
         "suggestion.pull_model": "To download: miru pull {model}",
@@ -133,6 +139,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.timeout": "Tempo limite excedido após {seconds} segundos.",
         "error.file_not_found": "Arquivo não encontrado: '{path}'.",
         "error.invalid_format": "Formato inválido: '{format}'. Use: {valid_formats}.",
+        "error.audio_processing": "Erro ao processar arquivo de áudio '{file}': {error}",
+        "error.file_processing": "Erro ao processar arquivo '{path}': {error}",
+        "error.system_prompt_file": "Erro ao ler arquivo de system prompt: {error}",
+        "error.model_no_vision": "Modelo '{model}' não suporta imagens.",
+        
+        "audio.transcription": "Transcrição de áudio",
         
         # Suggestions
         "suggestion.pull_model": "Para baixar: miru pull {model}",
@@ -244,6 +256,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.timeout": "Tiempo de espera agotado después de {seconds} segundos.",
         "error.file_not_found": "Archivo no encontrado: '{path}'.",
         "error.invalid_format": "Formato inválido: '{format}'. Use: {valid_formats}.",
+        "error.audio_processing": "Error al procesar archivo de audio '{file}': {error}",
+        "error.file_processing": "Error al procesar archivo '{path}': {error}",
+        "error.system_prompt_file": "Error al leer archivo de system prompt: {error}",
+        "error.model_no_vision": "Modelo '{model}' no soporta imágenes.",
+        
+        "audio.transcription": "Transcripción de audio",
         
         # Suggestions
         "suggestion.pull_model": "Para descargar: miru pull {model}",
