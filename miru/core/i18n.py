@@ -54,8 +54,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.commands.retry": "Retry last prompt",
         "chat.commands.save": "Save conversation",
         "chat.commands.export": "Export (json/md/txt)",
+        "chat.commands.recall": "Recall previous prompt",
         
         "chat.session_ended": "Session ended · {turns} turn(s) · {model}",
+        "chat.recall_title": "Previous Prompts",
+        "chat.recall_empty": "No previous prompts found",
+        "chat.recall_prompt": "Select prompt to recall (0-{count}) or press Enter to cancel",
+        "chat.recall_loaded": "Prompt loaded from {date}",
         "chat.total_tokens": "Total: {tokens} tokens · Average speed: {speed:.1f} tok/s",
         "chat.history_cleared": "History cleared.",
         "chat.no_previous_prompt": "No previous prompt to retry.",
@@ -414,8 +419,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.commands.retry": "Re-executar último prompt",
         "chat.commands.save": "Salvar conversa",
         "chat.commands.export": "Exportar (json/md/txt)",
+        "chat.commands.recall": "Resgatar prompt anterior",
         
         "chat.session_ended": "Sessão encerrada · {turns} turno(s) · {model}",
+        "chat.recall_title": "Prompts Anteriores",
+        "chat.recall_empty": "Nenhum prompt anterior encontrado",
+        "chat.recall_prompt": "Selecione o prompt (0-{count}) ou Enter para cancelar",
+        "chat.recall_loaded": "Prompt carregado de {date}",
         "chat.total_tokens": "Total: {tokens} tokens · Velocidade média: {speed:.1f} tok/s",
         "chat.history_cleared": "Histórico limpo.",
         "chat.no_previous_prompt": "Nenhum prompt anterior para repetir.",
@@ -774,8 +784,13 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.commands.retry": "Repetir último prompt",
         "chat.commands.save": "Guardar conversación",
         "chat.commands.export": "Exportar (json/md/txt)",
+        "chat.commands.recall": "Recuperar prompt anterior",
         
         "chat.session_ended": "Sesión terminada · {turns} turno(s) · {model}",
+        "chat.recall_title": "Prompts Anteriores",
+        "chat.recall_empty": "Ningún prompt anterior encontrado",
+        "chat.recall_prompt": "Seleccione el prompt (0-{count}) o Enter para cancelar",
+        "chat.recall_loaded": "Prompt cargado de {date}",
         "chat.total_tokens": "Total: {tokens} tokens · Velocidad promedio: {speed:.1f} tok/s",
         "chat.history_cleared": "Historial limpiado.",
         "chat.no_previous_prompt": "No hay prompt anterior para repetir.",
@@ -1148,11 +1163,11 @@ def get_language() -> str:
     return _current_language
 
 
-def t(key: str, **kwargs: Any) -> str:
+def t(msg_key: str, **kwargs: Any) -> str:
     """Translate a message key to the current language.
     
     Args:
-        key: Message key (e.g., "error.model_not_found")
+        msg_key: Message key (e.g., "error.model_not_found")
         **kwargs: Format variables for the message
         
     Returns:
@@ -1164,7 +1179,7 @@ def t(key: str, **kwargs: Any) -> str:
         "Modelo 'gemma3:latest' não encontrado."
     """
     messages = MESSAGES.get(_current_language, MESSAGES[DEFAULT_LANGUAGE])
-    message = messages.get(key, MESSAGES[DEFAULT_LANGUAGE].get(key, key))
+    message = messages.get(msg_key, MESSAGES[DEFAULT_LANGUAGE].get(msg_key, msg_key))
     
     try:
         return message.format(**kwargs)
