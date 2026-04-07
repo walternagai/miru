@@ -1,4 +1,7 @@
-"""miru batch command - process multiple prompts."""
+"""miru batch command - process multiple prompts.
+
+Refactored with i18n support.
+"""
 
 import asyncio
 import json
@@ -11,9 +14,27 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from miru.config import get_host
+from miru.cli_options import (
+    Context,
+    Format,
+    Host,
+    MaxTokens,
+    Quiet,
+    RepeatPenalty,
+    Seed,
+    SystemPrompt,
+    SystemPromptFile,
+    Temperature,
+    Timeout,
+    TopK,
+    TopP,
+)
+from miru.core.config import resolve_host
+from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.core.i18n import t
 from miru.inference_params import build_options
-from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
+from miru.ollama.client import OllamaClient
+from miru.ui.render import render_error
 
 console = Console()
 
@@ -45,23 +66,23 @@ def _read_prompts_file(prompt_file: str) -> list[str]:
     path = Path(prompt_file)
 
     if not path.exists():
-        console.print(f"[red bold]✗[/] Arquivo não encontrado: {prompt_file}")
+        render_error(t("error.file_not_found", path=prompt_file))
         sys.exit(1)
 
     if not path.is_file():
-        console.print(f"[red bold]✗[/] Não é um arquivo: {prompt_file}")
+        render_error(t("error.file_not_found", path=prompt_file))
         sys.exit(1)
 
     try:
         content = path.read_text(encoding="utf-8")
     except Exception as e:
-        console.print(f"[red bold]✗[/] Erro ao ler arquivo: {e}")
+        render_error(t("error.file_processing", path=prompt_file, error=str(e)))
         sys.exit(1)
 
     lines = [line.strip() for line in content.split("\n") if line.strip()]
 
     if not lines:
-        console.print("[red bold]✗[/] Arquivo vazio ou sem prompts válidos")
+        render_error("File is empty or contains no valid prompts")
         sys.exit(1)
 
     # Parse JSONL if lines start with {
@@ -149,12 +170,12 @@ async def _process_single_prompt(
             error="No final chunk received",
         )
 
-    except OllamaModelNotFound:
+    except Exception:
         return BatchResult(
             prompt=prompt,
             response="",
             success=False,
-            error=f'Modelo "{model}" não encontrado',
+            error=t("error.model_not_found", model=model),
         )
     except Exception as e:
         return BatchResult(
@@ -170,12 +191,58 @@ def _render_results_table(results: list[BatchResult], quiet: bool = False) -> No
     if quiet:
         return
 
-    table = Table(title="Resultados do Batch", show_header=True, header_style="bold cyan")
-    table.add_column("#", style="dim", width=4)
-    table.add_column("Prompt", width=40)
-    table.add_column("Status", width=8)
-    table.add_column("Tokens", justify="right")
-    table.add_column("Tempo", justify="right")
+    from miru.core.i18n import get_language
+    lang = get_language()
+    
+    if lang == "pt_BR":
+        title = "Resultados do Batch"
+        col_num = "#"
+        col_prompt = "Prompt"
+        col_status = "Status"
+        col_tokens = "Tokens"
+        col_time = "Tempo"
+        summary = "Resumo:"
+        total_label = "Total:"
+        success_label = "Sucesso:"
+        error_label = "Erro:"
+        tokens_label = "Tokens gerados:"
+        time_label = "Tempo total:"
+        speed_label = "Velocidade média:"
+    elif lang == "es_ES":
+        title = "Resultados del Batch"
+        col_num = "#"
+        col_prompt = "Prompt"
+        col_status = "Estado"
+        col_tokens = "Tokens"
+        col_time = "Tiempo"
+        summary = "Resumen:"
+        total_label = "Total:"
+        success_label = "Éxito:"
+        error_label = "Error:"
+        tokens_label = "Tokens generados:"
+        time_label = "Tiempo total:"
+        speed_label = "Velocidad media:"
+    else:
+        title = "Batch Results"
+        col_num = "#"
+        col_prompt = "Prompt"
+        col_status = "Status"
+        col_tokens = "Tokens"
+        col_time = "Time"
+        summary = "Summary:"
+        total_label = "Total:"
+        success_label = "Success:"
+        error_label = "Error:"
+        tokens_label = "Tokens generated:"
+        time_label = "Total time:"
+        speed_label = "Average speed:"
+
+    table = Table(title=title, show_header=True, header_style="bold cyan")
+    table.add_column(col_num, style="dim", width=4)
+    table.add_column(col_prompt, width=40)
+    table.add_column(col_status, width=8)
+    table.add_column(col_tokens, justify="right")
+    table.add_column(col_time, justify="right")
 
     for idx, result in enumerate(results, start=1):
         prompt_display = result.prompt[:37] + "..." if len(result.prompt) > 40 else result.prompt
@@ -206,12 +273,12 @@ def _render_results_table(results: list[BatchResult], quiet: bool = False) -> No
     avg_tokens_per_sec = total_tokens / total_time if total_time > 0 else 0.0
 
     console.print()
-    console.print("[bold]Resumo:[/]")
-    console.print(f"  Total: {len(results)} prompts")
-    console.print(f"  Sucesso: {success_count} | Erro: {len(results) - success_count}")
-    console.print(f"  Tokens gerados: {total_tokens}")
-    console.print(f"  Tempo total: {total_time:.1f}s")
-    console.print(f"  Velocidade média: {avg_tokens_per_sec:.1f} tok/s")
+    console.print(f"[bold]{summary}[/]")
+    console.print(f"  {total_label} {len(results)} prompts")
+    console.print(f"  {success_label} {success_count} | {error_label} {len(results) - success_count}")
+    console.print(f"  {tokens_label} {total_tokens}")
+    console.print(f"  {time_label} {total_time:.1f}s")
+    console.print(f"  {speed_label} {avg_tokens_per_sec:.1f} tok/s")
 
 
 def _render_results_json(results: list[BatchResult], model: str) -> None:
@@ -294,7 +361,15 @@ async def _batch_async(
 
     async with OllamaClient(host, timeout=timeout) as client:
         if not quiet and output_format == "text":
-            console.print(f"[bold]Processando {len(prompts)} prompts com {model}[/]")
+            from miru.core.i18n import get_language
+            lang = get_language()
+            if lang == "pt_BR":
+                msg = f"[bold]Processando {len(prompts)} prompts com {model}[/]"
+            elif lang == "es_ES":
+                msg = f"[bold]Procesando {len(prompts)} prompts con {model}[/]"
+            else:
+                msg = f"[bold]Processing {len(prompts)} prompts with {model}[/]"
+            console.print(msg)
             console.print()
 
         for idx, prompt in enumerate(prompts, start=1):
@@ -325,11 +400,20 @@ async def _batch_async(
                     console.print()
             else:
                 if not quiet and output_format == "text":
-                    console.print(f"[red]✗ Erro:[/] {result.error}")
+                    from miru.core.i18n import t
+                    console.print(f"[red]✗ {t('error.prefix')}:[/] {result.error}")
                     console.print()
 
                 if stop_on_error:
-                    console.print("[red bold]Parando devido a erro (stop-on-error)[/]")
+                    from miru.core.i18n import get_language
+                    lang = get_language()
+                    if lang == "pt_BR":
+                        msg = "[red bold]Parando devido a erro (stop-on-error)[/]"
+                    elif lang == "es_ES":
+                        msg = "[red bold]Deteniendo debido a error (stop-on-error)[/]"
+                    else:
+                        msg = "[red bold]Stopping due to error (stop-on-error)[/]"
+                    console.print(msg)
                     break
 
     if output_format == "json":
@@ -384,24 +468,24 @@ def batch(
         miru batch gemma3 --prompts prompts.txt --system "You are helpful" --format jsonl
     """
     if format not in ("text", "json", "jsonl"):
-        console.print(f"[red bold]✗[/] Formato inválido: {format}. Use 'text', 'json', ou 'jsonl'.")
+        render_error(t("error.invalid_format", format=format, valid_formats="text, json, jsonl"))
         sys.exit(1)
 
     # Handle system prompt
     final_system_prompt: str | None = None
     if system is not None and system_file is not None:
-        console.print("[red bold]✗[/] Use --system OU --system-file, não ambos.")
+        render_error("Use --system OR --system-file, not both.")
         sys.exit(1)
 
     if system_file is not None:
         try:
             system_path = Path(system_file)
             if not system_path.exists():
-                console.print(f"[red bold]✗[/] Arquivo não encontrado: {system_file}")
+                render_error(t("error.file_not_found", path=system_file))
                 sys.exit(1)
             final_system_prompt = system_path.read_text(encoding="utf-8").strip()
         except Exception as e:
-            console.print(f"[red bold]✗[/] Erro ao ler arquivo de system prompt: {e}")
+            render_error(t("error.system_prompt_file", error=str(e)))
             sys.exit(1)
     elif system is not None:
         final_system_prompt = system.strip()
@@ -409,7 +493,7 @@ def batch(
     # Read prompts
     prompts = _read_prompts_file(prompts_file)
 
-    resolved_host = get_host(host)
+    resolved_host = resolve_host(host)
 
     try:
         asyncio.run(
