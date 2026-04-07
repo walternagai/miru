@@ -13,6 +13,7 @@ from textual.widgets import (
     ListView,
     LoadingIndicator,
     Static,
+    TextArea,
 )
 
 from miru.core.config import get_config, resolve_host, resolve_model
@@ -70,6 +71,7 @@ class TUIApp(App[None]):
         background: #24283b;
         border-left: solid #414868;
         padding: 1;
+        overflow-y: scroll;
     }
 
     #context_panel.hidden {
@@ -107,12 +109,35 @@ class TUIApp(App[None]):
         height: 100%;
         overflow-y: scroll;
     }
+
+    .param_label {
+        color: #7aa2f7;
+        text-style: bold;
+        margin-top: 1;
+    }
+
+    .param_input {
+        margin-bottom: 1;
+    }
+
+    .param_section {
+        margin-bottom: 1;
+        padding: 1;
+        border-bottom: solid #414868;
+    }
+
+    #system_prompt_area {
+        height: auto;
+        min-height: 3;
+        max-height: 8;
+    }
     """
 
     BINDINGS = [
         Binding("ctrl+n", "new_chat", "New Chat"),
         Binding("ctrl+s", "save_session", "Save Session"),
-        Binding("ctrl+l", "clear_chat", "Clear Chat"),
+        Binding("ctrl+l", "clear_input", "Clear Input"),
+        Binding("ctrl+shift+l", "clear_chat", "Clear Chat"),
         Binding("ctrl+q", "quit", "Quit"),
         Binding("ctrl+p", "toggle_context", "Toggle Panel"),
         Binding("ctrl+r", "reload_sessions", "Reload Sessions"),
@@ -134,6 +159,7 @@ class TUIApp(App[None]):
         self.client: OllamaClient | None = None
         self.current_session_name: str | None = None
         self.messages: list[dict[str, str]] = []
+        self.system_prompt: str = ""
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -154,33 +180,41 @@ class TUIApp(App[None]):
         yield Footer()
 
     async def on_mount(self) -> None:
-        # Priority: CLI Override -> Resolved value
         self.host = self.host_override or resolve_host()
         self.model = self.model_override or resolve_model() or "llama3"
         self.config = get_config()
 
-        # Update params panel with editable inputs
         params_container = self.query_one("#params_container", Vertical)
 
-        # Model Selection
-        params_container.mount(Label("Modelo:"))
-        model_input = Input(value=self.model, id="input_model")
+        params_container.mount(Label("Modelo", classes="param_label"))
+        model_input = Input(value=self.model, id="input_model", classes="param_input")
         params_container.mount(model_input)
 
-        # Temperature Input
+        params_container.mount(Label("Temperature", classes="param_label"))
         temp_val = self.temp_override or self.config.default_temperature or 0.7
-        params_container.mount(Label("Temperature:"))
-        params_container.mount(Input(value=str(temp_val), id="input_temp"))
+        params_container.mount(Input(value=str(temp_val), id="input_temp", classes="param_input"))
 
-        # Top-P Input
+        params_container.mount(Label("Top-P", classes="param_label"))
         top_p_val = self.top_p_override or self.config.default_top_p or 0.9
-        params_container.mount(Label("Top-P:"))
-        params_container.mount(Input(value=str(top_p_val), id="input_top_p"))
+        params_container.mount(Input(value=str(top_p_val), id="input_top_p", classes="param_input"))
 
-        # Host Info
+        params_container.mount(Label("Max Tokens", classes="param_label"))
+        max_tokens_val = self.config.default_max_tokens or 2048
+        params_container.mount(
+            Input(value=str(max_tokens_val), id="input_max_tokens", classes="param_input")
+        )
+
+        params_container.mount(Label("Seed", classes="param_label"))
+        seed_val = self.config.default_seed or ""
+        params_container.mount(Input(value=str(seed_val), id="input_seed", classes="param_input"))
+
+        params_container.mount(Label("System Prompt", classes="param_label"))
+        system_prompt_area = TextArea(id="system_prompt_area", classes="param_input")
+        system_prompt_area.placeholder = "System prompt opcional..."
+        params_container.mount(system_prompt_area)
+
         params_container.mount(Label(f"\nHost: {self.host}"))
 
-        # Load real sessions
         self.refresh_sessions()
 
     def refresh_sessions(self) -> None:
@@ -223,6 +257,10 @@ class TUIApp(App[None]):
             model_input = self.query_one("#input_model", Input).value
             temp_input = self.query_one("#input_temp", Input).value
             top_p_input = self.query_one("#input_top_p", Input).value
+            max_tokens_input = self.query_one("#input_max_tokens", Input).value
+            seed_input = self.query_one("#input_seed", Input).value
+            system_prompt_widget = self.query_one("#system_prompt_area", TextArea)
+            system_prompt = system_prompt_widget.text.strip()
 
             current_model = model_input if model_input else self.model
 
@@ -237,20 +275,32 @@ class TUIApp(App[None]):
                     if top_p_input
                     else self.top_p_override or self.config.default_top_p or 0.9
                 )
+                current_max_tokens = int(max_tokens_input) if max_tokens_input else None
+                current_seed = int(seed_input) if seed_input else None
             except ValueError:
                 current_temp = self.temp_override or self.config.default_temperature or 0.7
                 current_top_p = self.top_p_override or self.config.default_top_p or 0.9
+                current_max_tokens = None
+                current_seed = None
 
             async with OllamaClient(host=self.host) as client:
                 full_response = ""
 
                 chat_history = list(self.messages)
+
+                if system_prompt and not any(msg.get("role") == "system" for msg in chat_history):
+                    chat_history.insert(0, {"role": "system", "content": system_prompt})
+
                 chat_history.append({"role": "user", "content": prompt})
 
-                options = {
+                options: dict[str, Any] = {
                     "temperature": current_temp,
                     "top_p": current_top_p,
                 }
+                if current_max_tokens:
+                    options["num_predict"] = current_max_tokens
+                if current_seed is not None:
+                    options["seed"] = current_seed
 
                 async for chunk in client.chat(
                     model=current_model, messages=chat_history, options=options
@@ -280,13 +330,19 @@ class TUIApp(App[None]):
         self.refresh_sessions()
         self.notify("Sessões recarregadas")
 
+    def action_clear_input(self) -> None:
+        user_input = self.query_one("#user_input", Input)
+        user_input.value = ""
+        user_input.focus()
+        self.notify("Input limpo")
+
     def action_clear_chat(self) -> None:
         self.current_session_name = None
         self.messages = []
         chat_window = self.query_one("#chat_window", Vertical)
         for child in list(chat_window.children):
             child.remove()
-        self.notify("Conversa limpa")
+        self.notify("Conversa e histórico limpos")
 
     def action_save_session(self) -> None:
         if not self.messages:
