@@ -99,6 +99,16 @@ class TestTranslation:
         assert "5" in msg
         assert "gemma3" in msg
 
+    def test_translate_with_same_param_name(self):
+        """Test that t() works when local variable has same name as kwarg."""
+        set_language("en_US")
+        # This was a bug - the function parameter 'key' conflicted with 'key=key'
+        key = "test_key"
+        value = "test_value"
+        msg = t("config.key_set", key=key, value=value)
+        assert "test_key" in msg
+        assert "test_value" in msg
+
     def test_translate_fallback_to_default(self):
         """Test that unknown language falls back to default."""
         set_language("fr_FR")  # Not supported
