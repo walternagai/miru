@@ -1,14 +1,48 @@
-from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical, Container
-from textual.widgets import Header, Footer, Input, ListView, ListItem, Label, Static
-from textual.binding import Binding
+from typing import Any
 
+from rich.markdown import Markdown
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Container, Horizontal, Vertical
+from textual.widgets import (
+    Footer,
+    Header,
+    Input,
+    Label,
+    ListItem,
+    ListView,
+    LoadingIndicator,
+    Static,
+)
+
+from miru.core.config import get_config, resolve_host, resolve_model
+from miru.latex_unicode import latex_to_unicode
 from miru.ollama.client import OllamaClient
-from miru.core.config import resolve_host, resolve_model, get_config
 from miru.session import list_sessions, load_session, save_session
 
 
-class TUIApp(App):
+class MarkdownWidget(Static):
+    DEFAULT_CSS = """
+    MarkdownWidget {
+        height: auto;
+        min-height: 1;
+    }
+    """
+
+    def __init__(self, text: str = "", **kwargs: Any) -> None:
+        self._raw_text = text
+        super().__init__(**kwargs)
+
+    def update_text(self, text: str) -> None:
+        self._raw_text = latex_to_unicode(text)
+        markdown_obj = Markdown(self._raw_text)
+        self.update(markdown_obj)
+
+    def on_mount(self) -> None:
+        self.update_text(self._raw_text)
+
+
+class TUIApp(App[None]):
     CSS = """
     Screen {
         background: #1a1b26;
@@ -77,8 +111,11 @@ class TUIApp(App):
 
     BINDINGS = [
         Binding("ctrl+n", "new_chat", "New Chat"),
+        Binding("ctrl+s", "save_session", "Save Session"),
+        Binding("ctrl+l", "clear_chat", "Clear Chat"),
         Binding("ctrl+q", "quit", "Quit"),
         Binding("ctrl+p", "toggle_context", "Toggle Panel"),
+        Binding("ctrl+r", "reload_sessions", "Reload Sessions"),
     ]
 
     def __init__(
@@ -87,8 +124,8 @@ class TUIApp(App):
         host: str | None = None,
         temperature: float | None = None,
         top_p: float | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
         self.model_override = model
         self.host_override = host
@@ -176,12 +213,13 @@ class TUIApp(App):
 
     async def run_llm_response(self, prompt: str) -> None:
         chat_window = self.query_one("#chat_window", Vertical)
-        bot_msg = Label("...", classes="message bot_message")
+        bot_msg = MarkdownWidget("...", classes="message bot_message")
         chat_window.mount(bot_msg)
+        loading = LoadingIndicator()
+        chat_window.mount(loading)
         chat_window.scroll_end()
 
         try:
-            # Resolve current values from TUI inputs
             model_input = self.query_one("#input_model", Input).value
             temp_input = self.query_one("#input_temp", Input).value
             top_p_input = self.query_one("#input_top_p", Input).value
@@ -206,7 +244,6 @@ class TUIApp(App):
             async with OllamaClient(host=self.host) as client:
                 full_response = ""
 
-                # Construct message history
                 chat_history = list(self.messages)
                 chat_history.append({"role": "user", "content": prompt})
 
@@ -220,14 +257,12 @@ class TUIApp(App):
                 ):
                     content = chunk.get("message", {}).get("content", "")
                     full_response += content
-                    bot_msg.update(full_response)
+                    bot_msg.update_text(full_response)
                     chat_window.scroll_end()
 
-            # Update local history state
             self.messages.append({"role": "user", "content": prompt})
             self.messages.append({"role": "assistant", "content": full_response})
 
-            # Handle session naming and persistence
             if not self.current_session_name:
                 import uuid
 
@@ -237,7 +272,38 @@ class TUIApp(App):
             self.refresh_sessions()
 
         except Exception as e:
-            bot_msg.update(f"Erro: {str(e)}")
+            bot_msg.update_text(f"**Erro:** {str(e)}")
+        finally:
+            loading.remove()
+
+    def action_reload_sessions(self) -> None:
+        self.refresh_sessions()
+        self.notify("Sessões recarregadas")
+
+    def action_clear_chat(self) -> None:
+        self.current_session_name = None
+        self.messages = []
+        chat_window = self.query_one("#chat_window", Vertical)
+        for child in list(chat_window.children):
+            child.remove()
+        self.notify("Conversa limpa")
+
+    def action_save_session(self) -> None:
+        if not self.messages:
+            self.notify("Nenhuma conversa para salvar")
+            return
+
+        if not self.current_session_name:
+            import uuid
+
+            self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
+
+        model_input = self.query_one("#input_model", Input).value
+        current_model = model_input if model_input else self.model
+
+        save_session(self.current_session_name, current_model, self.messages)
+        self.refresh_sessions()
+        self.notify(f"Sessão '{self.current_session_name}' salva")
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         session_name = event.item.id
@@ -250,7 +316,6 @@ class TUIApp(App):
             self.messages = session.get("messages", [])
             self.model = session.get("model", self.model)
 
-            # Update UI
             chat_window = self.query_one("#chat_window", Vertical)
             for child in list(chat_window.children):
                 child.remove()
@@ -260,7 +325,12 @@ class TUIApp(App):
                     continue
 
                 role_class = "user_message" if msg.get("role") == "user" else "bot_message"
-                chat_window.mount(Label(msg.get("content", ""), classes=f"message {role_class}"))
+                content = msg.get("content", "")
+
+                if msg.get("role") == "user":
+                    chat_window.mount(Label(content, classes=f"message {role_class}"))
+                else:
+                    chat_window.mount(MarkdownWidget(content, classes=f"message {role_class}"))
 
             chat_window.scroll_end()
             self.notify(f"Sessão '{session_name}' carregada")
