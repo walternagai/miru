@@ -1,6 +1,6 @@
 # miru
 
-**CLI Python para servidor Ollama local com suporte multimodal, benchmarking e tools/function calling.**
+**CLI Python para servidor Ollama local com suporte multimodal, benchmarking, function calling e internacionalização (i18n).**
 
 Miru (見る) significa "ver" ou "olhar" em japonês. Representa a capacidade de visualizar e interagir com modelos de IA através de comandos claros e intuitivos, com suporte completo a function calling para que modelos executem ações no seu sistema.
 
@@ -23,6 +23,110 @@ miru --help
 miru version
 ```
 
+## Internacionalização (i18n)
+
+O miru suporta **3 idiomas**: Português (Brasil), English, e Español.
+
+### Definir Idioma
+
+```bash
+# Português (Brasil)
+export MIRU_LANG=pt_BR
+
+# English
+export MIRU_LANG=en_US
+
+# Español  
+export MIRU_LANG=es_ES
+
+# Ou via configuração
+miru config set language pt_BR
+```
+
+### Exemplos por Idioma
+
+**Português (Brasil):**
+```bash
+$ export MIRU_LANG=pt_BR
+$ miru run modelo-inexistente "teste"
+✗ Modelo 'modelo-inexistente' não encontrado.
+Modelos disponíveis localmente:
+  • gemma3:latest
+  • qwen2.5:7b
+  
+Para baixar: miru pull modelo-inexistente
+```
+
+**English:**
+```bash
+$ export MIRU_LANG=en_US
+$ miru run nonexistent-model "test"
+✗ Model 'nonexistent-model' not found.
+Available models locally:
+  • gemma3:latest
+  • qwen2.5:7b
+
+To download: miru pull nonexistent-model
+```
+
+**Español:**
+```bash
+$ export MIRU_LANG=es_ES
+$ miru run modelo-inexistente "prueba"
+✗ Modelo 'modelo-inexistente' no encontrado.
+Modelos disponibles localmente:
+  • gemma3:latest
+  • qwen2.5:7b
+
+Para descargar: miru pull modelo-inexistente
+```
+
+### Idiomas Suportados
+
+| Código  | Idioma          | Cobertura |
+|---------|-----------------|-----------|
+| pt_BR   | Português (BR)  | 100%      |
+| en_US   | English         | 100%      |
+| es_ES   | Español         | 100%      |
+
+## Short Flags Padronizadas
+
+A versão 0.4.0 introduz short flags consistentes em todos os comandos:
+
+```bash
+# Antes (verboso)
+miru run gemma3 "test" --system "be concise" --temperature 0.7 --format json --quiet
+
+# Depois (com short flags)
+miru run gemma3 "test" -s "be concise" -t 0.7 -f json -q
+
+# Host e formato
+miru list -h http://custom:11434 -f json
+
+# Imagens e arquivos
+miru run llava "describe" -i photo.jpg -f document.txt
+
+# Temperatura e parâmetros
+miru run model "prompt" -t 0.7 -m 500 -p 0.9 -k 40
+```
+
+### Mapeamento Completo
+
+| Flag Longa      | Flag Curta | Descrição                    |
+|-----------------|------------|------------------------------|
+| `--host`        | `-h`       | URL do servidor Ollama       |
+| `--format`      | `-f`       | Formato de output (text/json)|
+| `--quiet`       | `-q`       | Output minimal               |
+| `--system`      | `-s`       | System prompt                |
+| `--image`       | `-i`       | Arquivo de imagem            |
+| `--file`        | `-f`       | Arquivo de input             |
+| `--audio`       | `-a`       | Arquivo de áudio             |
+| `--temperature` | `-t`       | Temperatura de amostragem    |
+| `--max-tokens`  | `-m`       | Máximo de tokens             |
+| `--top-p`       | `-p`       | Nucleus sampling             |
+| `--top-k`       | `-k`       | Top-k sampling               |
+| `--ctx`         | `-c`       | Janela de contexto           |
+
 ## Uso
 
 ### Comandos Básicos
@@ -31,8 +135,8 @@ miru version
 
 ```bash
 miru list
-miru list --format json
-miru list --quiet
+miru list --format json    # ou: -f json
+miru list --quiet          # ou: -q
 ```
 
 #### Informações do modelo
@@ -60,55 +164,43 @@ miru delete gemma3:latest --force  # Pular confirmação
 
 ```bash
 miru copy gemma3:latest gemma3-backup
-miru copy gemma3:latest meu-modelo --force  # Sobrescrever se existir
+miru copy gemma3:latest meu-modelo --force
 ```
 
 ### Gerar embeddings
 
 ```bash
-# Embedding de texto simples
 miru embed nomic-embed-text "Hello world"
-
-# Embedding de arquivo
 miru embed nomic-embed-text --file documento.txt
-
-# Embedding em lote (um texto por linha)
 miru embed nomic-embed-text --batch textos.txt --format jsonl
-
-# Embedding com formato JSON
-miru embed nomic-embed-text "Teste" --format json
-
-# Embedding minimalista (apenas array)
-miru embed nomic-embed-text "Teste" --quiet
 ```
 
 ### Executar prompt único
 
 ```bash
 miru run gemma3:latest "Explique recursão"
-miru run llava:latest "Descreva a imagem" --image foto.png
-miru run gemma3:latest "Analise o código" --file main.py
-miru run gemma3:latest "Transcreva" --audio reuniao.mp3
+miru run llava:latest "Descreva a imagem" -i foto.png
+miru run gemma3:latest "Analise o código" -f main.py
+miru run gemma3:latest "Transcreva" -a reuniao.mp3
 
-# Com system prompt para definir comportamento
-miru run gemma3:latest "Explique decorators" --system "Você é um especialista em Python. Seja conciso."
-miru run gemma3:latest "Analise" --system-file prompt_sistema.txt --file relatorio.pdf
+# Com system prompt
+miru run gemma3:latest "Explique decorators" -s "Você é um especialista em Python. Seja conciso."
 
 # Com parâmetros de inferência
-miru run gemma3:latest "Teste" --temperature 0.7 --seed 42 --max-tokens 200
+miru run gemma3:latest "Teste" -t 0.7 --seed 42 -m 200
 
 # Download automático se modelo não existir
 miru run gemma3:latest "Teste" --auto-pull
 
 # Formatos de saída
-miru run gemma3:latest "Teste" --format json
-miru run gemma3:latest "Teste" --quiet
+miru run gemma3:latest "Teste" -f json
+miru run gemma3:latest "Teste" -q
 
 # Com Tavily web search (requer API key)
 miru config set tavily_api_key tvly-sua-api-key
 miru run gemma3:latest --tavily "Quais são as novidades do Python 3.13?"
 
-# Com todas as tools habilitadas (file, system, tavily)
+# Com todas as tools habilitadas
 miru run gemma3:latest --enable-tools --sandbox-dir ./workspace "Busque informações e salve em arquivo"
 ```
 
@@ -116,11 +208,10 @@ miru run gemma3:latest --enable-tools --sandbox-dir ./workspace "Busque informa�
 
 ```bash
 miru chat gemma3:latest
-miru chat llava:latest --image foto.png
+miru chat llava:latest -i foto.png
 
 # Com system prompt
-miru chat gemma3:latest --system "Você é um tutor paciente. Explique com exemplos."
-miru chat qwen2.5:7b --system-file personagem.txt
+miru chat gemma3:latest -s "Você é um tutor paciente. Explique com exemplos."
 
 # Modelo padrão configurado
 miru config set default_model gemma3:latest
@@ -133,21 +224,6 @@ miru chat gemma3:latest --tavily
 # Com todas as tools habilitadas
 miru chat qwen2.5:7b --enable-tools --sandbox-dir ./workspace
 >>> Analise este arquivo e busque mais informações na web
-```
-
-### Chat interativo
-
-```bash
-miru chat gemma3:latest
-miru chat llava:latest --image foto.png
-
-# Com system prompt
-miru chat gemma3:latest --system "Você é um tutor paciente. Explique com exemplos."
-miru chat qwen2.5:7b --system-file personagem.txt
-
-# Modelo padrão configurado
-miru config set default_model gemma3:latest
-miru chat  # Usa modelo padrão
 ```
 
 #### Comandos do chat interativo
@@ -168,45 +244,22 @@ miru chat  # Usa modelo padrão
 ### Comparar modelos (benchmark)
 
 ```bash
-# Comparação básica
 miru compare gemma3:latest qwen2.5:7b --prompt "O que é closure?"
-
-# Com seed para reprodutibilidade
 miru compare gemma3 qwen2.5:7b --prompt "Teste" --seed 42
-
-# Com system prompt para todos os modelos
-miru compare gemma3 qwen2.5:7b --prompt "Explique" --system "Responda em português, máximo 2 parágrafos"
-
-# Comparação multimodal
-miru compare llava:latest moondream:latest --prompt "Descreva" --image diagrama.png
-
-# Formato JSON para pipe
-miru compare gemma3 qwen2.5:7b --prompt "Teste" --format json --quiet | jq '.[0].metrics'
+miru compare llava:latest moondream:latest --prompt "Descreva" -i diagrama.png
+miru compare gemma3 qwen2.5:7b --prompt "Teste" -f json -q | jq '.[0].metrics'
 ```
 
 ### Processamento em lote
 
 ```bash
-# Arquivo com prompts (um por linha)
 miru batch gemma3:latest --prompts prompts.txt
-
-# Arquivo JSONL com metadados
 miru batch gemma3:latest --prompts data.jsonl --format json
-
-# Com system prompt para todos
-miru batch qwen2.5:7b --prompts prompts.txt --system "Seja conciso"
-
-# Output em JSON
-miru batch gemma3 --prompts prompts.txt --format json
-
-# Output em JSONL (uma entrada por linha)
-miru batch gemma3 --prompts prompts.txt --format jsonl --quiet > results.jsonl
-
-# Parar no primeiro erro
+miru batch qwen2.5:7b --prompts prompts.txt -s "Seja conciso"
+miru batch gemma3 --prompts prompts.txt -f json
+miru batch gemma3 --prompts prompts.txt --format jsonl -q > results.jsonl
 miru batch gemma3 --prompts prompts.txt --stop-on-error
-
-# Com parâmetros de inferência
-miru batch gemma3 --prompts prompts.txt --temperature 0.7 --max-tokens 100
+miru batch gemma3 --prompts prompts.txt -t 0.7 -m 100
 ```
 
 ## Quick Commands
@@ -214,52 +267,21 @@ miru batch gemma3 --prompts prompts.txt --temperature 0.7 --max-tokens 100
 Comandos rápidos para tarefas comuns:
 
 ```bash
-# Gerar código
 miru quick code gemma3 --param language=python --param task="sort a list"
-
-# Resumir texto
 miru quick summarize gemma3 --param text="Long article..."
-
-# Explicar tópico
 miru quick explain gemma3 --param topic="machine learning"
-
-# Traduzir para português
 miru quick translate-pt gemma3 --param text="Hello world"
-
-# Traduzir para inglês
 miru quick translate-en gemma3 --param text="Olá mundo"
-
-# Revisar código
 miru quick review-code gemma3 --param language=python --param code="$(cat main.py)"
-
-# Corrigir bugs
 miru quick fix-code gemma3 --param language=python --param code="$(cat broken.py)"
-
-# Gerar testes unitários
 miru quick test gemma3 --param language=python --param code="$(cat main.py)"
-
-# Refatorar código
 miru quick refactor gemma3 --param language=python --param code="$(cat main.py)"
-
-# Documentar código
 miru quick document gemma3 --param language=python --param code="$(cat main.py)"
-
-# Otimizar código
 miru quick optimize gemma3 --param language=python --param code="$(cat main.py)"
-
-# Analisar texto
 miru quick analyze gemma3 --param text="Article..."
-
-# Corrigir gramática
 miru quick grammar gemma3 --param text="Text with errors..."
-
-# Expandir texto
 miru quick expand gemma3 --param text="Short text..."
-
-# Simplificar texto
 miru quick simplify gemma3 --param text="Complex text..."
-
-# Listar todos os comandos
 miru quick --list
 ```
 
@@ -280,10 +302,7 @@ O wizard interativo:
 - Salva preferências em `~/.miru/config.toml`
 
 ```bash
-# Não-interativo (usa defaults)
 miru setup --non-interactive
-
-# Com host customizado
 miru setup --host http://custom:11434
 ```
 
@@ -292,22 +311,11 @@ miru setup --host http://custom:11434
 Navegador de exemplos de uso:
 
 ```bash
-# Listar todos os exemplos
 miru examples --list
-
-# Filtrar por categoria
 miru examples --category code
-
-# Filtrar por tag
 miru examples --tag python
-
-# Ver exemplo específico
 miru examples hello-world
-
-# Copiar comando para clipboard
 miru examples hello-world --copy
-
-# Listar categorias
 miru examples --categories
 ```
 
@@ -317,7 +325,7 @@ Categorias disponíveis: `basics`, `code`, `text`, `translation`, `learning`, `c
 
 O miru suporta **function calling** nativo do Ollama, permitindo que modelos executem ações no seu sistema de forma segura e controlada.
 
-### Conceitos
+### conceitos
 
 - **Tools**: Funções que o modelo pode chamar durante uma conversa
 - **Sandbox**: Diretório restrito para operações de arquivo (previne acesso não autorizado)
@@ -393,32 +401,18 @@ O miru integra com a API Tavily para busca na web, permitindo que modelos busque
 **Configuração:**
 
 ```bash
-# Configurar API key
 miru config set tavily_api_key tvly-your-api-key-here
-
-# Verificar configuração (mostra apenas últimos 4 caracteres por segurança)
 miru config get tavily_api_key
-
-# Ver todas as configurações
 miru config list
 ```
 
 **Configurar Tools Automaticamente:**
 
 ```bash
-# Habilitar Tavily por padrão
 miru config set enable_tavily true
-
-# Habilitar todas as tools por padrão
 miru config set enable_tools true
-
-# Configurar modo automático
 miru config set tool_mode auto_safe
-
-# Configurar sandbox para operações de arquivo
 miru config set sandbox_dir ./workspace
-
-# Verificar configuração
 miru config list
 ```
 
@@ -435,13 +429,8 @@ miru config list
 **Uso:**
 
 ```bash
-# Com flag (sobrescreve config)
 miru run gemma3 --tavily "Quais são as novidades do Python 3.13?"
-
-# Com config habilitado (automático)
-miru config set enable_tavily true
-miru run gemma3 "Quais são as novidades do Python 3.13?"
-# ↑ Usa Tavily automaticamente (config)
+miru run gemma3 --enable-tools --sandbox-dir ./workspace "Busque informações e salve em arquivo"
 ```
 
 | Tool | Descrição | Segurança |
@@ -449,55 +438,6 @@ miru run gemma3 "Quais são as novidades do Python 3.13?"
 | `tavily_search` | Busca web por informações | ✅ Safe |
 | `tavily_search_images` | Busca web com resultados de imagens | ✅ Safe |
 | `tavily_extract` | Extrai e limpa conteúdo de URLs | ✅ Safe |
-
-**Obter API Key:**
-1. Acesse: https://tavily.com
-2. Crie uma conta gratuita
-3. Copie sua API key (formato: `tvly-...`)
-4. Configure: `miru config set tavily_api_key YOUR_KEY`
-
-**Limites Gratuitos:**
-- 1.000 requisições/mês
-- Rate limit: 60 requisições/minuto
-
-**Uso Programático com Tavily:**
-
-```python
-from pathlib import Path
-from miru.tools import ToolExecutionManager, ToolExecutionMode
-
-# Configurar tools incluindo Tavily
-manager = ToolExecutionManager(
-    mode=ToolExecutionMode.AUTO_SAFE,
-    sandbox_dir=Path("./workspace"),
-    enable_tavily=True,  # Habilita Tavily web search
-)
-
-# Verificar tools registradas
-for tool in manager.list_tools():
-    print(f"{tool['name']}: {tool['description']}")
-
-# Executar busca
-result, error = manager.execute_tool(
-    "tavily_search",
-    {"query": "Python 3.13 new features", "max_results": 5}
-)
-
-if error:
-    print(f"Error: {error}")
-else:
-    print(result)
-```
-
-**Variável de Ambiente:**
-
-Alternativamente, você pode configurar via variável de ambiente:
-
-```bash
-export MIRU_TAVILY_API_KEY="tvly-your-api-key"
-```
-
-Precedência: variável de ambiente > arquivo de configuração.
 
 ### Modos de Execução
 
@@ -525,228 +465,54 @@ from miru.ollama.client import OllamaClient
 from miru.tools import ToolExecutionManager, ToolExecutionMode
 from miru.tools.utils import extract_tool_calls
 
-# Configurar tools
 manager = ToolExecutionManager(
-    mode=ToolExecutionMode.AUTO_SAFE,  # Auto para safe, aprovação para dangerous
+    mode=ToolExecutionMode.AUTO_SAFE,
     sandbox_dir=Path("./workspace"),
     allow_write=True,
-    allow_delete=False,  # Segurança: nunca permitir delete por padrão
-    allow_commands=False,  # Segurança: desabilitar comandos por padrão
-    enable_tavily=True,  # Habilitar busca na web com Tavily (requer API key)
+    allow_delete=False,
+    enable_tavily=True,
 )
 
-# Obter definições para Ollama
 tool_definitions = manager.get_tool_definitions()
 
-# Usar com chat
 messages = [{"role": "user", "content": "Liste os arquivos Python no projeto"}]
 
 async with OllamaClient("http://localhost:11434") as client:
     async for chunk in client.chat_with_tools("llama3.2", messages, tools=tool_definitions):
         tool_calls = extract_tool_calls(chunk)
-        
         if tool_calls:
-            # Processar tool calls
             for call in tool_calls:
                 tool_name = call["name"]
                 arguments = call["arguments"]
-                
-                # Verificar se deve executar
-                should_exec, reason = manager.should_execute_tool(tool_name, arguments)
-                
-                if should_exec:
-                    # Executar
-                    result, error = manager.execute_tool(tool_name, arguments)
-                    # Adicionar resultado ao histórico...
-                else:
-                    # Pular ou pedir aprovação...
-                    pass
+                result, error = manager.execute_tool(tool_name, arguments)
 ```
-
-### Sandbox de Arquivos
-
-O sandbox isola operações de arquivo a um diretório específico, prevenindo path traversal attacks:
-
-```python
-from miru.tools import FileSandbox
-
-# Sandbox com write habilitado
-sandbox = FileSandbox(
-    root=Path("./workspace"),
-    allow_write=True,
-    allow_delete=False,  # Segurança
-    allowed_extensions=[".txt", ".md", ".py"],  # Opcional
-)
-
-# Paths são validados automaticamente
-sandbox.resolve_path("test.txt")  # ✅ OK: ./workspace/test.txt
-sandbox.resolve_path("../../../etc/passwd")  # ❌ ERROR: SecurityError
-```
-
-### Whitelist de Comandos
-
-Apenas comandos explícitamente permitidos podem ser executados:
-
-```python
-from miru.tools import CommandWhitelist, create_system_tools
-
-# Configurar whitelist
-whitelist = CommandWhitelist()
-whitelist.allow("ls", "List directory")
-whitelist.allow("git", "Version control", dangerous=True)  # Precisa de aprovação
-whitelist.allow("docker", "Containers", allowed_args=["ps", "images"])
-
-# Criar tools
-tools = create_system_tools(
-    cmd_whitelist=whitelist,
-    allow_commands=True,
-)
-```
-
-### Whitelist de Variáveis de Ambiente
-
-Apenas variáveis permitidas podem ser lidas:
-
-```python
-from miru.tools import EnvironmentWhitelist, create_system_tools
-
-# Configurar whitelist
-env_whitelist = EnvironmentWhitelist()
-env_whitelist.allow("HOME", "User home directory")
-env_whitelist.allow("PATH", "Executable search path")
-env_whitelist.allow("USER", "Current username")
-
-# Criar tools
-tools = create_system_tools(
-    env_whitelist=env_whitelist,
-    allow_env=True,
-)
-```
-
-### Sistema de Aprovação Interativa
-
-Para ferramentas perigosas, o sistema pode pedir aprovação:
-
-```python
-from miru.tools import ToolApprovalFlow
-
-# Configurar flow com auto-aprove para safe tools
-flow = ToolApprovalFlow(auto_approve_safe=True)
-
-# Verificar se precisa de aprovação
-if flow.should_request_approval("write_file"):
-    # Pedir aprovação ao usuário
-    approved = flow.request_approval(
-        "write_file",
-        {"path": "test.txt", "content": "Hello"},
-        reason="Writing to filesystem"
-    )
-    
-    if approved:
-        # Executar
-        result, error = manager.execute_tool("write_file", {...})
-```
-
-### Exemplos de Uso
-
-#### Leitura Segura de Arquivos
-
-```python
-from pathlib import Path
-from miru.tools import ToolExecutionManager, ToolExecutionMode
-
-manager = ToolExecutionManager(
-    mode=ToolExecutionMode.AUTO_SAFE,
-    sandbox_dir=Path("./my_project"),  # Isolado a ./my_project
-    allow_write=False,  # Apenas leitura
-)
-
-# Executar tool
-result, error = manager.execute_tool("read_file", {"path": "README.md"})
-print(result)  # Conteúdo do arquivo
-```
-
-#### Escrita com Aprovação
-
-```python
-from miru.tools import ToolExecutionManager, ToolExecutionMode
-
-manager = ToolExecutionManager(
-    mode=ToolExecutionMode.MANUAL,  # Pede aprovação para tudo
-    sandbox_dir=Path("./workspace"),
-    allow_write=True,
-)
-
-# Precisa aprovar manualmente
-result, error = manager.execute_tool(
-    "write_file",
-    {"path": "test.txt", "content": "Hello World"}
-)
-```
-
-### Segurança
-
-Camadas de proteção:
-
-1. **Path Traversal Prevention**: Impossível acessar arquivos fora do sandbox
-2. **Whitelist Obrigatória**: Comandos/variáveis não listados são automaticamente bloqueados
-3. **Permission Flags**: Write/delete podem ser desabilitados independentemente
-4. **Approval Flow**: Ferramentas perigosas requerem aprovação manual
-5. **Dangerous Classification**: Tools classificadas como safe/dangerous automaticamente
-
-### Próximos Passos
-
-- ✅ FASE 1: Infraestrutura de tools
-- ✅ FASE 2: File e System tools
-- ✅ FASE 3: Execução e aprovação
-- 📋 FASE 4: Integração CLI (`miru tools list/exec`)
-- 📋 FASE 5: Rate limiting e auditoria
-- 📋 FASE 6: Tools customizadas
-
-### Documentação
-
-- `docs/tools-plan.md`: Plano completo de implementação
-- `docs/FASE1-COMPLETED.md`: Infraestrutura
-- `docs/FASE2-COMPLETED.md`: File e System tools
-- `docs/FASE3-COMPLETED.md`: Execução e aprovação
-- `CHANGELOG.md`: Histórico de mudanças
 
 ## Gerenciamento de Modelos
 
 ### Status do servidor
 
 ```bash
-# Verificar se Ollama está acessível
 miru status
-
-# Status detalhado
 miru status --verbose
 ```
 
 ### Modelos carregados na VRAM
 
 ```bash
-# Listar modelos atualmente na memória
 miru ps
-
-# Formato JSON
 miru ps --format json
 ```
 
 ### Descarregar modelo
 
 ```bash
-# Descarregar modelo da VRAM
 miru stop gemma3:latest
-
-# Forçar descarregamento imediato
 miru stop gemma3:latest --force
 ```
 
 ### Buscar modelos
 
 ```bash
-# Filtrar modelos por nome
 miru search gemma
 miru search llama --format json
 ```
@@ -756,41 +522,23 @@ miru search llama --format json
 ### Gerenciar configuração
 
 ```bash
-# Ver toda a configuração
 miru config list
-
-# Definir valor
 miru config set default_host http://localhost:11434
 miru config set default_model gemma3:latest
 miru config set default_temperature 0.7
 miru config set history_max_entries 500
-
-# Obter valor
 miru config get default_model
-
-# Ver caminho do arquivo de configuração
 miru config path
-
-# Resetar para defaults
 miru config reset --force
 ```
 
 ### Profiles de configuração
 
 ```bash
-# Criar profile
 miru config profile create work
-
-# Configurar profile
-miru config set default_host http://work-server:11434  # (com profile 'work' ativo)
-
-# Alternar profile
+miru config set default_host http://work-server:11434
 miru config profile switch work
-
-# Listar profiles
 miru config profile list
-
-# Deletar profile
 miru config profile delete work
 ```
 
@@ -807,32 +555,18 @@ miru config profile delete work
 - `history_enabled` - Habilitar histórico (true/false)
 - `history_max_entries` - Máximo de entradas no histórico
 - `verbose` - Modo verboso padrão
+- `language` - Idioma da interface (pt_BR, en_US, es_ES)
 
 ## Histórico de Prompts
 
 ```bash
-# Ver histórico
 miru history
-
-# Limitar entradas
 miru history --limit 50
-
-# Filtrar por comando
 miru history --command run
-
-# Buscar no histórico
 miru history --search "python"
-
-# Formato JSON
 miru history --format json
-
-# Limpar histórico
 miru history --clear
-
-# Ver detalhes de uma entrada
 miru history show 0
-
-# Listar histórico explicitamente
 miru history list
 ```
 
@@ -841,31 +575,22 @@ miru history list
 ### comandos de sessão
 
 ```bash
-# Listar sessões salvas
 miru session list
-
-# Ver detalhes de uma sessão
 miru session show my-session
-
-# Deletar sessão
 miru session delete my-session --force
-
-# Exportar sessão
 miru session export my-session --output session.json
 miru session export my-session --output session.md --format markdown
 miru session export my-session --output session.txt --format txt
-
-# Renomear sessão
 miru session rename old-name new-name
 ```
 
 ### Durante o chat
 
 ```
->>> /save my-session    # Salvar sessão atual
->>> /export json        # Exportar sessão para JSON
->>> /export md          # Exportar sessão para Markdown
->>> /export txt         # Exportar sessão para TXT
+>>> /save my-session
+>>> /export json
+>>> /export md
+>>> /export txt
 ```
 
 ## Templates de Prompts
@@ -873,51 +598,25 @@ miru session rename old-name new-name
 ### Gerenciar templates
 
 ```bash
-# Listar templates
 miru template list
-
-# Criar template
-miru template save code-review \
-  --prompt "Review this code: {code}" \
-  --description "Code review template"
-
-# Criar template com system prompt
-miru template save summarize \
-  --prompt-file prompt.txt \
-  --system "You are a helpful assistant"
-
-# Ver template
+miru template save code-review --prompt "Review this code: {code}" --description "Code review template"
+miru template save summarize --prompt-file prompt.txt --system "You are a helpful assistant"
 miru template show code-review
-
-# Deletar template
 miru template delete code-review --force
 ```
 
 ### Executar template
 
 ```bash
-# Executar template com parâmetros
-miru template run code-review gemma3:latest \
-  --param code="def hello(): pass"
-
-# Com parâmetros múltiplos
-miru template run template qwen2.5 \
-  --param text="Long article..." \
-  --param style="bullet points"
-
-# Com texto adicional
-miru template run summarize qwen2.5 \
-  --param text="Article..." \
-  --extra "Focus on key points"
+miru template run code-review gemma3:latest --param code="def hello(): pass"
+miru template run template qwen2.5 --param text="Long article..." --param style="bullet points"
+miru template run summarize qwen2.5 --param text="Article..." --extra "Focus on key points"
 ```
 
 ### Exportar/Importar templates
 
 ```bash
-# Exportar template
 miru template export code-review --output template.json
-
-# Importar template
 miru template import template.json --name my-template
 ```
 
@@ -926,24 +625,16 @@ miru template import template.json --name my-template
 ### Gerenciar aliases
 
 ```bash
-# Criar alias
 miru alias add g3 gemma3:latest
 miru alias add qwen qwen2.5:7b
-
-# Listar aliases
 miru alias list
-
-# Ver alias
 miru alias show g3
-
-# Deletar alias
 miru alias delete g3 --force
 ```
 
 ### Usar aliases
 
 ```bash
-# Os aliases funcionam em todos os comandos
 miru run g3 "Hello world"
 miru chat qwen
 miru compare g3 qwen --prompt "Test"
@@ -952,22 +643,11 @@ miru compare g3 qwen --prompt "Test"
 ## Logs e Debugging
 
 ```bash
-# Ver logs
 miru logs
-
-# Ver últimas N linhas
 miru logs --lines 100
-
-# Seguir logs em tempo real
 miru logs --follow
-
-# Ver apenas log mais recente
 miru logs --latest
-
-# Listar arquivos de log
 miru logs --list
-
-# Limpar logs
 miru logs clear --force
 ```
 
@@ -984,7 +664,7 @@ source ~/.local/share/bash-completion/completions/miru
 
 ```bash
 miru completion zsh > ~/.zsh/completions/_miru
-# Adicione ao .zshrc: fpath+=~/.zsh/completions
+echo 'fpath+=~/.zsh/completions' >> ~/.zshrc
 autoload -U compinit && compinit
 ```
 
@@ -999,7 +679,7 @@ miru completion fish > ~/.config/fish/completions/miru.fish
 ### Imagens
 
 ```bash
-miru run llava:latest "Descreva a imagem" --image foto.jpg --image diagrama.png
+miru run llava:latest "Descreva a imagem" -i foto.jpg -i diagrama.png
 ```
 
 Modelos com visão: `llava:latest`, `moondream:latest`, `gemma3:latest` (se suportado)
@@ -1007,7 +687,7 @@ Modelos com visão: `llava:latest`, `moondream:latest`, `gemma3:latest` (se supo
 ### Arquivos
 
 ```bash
-miru run gemma3:latest "Analise" --file relatorio.pdf --file dados.csv
+miru run gemma3:latest "Analise" -f relatorio.pdf -f dados.csv
 ```
 
 Formatos suportados: `.txt`, `.md`, `.py`, `.js`, `.ts`, `.json`, `.yaml`, `.xml`, `.html`, `.pdf`, `.docx`
@@ -1015,7 +695,7 @@ Formatos suportados: `.txt`, `.md`, `.py`, `.js`, `.ts`, `.json`, `.yaml`, `.xml
 ### Áudio
 
 ```bash
-miru run gemma3:latest "Resuma a reunião" --audio reuniao.mp3
+miru run gemma3:latest "Resuma a reunião" -a reuniao.mp3
 ```
 
 Requer Whisper instalado: `pip install openai-whisper`
@@ -1045,6 +725,7 @@ Opções:
 - `OLLAMA_HOST` - URL do servidor Ollama (padrão: `http://localhost:11434`)
 - `MIRU_DEFAULT_HOST` - Host padrão do miru
 - `MIRU_DEFAULT_MODEL` - Modelo padrão
+- `MIRU_LANGUAGE` - Idioma da interface (pt_BR, en_US, es_ES)
 - `MIRU_HISTORY_ENABLED` - Habilitar histórico (true/false)
 - `MIRU_HISTORY_MAX_ENTRIES` - Máximo de entradas no histórico
 - `MIRU_VERBOSE` - Modo verboso padrão
@@ -1062,6 +743,7 @@ pip install -e ".[dev]"
 ```bash
 pytest
 pytest --cov=miru
+pytest tests/test_core_i18n.py tests/test_core_errors.py tests/test_core_config.py tests/test_ui_render.py tests/test_commands_i18n.py tests/test_integration.py -v
 ```
 
 ### Estrutura do projeto
@@ -1069,120 +751,89 @@ pytest --cov=miru
 ```
 miru/
 ├── cli.py              # Ponto de entrada CLI
-├── config.py           # Configuração (OLLAMA_HOST)
-├── config_manager.py   # Gerenciamento de configuração persistente
+├── cli_options.py      # Flags CLI padronizadas (NOVO 0.4.0)
+├── core/               # Módulos core (NOVO 0.4.0)
+│   ├── config.py      # Configuração unificada
+│   ├── errors.py      # Exceções customizadas
+│   └── i18n.py        # Internacionalização
+├── ui/                 # Módulos de UI (NOVO 0.4.0)
+│   ├── render.py      # Renderização de output
+│   ├── progress.py    # Barras de progresso
+│   └── prompts.py    # Prompts interativos
+├── config_manager.py   # Wrapper de compatibilidade
 ├── history.py          # Histórico de prompts
 ├── logger.py           # Sistema de logging
 ├── alias.py            # Sistema de aliases
-├── template.py         # Templates de prompts
+├── template.py          # Templates de prompts
 ├── completion.py       # Shell completion
 ├── session.py          # Session save/restore
 ├── inference_params.py # Parâmetros de inferência
-├── renderer.py         # Compatibilidade (delegação)
 ├── commands/           # Comandos CLI
-│   ├── batch.py        # Processamento em lote
-│   ├── chat.py         # Chat interativo
-│   ├── compare.py      # Benchmark de modelos
-│   ├── config_cmd.py   # Gerenciamento de configuração
-│   ├── examples.py     # Navegador de exemplos
-│   ├── history_cmd.py  # Comandos de histórico
-│   ├── logs.py         # Visualização de logs
-│   ├── quick.py        # Quick commands
-│   ├── run.py          # Prompt único
-│   ├── setup.py        # Setup wizard
-│   ├── status.py       # Status, ps, stop, search
+│   ├── batch.py
+│   ├── chat.py
+│   ├── compare.py
+│   ├── config_cmd.py
 │   └── ...
 ├── input/              # Processamento multimodal
-│   ├── audio.py       # Transcrição Whisper
-│   ├── file.py        # Extração de texto
-│   └── image.py        # Encoding base64
-├── model/              # Modelo de dados
-│   └── capabilities.py # Detecção de capacidades
-├── ollama/             # Cliente HTTP
-│   └── client.py      # Cliente async Ollama
-└── output/             # Renderização e formatação
-    ├── formatter.py   # Serialização JSON
-    ├── renderer.py     # Renderização Rich
-    └── streaming.py    # Streaming de tokens
+│   ├── audio.py
+│   ├── file.py
+│   └── image.py
+├── model/               # Modelo de dados
+│   └── capabilities.py
+├── ollama/              # Cliente HTTP
+│   └── client.py
+├── output/              # Renderização e formatação
+│   ├── formatter.py
+│   ├── renderer.py
+│   └── streaming.py
+└── tools/               # Function calling
+    ├── files.py
+    ├── system.py
+    └── tavily.py
 ```
-
-## Arquitetura
-
-### Módulo Input
-
-- `image.py`: Encoding de imagens para base64 (JPEG, PNG, GIF, WEBP)
-- `file.py`: Extração de texto de arquivos (PDF, DOCX, TXT, código)
-- `audio.py`: Transcrição via Whisper local (subprocess)
-
-### Módulo Output
-
-- `renderer.py`: Renderização Rich para terminal (tabelas, métricas, progress)
-- `formatter.py`: Serialização limpa JSON/stdio (stdlib-only)
-- `streaming.py`: Compatibilidade backward com generators
-
-### Cliente Ollama
-
-Cliente HTTP async com suporte a:
-- Streaming de tokens
-- Geração com imagens
-- Chat multi-turn
-- Pull de modelos com progress
-
-### Gerenciamento de Configuração
-
-- Configuração persistente em `~/.miru/config.toml`
-- Profiles múltiplos para diferentes ambientes
-- Precedência: CLI > Variável de ambiente > Configuração > Default
-
-### Histórico
-
-- Histórico de prompts em `~/.miru/history.jsonl`
-- Rotação automática com limite de entradas
-- Busca e filtros por comando
-
-### Templates
-
-- Templates salvos em `~/.miru/templates/`
-- Parâmetros substituíveis com `{param}`
-- Importação/exportação em JSON
-
-### Logs
-
-- Logs de execução em `~/.miru/logs/`
-- Formato estruturado JSON
-- Modo verbose para debugging
-
-### Sessions
-
-- Sessões salvas em `~/.miru/sessions/`
-- Exportação para JSON, Markdown, TXT
-- Restauração de contexto completo
 
 ## Dependências
 
 - `httpx` - Cliente HTTP async
-- `typer` - CLI framework
 - `rich` - Terminal formatting
+- `typer` - CLI framework
 - `tomli` - Leitura de TOML (Python < 3.11)
 - `tomli-w` - Escrita de TOML
 - `pillow` - Validação de imagens (opcional)
 - `pdfplumber` - Extração de PDF (opcional)
 - `python-docx` - Extração de DOCX (opcional)
 
-## Funcionalidades Principais
+## Arquitetura
 
-| Funcionalidade | Comando | Descrição |
-|---------------|---------|-----------|
-| Setup Wizard | `miru setup` | Configuração interativa inicial |
-| Quick Commands | `miru quick <cmd>` | Comandos rápidos para tarefas comuns |
-| Examples Browser | `miru examples` | Navegador de exemplos de uso |
-| Session Management | `miru session` | Salvar/restaurar sessões de chat |
-| Model Aliases | `miru alias` | Atalhos para modelos frequentes |
-| Prompt Templates | `miru template` | Templates reutilizáveis |
-| History | `miru history` | Histórico de prompts |
-| Config Profiles | `miru config profile` | Multiplos ambientes |
-| Auto-pull | `--auto-pull` | Download automático de modelos |
-| Shell Completion | `miru completion` | Autocomplete para bash/zsh/fish |
+### Módulo Core (0.4.0)
+
+O módulo `core/` fornece a base para toda a aplicação:
+
+- **`config.py`**: Configuração unificada com cache e profiles
+- **`errors.py`**: Hierarquia de exceções com sugestões contextuais
+- **`i18n.py`**: Sistema de internacionalização completo
+
+### Módulo UI (0.4.0)
+
+O módulo `ui/` separa apresentação da lógica:
+
+- **`render.py`**: Output consistente com suporte i18n
+- **`progress.py`**: Indicadores de progresso unificados
+- **`prompts.py`**: Input interativo padronizado
+
+### Módulo Tools
+
+Sistema de function calling:
+
+```python
+from miru.tools import ToolExecutionManager, ToolExecutionMode
+
+manager = ToolExecutionManager(
+    mode=ToolExecutionMode.AUTO_SAFE,
+    sandbox_dir=Path("./workspace"),
+    enable_tavily=True,
+)
+```
 
 ## Licença
 
