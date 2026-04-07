@@ -12,14 +12,17 @@ from textual.widgets import (
     ListItem,
     ListView,
     LoadingIndicator,
+    Select,
     Static,
     TextArea,
 )
+from textual.widgets._select import NoSelection
 
-from miru.core.config import get_config, resolve_host, resolve_model
+from miru.core.config import get_config, reload_config, resolve_host, resolve_model
 from miru.latex_unicode import latex_to_unicode
 from miru.ollama.client import OllamaClient
 from miru.session import list_sessions, load_session, save_session
+from miru.ui.tui.config_screen import ConfigScreen
 
 
 class MarkdownWidget(Static):
@@ -138,6 +141,7 @@ class TUIApp(App[None]):
         Binding("ctrl+s", "save_session", "Save Session"),
         Binding("ctrl+l", "clear_input", "Clear Input"),
         Binding("ctrl+shift+l", "clear_chat", "Clear Chat"),
+        Binding("ctrl+k", "open_config", "Config"),
         Binding("ctrl+q", "quit", "Quit"),
         Binding("ctrl+p", "toggle_context", "Toggle Panel"),
         Binding("ctrl+r", "reload_sessions", "Reload Sessions"),
@@ -160,6 +164,7 @@ class TUIApp(App[None]):
         self.current_session_name: str | None = None
         self.messages: list[dict[str, str]] = []
         self.system_prompt: str = ""
+        self.available_models: list[tuple[str, str]] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -187,8 +192,14 @@ class TUIApp(App[None]):
         params_container = self.query_one("#params_container", Vertical)
 
         params_container.mount(Label("Modelo", classes="param_label"))
-        model_input = Input(value=self.model, id="input_model", classes="param_input")
-        params_container.mount(model_input)
+        await self._load_available_models()
+        model_select = Select(
+            self.available_models,
+            id="select_model",
+            classes="param_input",
+            value=self.model if self.model in [m[0] for m in self.available_models] else None,
+        )
+        params_container.mount(model_select)
 
         params_container.mount(Label("Temperature", classes="param_label"))
         temp_val = self.temp_override or self.config.default_temperature or 0.7
@@ -216,6 +227,15 @@ class TUIApp(App[None]):
         params_container.mount(Label(f"\nHost: {self.host}"))
 
         self.refresh_sessions()
+
+    async def _load_available_models(self) -> None:
+        """Load available models from Ollama server and populate the select."""
+        try:
+            async with OllamaClient(host=self.host) as client:
+                models = await client.list_models()
+                self.available_models = [(m["name"], m["name"]) for m in models]
+        except Exception:
+            self.available_models = [(self.model, self.model)]
 
     def refresh_sessions(self) -> None:
         session_list = self.query_one("#session_list", ListView)
@@ -254,15 +274,19 @@ class TUIApp(App[None]):
         chat_window.scroll_end()
 
         try:
-            model_input = self.query_one("#input_model", Input).value
+            model_select = self.query_one("#select_model", Select)
+            selected_value = model_select.value
+            if isinstance(selected_value, NoSelection) or selected_value is None:
+                current_model = self.model
+            else:
+                current_model = str(selected_value)
+
             temp_input = self.query_one("#input_temp", Input).value
             top_p_input = self.query_one("#input_top_p", Input).value
             max_tokens_input = self.query_one("#input_max_tokens", Input).value
             seed_input = self.query_one("#input_seed", Input).value
             system_prompt_widget = self.query_one("#system_prompt_area", TextArea)
             system_prompt = system_prompt_widget.text.strip()
-
-            current_model = model_input if model_input else self.model
 
             try:
                 current_temp = (
@@ -273,7 +297,7 @@ class TUIApp(App[None]):
                 current_top_p = (
                     float(top_p_input)
                     if top_p_input
-                    else self.top_p_override or self.config.default_top_p or 0.9
+                    else self.temp_override or self.config.default_top_p or 0.9
                 )
                 current_max_tokens = int(max_tokens_input) if max_tokens_input else None
                 current_seed = int(seed_input) if seed_input else None
@@ -400,6 +424,20 @@ class TUIApp(App[None]):
         for child in list(chat_window.children):
             child.remove()
         self.notify("Nova conversa iniciada")
+
+    def action_open_config(self) -> None:
+        self.push_screen(ConfigScreen())
+
+    def sync_config_to_ui(self) -> None:
+        """Reload config and update UI parameters after config screen is closed."""
+        self.config = reload_config()
+
+        model_select = self.query_one("#select_model", Select)
+        default_model = self.config.default_model
+        if default_model:
+            model_select.value = default_model
+
+        self.notify("Configurações sincronizadas")
 
 
 if __name__ == "__main__":
