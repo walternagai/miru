@@ -9,7 +9,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### Internationalization (i18n)
+#### Internationalization (i18n) - Full Support
+
+- **Complete i18n system** with translations for Portuguese (Brazil), English, and Spanish
+- **80+ translatable messages** across all categories (errors, success, suggestions, etc.)
+- **Auto-detection** of system language via `LANG` environment variable
+- **Manual override** via `MIRU_LANG` environment variable
+- **Configurable** via `~/.miru/config.toml` (`language` setting)
+
+```bash
+# Use in Portuguese
+export MIRU_LANG=pt_BR
+miru run gemma3 "teste"
+# ✗ Modelo 'gemma3' não encontrado.
+
+# Use in English  
+export MIRU_LANG=en_US
+miru run gemma3 "test"
+# ✗ Model 'gemma3' not found.
+
+# Use in Spanish
+export MIRU_LANG=es_ES
+miru run gemma3 "prueba"
+# ✗ Modelo 'gemma3' no encontrado.
+```
+
+#### Core Module (`miru/core/`) - New Architecture
+
+- **`config.py`** - Unified configuration with caching
+  - Single source of truth for all settings
+  - Profile support for multiple environments
+  - Language preference in config
+  - Clear precedence: CLI > Env > Config > Default
+
+- **`errors.py`** - Custom exception hierarchy
+  - `MiruError` base class with suggestions
+  - `ModelNotFoundError` - Lists available models
+  - `ConnectionError` - Suggests `ollama serve`
+  - `ValidationError`, `ToolExecutionError`, `ConfigError`
+
+- **`i18n.py`** - Internationalization system
+  - `t()` function for translations with parameters
+  - `set_language()`, `get_language()`, `detect_language()`
+  - `init_i18n()` auto-initialization on import
+
+#### UI Module (`miru/ui/`) - Separation of Concerns
+
+- **`render.py`** - Consistent output formatting
+  - `render_error()`, `render_success()`, `render_warning()`, `render_info()`
+  - Full i18n support with `t()` integration
+  - `render_model_table()`, `render_metrics()`
+
+- **`progress.py`** - Progress reporting
+  - `ProgressReporter` class for all progress needs
+  - Context manager `track_progress()`
+  - Rich-based progress bars with spinners
+
+- **`prompts.py`** - Interactive inputs
+  - `confirm()`, `prompt_input()`, `prompt_choice()`
+
+#### CLI Improvements
+
+- **Standardized short flags** across all commands
+  - `-h` for `--host`
+  - `-f` for `--format` / `--file`
+  - `-s` for `--system`
+  - `-i` for `--image`
+  - `-t` for `--temperature`
+  - `-q` for `--quiet`
+  - `-m` for `--max-tokens`
+
+#### Testing
+
+- **87 unit tests** for new modules
+  - `test_core_i18n.py` - 21 tests
+  - `test_core_errors.py` - 21 tests  
+  - `test_core_config.py` - 28 tests
+  - `test_ui_render.py` - 17 tests
+
+- **19 integration tests** for i18n commands
+  - `test_commands_i18n.py` - All passing
+
+### Changed
+
+#### Refactored Commands
+
+All major commands now use `core/`, `ui/`, and `i18n` modules:
+
+- **`run.py`** - Full i18n support, error handling with suggestions
+- **`chat.py`** - Refactored with i18n and locale-aware messages
+- **`compare.py`** - Locale-aware table headers and error messages
+- **`batch.py`** - Processing status with i18n support
+- **`list.py`** - Connection error with i18n
+- **`info.py`** - Model not found with i18n suggestions
+- **`pull.py`** - Download progress with locale messages
+- **`delete.py`** - Confirmation and error with i18n
+- **`copy.py`** - Success/error messages with i18n
+
+#### Improved Architecture
+
+- **Backward compatibility** - `config_manager.py` wraps `core/config.py`
+- **Separation** - UI (console, Rich) isolated from business logic
+- **Testability** - Modular design enables unit testing
+- **Consistency** - All errors use `t()` for i18n
+
+### Documentation
+
+- **NEW: `docs/REFACTORING.md`** - Migration guide
+- **UPDATED: `README.md`** - i18n examples
+- **UPDATED: `CHANGELOG.md`** - Complete 0.4.0 changes
+
+### Migration Guide
+
+#### Before (Hardcoded PT-BR)
+
+```python
+console.print(f"[red bold]✗[/] Modelo '{model}' não encontrado.")
+```
+
+#### After (i18n)
+
+```python
+from miru.core.i18n import t
+from miru.ui.render import render_error
+
+render_error(t("error.model_not_found", model=model))
+```
+
+---
 - **New i18n system** with support for Portuguese (Brazil), English, and Spanish
 - Auto-detection of system language via `LANG` environment variable
 - Manual language override via `MIRU_LANG` environment variable
