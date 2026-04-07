@@ -42,7 +42,7 @@ from miru.inference_params import build_options
 from miru.input import encode_images, extract_text, format_for_prompt, transcribe
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient
-from miru.output import collect_stream, render_json_output, render_metrics, render_stream_as_markdown
+from miru.output import collect_stream, render_json_output, render_metrics, stream_as_markdown_live
 from miru.ui.render import render_error
 
 
@@ -184,7 +184,7 @@ async def _run_async(
                             print(response_text)
                 else:
                     chunks = client.chat(model, messages, options=options, stream=True)
-                    await render_stream_as_markdown(chunks, quiet=quiet, show_metrics=True)
+                    await stream_as_markdown_live(chunks, quiet=quiet, show_metrics=True)
             else:
                 if output_format == "json" or no_stream:
                     response_text, final_chunk, model_name = await collect_stream(
@@ -209,7 +209,7 @@ async def _run_async(
                     chunks = client.generate(
                         model, final_prompt, images=encoded_images, options=options, stream=True
                     )
-                    await render_stream_as_markdown(chunks, quiet=quiet, show_metrics=True)
+                    await stream_as_markdown_live(chunks, quiet=quiet, show_metrics=True)
 
             record_history(
                 command="run",

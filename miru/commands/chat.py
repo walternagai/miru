@@ -41,7 +41,7 @@ from miru.core.i18n import t, set_language
 from miru.history import record_history
 from miru.inference_params import build_options
 from miru.ollama.client import OllamaClient
-from miru.output import render_stream_as_markdown
+from miru.output import stream_as_markdown_live
 from miru.ui.prompts import prompt_choice
 from miru.ui.render import render_error, render_success
 
@@ -260,7 +260,7 @@ async def _chat_async(
                     final_chunk = None
                 else:
                     chunks = client.chat(current_model, messages, options=options, stream=True)
-                    response_text, final_chunk = await render_stream_as_markdown(
+                    response_text, final_chunk = await stream_as_markdown_live(
                         chunks, quiet=quiet, show_metrics=not quiet
                     )
 

@@ -7,6 +7,7 @@ from miru.output.formatter import (
     result_to_json,
     to_json,
 )
+from miru.output.live_stream import stream_as_markdown_live
 from miru.output.renderer import (
     console,
     create_progress_bar,
@@ -42,6 +43,8 @@ __all__ = [
     "print_plain",
     "result_to_json",
     "to_json",
+    # Live stream (new)
+    "stream_as_markdown_live",
     # Renderer
     "console",
     "create_progress_bar",
