@@ -1,4 +1,7 @@
-"""Compare command for benchmarking multiple models."""
+"""Compare command for benchmarking multiple models.
+
+Refactored with i18n support.
+"""
 
 import asyncio
 import json
@@ -11,11 +14,31 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from miru.config import get_host
+from miru.cli_options import (
+    AutoPull,
+    Context,
+    Format,
+    Host,
+    ImageFiles,
+    MaxTokens,
+    Quiet,
+    RepeatPenalty,
+    Seed,
+    SystemPrompt,
+    SystemPromptFile,
+    Temperature,
+    Timeout,
+    TopK,
+    TopP,
+)
+from miru.core.config import resolve_host
+from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.core.i18n import t
 from miru.inference_params import build_options
 from miru.input import encode_images
 from miru.model.capabilities import get_capabilities
-from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
+from miru.ollama.client import OllamaClient
+from miru.ui.render import render_error, render_success
 
 console = Console()
 
@@ -140,9 +163,10 @@ async def _execute_model(
             error="No final chunk received",
         )
 
-    except OllamaModelNotFound:
+    except Exception:
         if not quiet and stream:
             print()
+        set_language("en_US")
         return ModelResult(
             model=model,
             prompt=prompt,
@@ -151,7 +175,7 @@ async def _execute_model(
             eval_duration_ns=0,
             total_duration_ns=0,
             tokens_per_second=0.0,
-            error=f'Modelo "{model}" não encontrado.',
+            error=t("error.model_not_found", model=model),
         )
     except Exception as e:
         if not quiet and stream:
@@ -173,11 +197,33 @@ def _render_comparison_table(results: list[ModelResult], quiet: bool = False) ->
     if quiet:
         return
 
-    table = Table(title="Comparação de Modelos", show_header=True, header_style="bold cyan")
-    table.add_column("Modelo", style="green")
-    table.add_column("Tokens", justify="right")
-    table.add_column("Tempo", justify="right")
-    table.add_column("Velocidade", justify="right")
+    from miru.core.i18n import get_language
+    lang = get_language()
+    
+    if lang == "pt_BR":
+        title = "Comparação de Modelos"
+        col_model = "Modelo"
+        col_tokens = "Tokens"
+        col_time = "Tempo"
+        col_speed = "Velocidade"
+    elif lang == "es_ES":
+        title = "Comparación de Modelos"
+        col_model = "Modelo"
+        col_tokens = "Tokens"
+        col_time = "Tiempo"
+        col_speed = "Velocidad"
+    else:
+        title = "Model Comparison"
+        col_model = "Model"
+        col_tokens = "Tokens"
+        col_time = "Time"
+        col_speed = "Speed"
+
+    table = Table(title=title, show_header=True, header_style="bold cyan")
+    table.add_column(col_model, style="green")
+    table.add_column(col_tokens, justify="right")
+    table.add_column(col_time, justify="right")
+    table.add_column(col_speed, justify="right")
 
     valid_results = [r for r in results if r.error is None]
 
@@ -231,9 +277,19 @@ def _render_seed_warning(quiet: bool, seed: int | None) -> None:
     if quiet or seed is not None:
         return
 
+    from miru.core.i18n import get_language
+    lang = get_language()
+    
     console.print()
-    console.print("[yellow]⚠ Sem --seed: resultados podem variar entre execuções.[/]")
-    console.print("  Para comparação reproduzível: miru compare ... --seed 42")
+    if lang == "pt_BR":
+        console.print("[yellow]⚠ Sem --seed: resultados podem variar entre execuções.[/]")
+        console.print("  Para comparação reproduzível: miru compare ... --seed 42")
+    elif lang == "es_ES":
+        console.print("[yellow]⚠ Sin --seed: los resultados pueden variar entre ejecuciones.[/]")
+        console.print("  Para comparación reproducible: miru compare ... --seed 42")
+    else:
+        console.print("[yellow]⚠ Without --seed: results may vary between runs.[/]")
+        console.print("  For reproducible comparison: miru compare ... --seed 42")
 
 
 def _render_json_output(results: list[ModelResult]) -> None:
@@ -262,17 +318,17 @@ def _read_prompt_file(prompt_file: str) -> str:
     path = Path(prompt_file)
 
     if not path.exists():
-        console.print(f"[red bold]✗[/] Arquivo não encontrado: {prompt_file}")
+        render_error(t("error.file_not_found", path=prompt_file))
         sys.exit(1)
 
     if not path.is_file():
-        console.print(f"[red bold]✗[/] Não é um arquivo: {prompt_file}")
+        render_error(t("error.file_not_found", path=prompt_file))
         sys.exit(1)
 
     try:
         return path.read_text(encoding="utf-8")
     except Exception as e:
-        console.print(f"[red bold]✗[/] Erro ao ler arquivo: {e}")
+        render_error(t("error.file_processing", path=prompt_file, error=str(e)))
         sys.exit(1)
 
 
@@ -431,24 +487,24 @@ def compare(
         sys.exit(1)
 
     if format not in ("text", "json"):
-        console.print(f"[red bold]✗[/] Formato inválido: {format}. Use 'text' ou 'json'.")
+        render_error(t("error.invalid_format", format=format, valid_formats="text, json"))
         sys.exit(1)
 
     # Handle system prompt
     final_system_prompt: str | None = None
     if system is not None and system_file is not None:
-        console.print("[red bold]✗[/] Use --system OU --system-file, não ambos")
+        render_error("Use --system OR --system-file, not both.")
         sys.exit(1)
 
     if system_file is not None:
         try:
             system_path = Path(system_file)
             if not system_path.exists():
-                console.print(f"[red bold]✗[/] Arquivo não encontrado: {system_file}")
+                render_error(t("error.file_not_found", path=system_file))
                 sys.exit(1)
             final_system_prompt = system_path.read_text(encoding="utf-8").strip()
         except Exception as e:
-            console.print(f"[red bold]✗[/] Erro ao ler arquivo de system prompt: {e}")
+            render_error(t("error.system_prompt_file", error=str(e)))
             sys.exit(1)
     elif system is not None:
         final_system_prompt = system.strip()
@@ -460,10 +516,10 @@ def compare(
         final_prompt = prompt or ""
 
     if file or audio:
-        console.print("[red bold]✗[/] --file e --audio não são suportados no comando compare")
+        render_error("--file and --audio are not supported in compare command")
         sys.exit(1)
 
-    resolved_host = get_host(host)
+    resolved_host = resolve_host(host)
 
     try:
         asyncio.run(
