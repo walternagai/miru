@@ -52,6 +52,9 @@ def list_models(
             render_empty_models()
             raise typer.Exit(code=0)
 
+        # Sort models alphabetically by name
+        models = sorted(models, key=lambda m: m.get("name", ""))
+
         if format == "json":
             render_models_json(models, quiet=quiet)
         else:
