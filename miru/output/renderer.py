@@ -344,11 +344,49 @@ def render_model_info(
     content_lines.append("")
 
     content_lines.append("[bold]Capacidades[/]")
+    
+    # Visão (mantém verificação separada por families + capabilities)
     supports_vision = capabilities.get("supports_vision", False)
     vision_emoji = "🖼" if supports_vision else "○"
     vision_text = "sim" if supports_vision else "não"
-    content_lines.append(f"  {vision_emoji} Suporte a imagens   {vision_text}")
-
+    content_lines.append(f"  {vision_emoji} Visão                {vision_text}")
+    
+    # Lista de capabilities ordenadas por importância
+    capabilities_list = capabilities.get("capabilities", [])
+    
+    if capabilities_list:
+        # Remover "vision" da lista se supports_vision=True (evitar duplicação)
+        if supports_vision and "vision" in capabilities_list:
+            capabilities_list = [c for c in capabilities_list if c != "vision"]
+        
+        # Ordem de importância (capabilities mais relevantes primeiro)
+        importance_order = [
+            "tools",
+            "thinking",
+            "audio",
+            "completion",
+        ]
+        
+        # Mapear capabilities para nomes amigáveis em português
+        capability_names = {
+            "tools": "Tools/Function Calling",
+            "thinking": "Thinking",
+            "audio": "Áudio",
+            "completion": "Completion",
+        }
+        
+        # Ordenar capabilities por importância
+        sorted_capabilities = sorted(
+            capabilities_list,
+            key=lambda x: importance_order.index(x) if x in importance_order else len(importance_order)
+        )
+        
+        # Exibir cada capability
+        for cap in sorted_capabilities:
+            cap_name = capability_names.get(cap, cap.capitalize())
+            content_lines.append(f"  ✓ {cap_name}")
+    
+    # Contexto máximo
     max_context = capabilities.get("max_context", 2048)
     content_lines.append(f"  📐 Contexto máximo     {max_context:,} tokens")
     content_lines.append("")

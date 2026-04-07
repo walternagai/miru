@@ -10,6 +10,7 @@ class ModelCapabilities:
     """Model capabilities metadata."""
 
     supports_vision: bool
+    capabilities: list[str]
     max_context: int
     families: list[str]
     parameter_size: str
@@ -63,10 +64,12 @@ async def get_capabilities(client: OllamaClient, model: str) -> ModelCapabilitie
     parameter_size = details.get("parameter_size", "unknown")
     quantization = details.get("quantization_level", "unknown")
 
+    # Extract capabilities from API response
+    raw_capabilities = data.get("capabilities") or []
+    
     # Check for vision support:
     # 1. "clip" in families (local models)
     # 2. "vision" in capabilities (cloud/remote models)
-    raw_capabilities = data.get("capabilities") or []
     supports_vision = "clip" in families or "vision" in raw_capabilities
 
     model_info = data.get("modelinfo", data.get("model_info", {}))
@@ -97,6 +100,7 @@ async def get_capabilities(client: OllamaClient, model: str) -> ModelCapabilitie
 
     return ModelCapabilities(
         supports_vision=supports_vision,
+        capabilities=raw_capabilities,
         max_context=max_context,
         families=families,
         parameter_size=parameter_size,

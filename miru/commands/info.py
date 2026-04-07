@@ -74,10 +74,11 @@ async def _get_model_info_async(host: str, model: str) -> tuple[dict[str, Any], 
     async with OllamaClient(host=host) as client:
         model_data = await client.show_model(model)
         capabilities = await get_capabilities(client, model)
-        return model_data, {
-            "supports_vision": capabilities.supports_vision,
-            "max_context": capabilities.max_context,
-            "families": capabilities.families,
-            "parameter_size": capabilities.parameter_size,
-            "quantization": capabilities.quantization,
-        }
+    return model_data, {
+        "supports_vision": capabilities.supports_vision,
+        "capabilities": capabilities.capabilities,
+        "max_context": capabilities.max_context,
+        "families": capabilities.families,
+        "parameter_size": capabilities.parameter_size,
+        "quantization": capabilities.quantization,
+    }
