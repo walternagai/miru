@@ -29,16 +29,110 @@ from miru.template import app as template_app
 
 console = Console()
 
+COMMAND_CATEGORIES: dict[str, list[str]] = {
+    "Gestão de Modelos": ["copy", "delete", "embed", "info", "list", "pull", "search"],
+    "Execução de Modelos": ["batch", "chat", "compare", "quick", "run"],
+    "Servidor e Status": ["ps", "status", "stop"],
+    "Configuração": ["alias", "config", "session", "setup", "template", "tools"],
+    "Utilitários": ["completion", "examples", "history", "logs", "version"],
+}
+
+CATEGORY_ORDER = [
+    "Gestão de Modelos",
+    "Execução de Modelos",
+    "Servidor e Status",
+    "Configuração",
+    "Utilitários",
+]
+
+COMMAND_DESCRIPTIONS: dict[str, str] = {
+    "version": "Show miru version and description.",
+    "list": "List available models.",
+    "info": "Show detailed model information.",
+    "pull": "Download a model from registry.",
+    "run": "Generate text with a single prompt.",
+    "chat": "Start interactive chat session.",
+    "compare": "Compare responses from multiple models.",
+    "delete": "Delete a model from local storage.",
+    "copy": "Copy a model to a new name.",
+    "embed": "Generate embedding vector for text.",
+    "batch": "Process prompts from file in batch.",
+    "status": "Check Ollama server status.",
+    "ps": "List models loaded in VRAM.",
+    "stop": "Unload a model from VRAM.",
+    "search": "Search for models locally.",
+    "setup": "Run setup wizard.",
+    "quick": "Run quick commands.",
+    "examples": "Browse usage examples.",
+    "completion": "Generate shell completion script.",
+    "history": "View and manage prompt history.",
+    "logs": "View and manage execution logs.",
+    "config": "Manage miru configuration.",
+    "template": "Manage prompt templates.",
+    "alias": "Manage model aliases.",
+    "session": "Manage chat sessions.",
+    "tools": "Manage tools for function calling.",
+}
+
+
+def print_categorized_help() -> None:
+    """Print help with commands organized by category."""
+    console.print()
+    console.print("[bold cyan]Usage:[/] miru [OPTIONS] COMMAND [ARGS]...")
+    console.print()
+    console.print("[bold]CLI Python para servidor Ollama local.[/]")
+    console.print("[dim]Miru (見る): 'ver' ou 'olhar' em japonês[/]")
+    console.print()
+    console.print("[bold]Options:[/]")
+    console.print("  [cyan]--help[/]  Show this message and exit.")
+    console.print()
+
+    categorized = set()
+    for cat in CATEGORY_ORDER:
+        cmds = COMMAND_CATEGORIES.get(cat, [])
+        sorted_cmds = sorted(cmds)
+        if sorted_cmds:
+            console.print(f"[bold]{cat}:[/]")
+            for cmd in sorted_cmds:
+                if cmd in COMMAND_DESCRIPTIONS:
+                    console.print(f"  [cyan]{cmd:<12}[/] {COMMAND_DESCRIPTIONS[cmd]}")
+                    categorized.add(cmd)
+            console.print()
+
+    uncategorized = []
+    for cmd in sorted(COMMAND_DESCRIPTIONS):
+        if cmd not in categorized:
+            uncategorized.append((cmd, COMMAND_DESCRIPTIONS[cmd]))
+
+    if uncategorized:
+        console.print("[bold]Outros:[/]")
+        for cmd, desc in uncategorized:
+            console.print(f"  [cyan]{cmd:<12}[/] {desc}")
+        console.print()
+
+
 app = typer.Typer(
     name="miru",
-    help="""CLI Python para servidor Ollama local.
-
-Miru (見る) means 'to see' or 'to look' in Japanese.
-It represents the ability to visualize and interact with AI models,
-making the invisible visible through clear, intuitive commands.
-""",
     add_completion=False,
 )
+
+
+@app.callback(invoke_without_command=True)
+def help_callback(
+    ctx: typer.Context,
+    help_flag: bool = typer.Option(
+        False,
+        "--help",
+        "-h",
+        is_flag=True,
+        is_eager=True,
+        help="Show this message and exit.",
+    ),
+) -> None:
+    """Show categorized help when no command is provided or --help flag is used."""
+    if help_flag or ctx.invoked_subcommand is None:
+        print_categorized_help()
+        raise typer.Exit(0)
 
 
 @app.command()

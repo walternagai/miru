@@ -21,6 +21,11 @@ class TestCLI:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "CLI Python para servidor Ollama" in result.output
+        assert "Gestão de Modelos" in result.output
+        assert "Execução de Modelos" in result.output
+        assert "Servidor e Status" in result.output
+        assert "Configuração" in result.output
+        assert "Utilitários" in result.output
 
     def test_list_help(self) -> None:
         """Should display list command help."""
