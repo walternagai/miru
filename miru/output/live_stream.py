@@ -4,10 +4,12 @@ import re
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
-from rich.console import Console,Group
+from rich.console import Console, Group
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.syntax import Syntax
+
+from miru.latex_unicode import latex_to_unicode
 
 if TYPE_CHECKING:
     pass
@@ -128,7 +130,7 @@ async def stream_as_markdown_live(
             if content:
                 text_buffer += content
                 
-                md = _render_with_syntax_highlight(text_buffer)
+                md = _render_with_syntax_highlight(latex_to_unicode(text_buffer))
                 live.update(md)
             
             if chunk.get("done"):
@@ -137,5 +139,7 @@ async def stream_as_markdown_live(
     if show_metrics and final_chunk and text_buffer:
         print()
         render_metrics(final_chunk)
+    
+    text_buffer = latex_to_unicode(text_buffer)
     
     return text_buffer, final_chunk

@@ -4,6 +4,8 @@ import json
 from collections.abc import AsyncIterator
 from typing import Any
 
+from miru.latex_unicode import latex_to_unicode
+
 
 async def render_stream(
     chunks: AsyncIterator[dict[str, Any]],
@@ -41,11 +43,11 @@ async def render_stream(
             if "response" in chunk:
                 text = chunk.get("response", "")
                 if text:
-                    print(text, end="", flush=True)
+                    print(latex_to_unicode(text), end="", flush=True)
             elif "message" in chunk:
                 text = chunk.get("message", {}).get("content", "")
                 if text:
-                    print(text, end="", flush=True)
+                    print(latex_to_unicode(text), end="", flush=True)
 
         if chunk.get("done"):
             final_chunk = chunk

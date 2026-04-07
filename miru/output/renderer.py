@@ -16,6 +16,8 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from miru.latex_unicode import latex_to_unicode
+
 if TYPE_CHECKING:
     pass
 
@@ -81,7 +83,7 @@ async def stream_tokens(
         if not quiet:
             text = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
             if text:
-                print(text, end="", flush=True)
+                print(latex_to_unicode(text), end="", flush=True)
 
         yield chunk
 
@@ -236,6 +238,7 @@ async def render_stream_as_markdown(
                 final_chunk = chunk
 
     full_response = "".join(response_parts)
+    full_response = latex_to_unicode(full_response)
 
     if quiet:
         return full_response, final_chunk
