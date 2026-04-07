@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from miru.config_manager import LOG_DIR, ensure_config_dir
+from miru.core.i18n import t
 
 console = Console()
 
@@ -43,13 +44,13 @@ def logs(
         files = get_log_files()
 
         if not files:
-            console.print("[dim]Nenhum log encontrado[/]")
+            console.print(f"[dim]{t('logs.none_found')}[/]")
             return
 
-        table = Table(title="Log Files", show_header=True, header_style="bold cyan")
-        table.add_column("Arquivo", style="green")
-        table.add_column("Tamanho", justify="right")
-        table.add_column("Modificado")
+        table = Table(title=t("logs.files_title"), show_header=True, header_style="bold cyan")
+        table.add_column(t("logs.file_header"), style="green")
+        table.add_column(t("logs.size_header"), justify="right")
+        table.add_column(t("logs.modified_header"))
 
         for f in files:
             size = f.stat().st_size
@@ -62,7 +63,7 @@ def logs(
     files = get_log_files()
 
     if not files:
-        console.print("[dim]Nenhum log encontrado[/]")
+        console.print(f"[dim]{t('logs.none_found')}[/]")
         return
 
     if latest:
@@ -111,7 +112,7 @@ def logs(
         if follow and i == 0:
             import json
 
-            console.print("[dim]Following... (Ctrl+C to stop)[/]")
+            console.print(f"[dim]{t('logs.following')}[/]")
             with open(log_file, encoding="utf-8") as f:
                 f.seek(0, 2)
 
@@ -140,7 +141,7 @@ def logs(
                         else:
                             time.sleep(0.1)
                 except KeyboardInterrupt:
-                    console.print("\n[dim]Stopped[/]")
+                    console.print(f"\n[dim]{t('logs.stopped')}[/]")
                     break
 
 
@@ -153,16 +154,16 @@ def clear_logs(
         miru logs-clear --force
     """
     if not force:
-        console.print("[yellow]Deletar todos os logs?[/] Use --force para confirmar")
+        console.print(f"[yellow]{t('logs.delete_warning')}[/] {t('logs.use_force')}")
         return
 
     files = get_log_files()
 
     if not files:
-        console.print("[dim]Nenhum log para deletar[/]")
+        console.print(f"[dim]{t('logs.none_to_delete')}[/]")
         return
 
     for f in files:
         f.unlink()
 
-    console.print(f"[green bold]✓[/] {len(files)} log(s) deletados")
+    console.print(f"[green bold]✓[/] {t('logs.deleted', count=len(files))}")

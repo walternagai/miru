@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from miru.config_manager import resolve_host
+from miru.core.i18n import t
 
 console = Console()
 
@@ -52,35 +53,35 @@ async def _status_async(host: str, verbose: bool) -> None:
         async with httpx.AsyncClient(timeout=10.0) as client:
             check_response = await client.get(f"{host}/")
             if check_response.status_code != 200:
-                console.print(f"[red bold]✗[/] Ollama não está respondendo em {host}")
-                console.print("[dim]Verifique se o Ollama está rodando: ollama serve[/]")
+                console.print(f"[red bold]✗[/] {t('status.connection_failed', host=host)}")
+                console.print(f"[dim]{t('status.check_running')}[/]")
                 return
 
             version_info = await get_ollama_version(host)
 
             running_models = await get_running_models(host)
 
-        console.print(f"[green bold]✓[/] Ollama está acessível em {host}")
+        console.print(f"[green bold]✓[/] {t('status.accessible', host=host)}")
         console.print()
 
         table = Table(show_header=True, header_style="bold cyan")
-        table.add_column("Propriedade", style="dim")
-        table.add_column("Valor")
+        table.add_column(t("status.property"), style="dim")
+        table.add_column(t("status.value"))
 
         table.add_row("Host", host)
-        table.add_row("Status", "[green]Online[/]")
+        table.add_row("Status", f"[green]{t('status.online')}[/]")
         table.add_row(
             "Versão", version_info.get("version", "unknown") if version_info else "unknown"
         )
 
         if running_models:
             console.print()
-            console.print(f"[bold]Modelos carregados na VRAM ({len(running_models)}):[/]")
+            console.print(f"[bold]{t('status.loaded_vram_count', count=len(running_models))}[/]")
             models_table = Table(show_header=True, header_style="bold cyan")
-            models_table.add_column("Modelo", style="green")
-            models_table.add_column("Tamanho", justify="right")
+            models_table.add_column(t("models.loaded_vram"), style="green")
+            models_table.add_column(t("list.size"), justify="right")
             models_table.add_column("VRAM", justify="right")
-            models_table.add_column("Expira em", justify="right")
+            models_table.add_column(t("list.expires"), justify="right")
 
             for m in running_models:
                 from miru.output.renderer import format_size
@@ -95,15 +96,15 @@ async def _status_async(host: str, verbose: bool) -> None:
             console.print(models_table)
         else:
             console.print()
-            console.print("[dim]Nenhum modelo carregado na VRAM[/]")
+            console.print(f"[dim]{t('status.no_models_vram')}[/]")
 
     except httpx.ConnectError:
-        console.print(f"[red bold]✗[/] Cannot connect to Ollama at {host}")
-        console.print("[dim]Verifique se o Ollama está rodando: ollama serve[/]")
+        console.print(f"[red bold]✗[/] {t('status.connection_error', host=host)}")
+        console.print(f"[dim]{t('status.check_running')}[/]")
     except httpx.TimeoutException:
-        console.print(f"[red bold]✗[/] Timeout connecting to Ollama at {host}")
+        console.print(f"[red bold]✗[/] {t('status.timeout_error', host=host)}")
     except Exception as e:
-        console.print(f"[red bold]✗[/] Error: {e}")
+        console.print(f"[red bold]✗[/] {t('status.error_unexpected', error=e)}")
 
 
 def status(
@@ -147,16 +148,16 @@ def ps(
         return
 
     if not models:
-        console.print("[dim]Nenhum modelo carregado na VRAM[/]")
+        console.print(f"[dim]{t('status.no_models_vram')}[/]")
         return
 
     from miru.output.renderer import format_size
 
-    table = Table(title="Modelos na VRAM", show_header=True, header_style="bold cyan")
-    table.add_column("Modelo", style="green")
-    table.add_column("Tamanho", justify="right")
+    table = Table(title=t("models.loaded_vram"), show_header=True, header_style="bold cyan")
+    table.add_column(t("models.loaded_vram"), style="green")
+    table.add_column(t("list.size"), justify="right")
     table.add_column("VRAM", justify="right")
-    table.add_column("Expira em", justify="right")
+    table.add_column(t("list.expires"), justify="right")
 
     for m in models:
         name = m.get("name", "-")
@@ -199,9 +200,9 @@ def stop(
 
     try:
         asyncio.run(_stop_model_async(resolved_host, model, keep_alive))
-        console.print(f"[green bold]✓[/] Model {model} unloaded")
+        console.print(f"[green bold]✓[/] {t('status.model_unloaded', model=model)}")
     except Exception as e:
-        console.print(f"[red bold]✗[/] {e}")
+        console.print(f"[red bold]✗[/] {t('status.stop_error', error=e)}")
 
 
 async def _search_async(host: str, query: str) -> list[dict]:
@@ -254,15 +255,15 @@ def search(
         return
 
     if not models:
-        console.print(f"[dim]Nenhum modelo encontrado para '{query}'[/]")
+        console.print(f"[dim]{t('status.no_models_found', query=query)}[/]")
         return
 
     from miru.output.renderer import format_date, format_size
 
-    table = Table(title=f"Modelos matching '{query}'", show_header=True, header_style="bold cyan")
-    table.add_column("Modelo", style="green")
-    table.add_column("Tamanho", justify="right")
-    table.add_column("Modificado", justify="center")
+    table = Table(title=t("status.models_matching", query=query), show_header=True, header_style="bold cyan")
+    table.add_column(t("models.loaded_vram"), style="green")
+    table.add_column(t("list.size"), justify="right")
+    table.add_column(t("list.modified"), justify="center")
 
     for m in models:
         name = m.get("name", "-")

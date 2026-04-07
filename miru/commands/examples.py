@@ -7,6 +7,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from miru.core.i18n import t
+
 console = Console()
 
 EXAMPLES = {
@@ -151,15 +153,14 @@ def examples_list(category: str | None = None, tag: str | None = None) -> None:
         filtered[key] = example
 
     if not filtered:
-        console.print("[yellow]No examples found matching the criteria.[/]")
+        console.print(f"[yellow]{t('examples.no_examples')}[/]")
         return
 
-    table = Table(title="Examples", show_header=True, header_style="bold cyan")
-    table.add_column("Key", style="green")
-    table.add_column("Title")
-    table.add_column("Description")
-    table.add_column("Category")
-    table.add_column("Tags")
+    table = Table(title=t("examples.title"), show_header=True, header_style="bold cyan")
+    table.add_column(t("examples.key_header"), style="green")
+    table.add_column(t("examples.title_header"))
+    table.add_column(t("examples.category_header"))
+    table.add_column(t("examples.tags_header"))
 
     for key, example in sorted(filtered.items()):
         tags = ", ".join(example.get("tags", []))[:30]
@@ -177,20 +178,20 @@ def examples_list(category: str | None = None, tag: str | None = None) -> None:
 def examples_show(name: str, copy: bool = False) -> None:
     """Show example details."""
     if name not in EXAMPLES:
-        console.print(f"[red bold]✗[/] Example '{name}' not found")
-        console.print("[dim]Use 'miru examples --list' to see available examples")
+        console.print(f"[red bold]✗[/] {t('examples.not_found', name=name)}")
+        console.print(f"[dim]{t('examples.use_list')}[/]")
         sys.exit(1)
 
     example = EXAMPLES[name]
 
     console.print(f"[bold]{example.get('title', name)}[/]")
     console.print()
-    console.print(f"[dim]Description:[/] {example.get('description', '')}")
-    console.print(f"[dim]Category:[/] {example.get('category', '')}")
-    console.print(f"[dim]Tags:[/] {', '.join(example.get('tags', []))}")
+    console.print(f"[dim]{t('examples.desc_label')}[/] {example.get('description', '')}")
+    console.print(f"[dim]{t('examples.category_label')}[/] {example.get('category', '')}")
+    console.print(f"[dim]{t('examples.tags_label')}[/] {', '.join(example.get('tags', []))}")
     console.print()
 
-    console.print("[bold]Command:[/]")
+    console.print(f"[bold]{t('examples.command_label')}[/]")
     console.print(f"  [cyan]{example.get('command', '')}[/]")
     console.print()
 
@@ -199,12 +200,12 @@ def examples_show(name: str, copy: bool = False) -> None:
             import pyperclip
 
             pyperclip.copy(example.get("command", ""))
-            console.print("[green]✓[/] Command copied to clipboard")
+            console.print(f"[green]✓[/] {t('examples.copied')}")
         except ImportError:
             console.print(
-                "[yellow]Install 'pyperclip' to copy to clipboard: pip install pyperclip[/]"
+                f"[yellow]{t('examples.install_pyperclip')}[/]"
             )
-            console.print("[dim]Command is shown above[/]")
+            console.print(f"[dim]{t('examples.command_shown')}[/]")
 
 
 def examples_categories() -> None:
@@ -217,9 +218,9 @@ def examples_categories() -> None:
             categories[cat] = 0
         categories[cat] += 1
 
-    table = Table(title="Categories", show_header=True, header_style="bold cyan")
-    table.add_column("Category", style="green")
-    table.add_column("Examples", justify="right")
+    table = Table(title=t("examples.categories_title"), show_header=True, header_style="bold cyan")
+    table.add_column(t("examples.category_header"), style="green")
+    table.add_column(t("examples.examples_count"), justify="right")
 
     for cat, count in sorted(categories.items()):
         table.add_row(cat, str(count))
@@ -262,17 +263,17 @@ def examples(
         examples_list(category, tag)
         return
 
-    console.print("[bold]Usage Examples Browser[/]")
+    console.print(f"[bold]{t('examples.browser_title')}[/]")
     console.print()
-    console.print("[dim]Use --list to see all examples[/]")
-    console.print("[dim]Use --category <name> to filter by category[/]")
-    console.print("[dim]Use --tag <tag> to filter by tag[/]")
-    console.print("[dim]Use '<name>' to see example details[/]")
-    console.print("[dim]Use '<name> --copy' to copy command to clipboard[/]")
+    console.print(f"[dim]{t('examples.use_list_help')}[/]")
+    console.print(f"[dim]{t('examples.use_category_help')}[/]")
+    console.print(f"[dim]{t('examples.use_tag_help')}[/]")
+    console.print(f"[dim]{t('examples.use_name_help')}[/]")
+    console.print(f"[dim]{t('examples.use_copy_help')}[/]")
     console.print()
-    console.print("[bold]Popular examples:[/]")
+    console.print(f"[bold]{t('examples.popular_examples')}[/]")
     for key in ["hello-world", "code-python", "chat-interactive", "compare-models"]:
         example = EXAMPLES[key]
         console.print(f"  • {key}: {example.get('title', '')}")
     console.print()
-    console.print("[dim]Full list: miru examples --list[/]")
+    console.print(f"[dim]{t('examples.full_list')}[/]")

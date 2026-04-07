@@ -12,6 +12,7 @@ from miru.config import get_host
 from miru.config_manager import load_config
 from miru.inference_params import build_options
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
+from miru.core.i18n import t
 
 console = Console()
 
@@ -105,8 +106,8 @@ async def _run_quick_command_async(
     """Async implementation of quick command."""
     command_data = QUICK_COMMANDS.get(command)
     if not command_data:
-        console.print(f"[red bold]✗[/] Unknown quick command: {command}")
-        console.print("[dim]Available commands: " + ", ".join(QUICK_COMMANDS.keys()))
+        console.print(f"[red bold]✗[/] {t('quick.unknown_command', command=command)}")
+        console.print(f"[dim]{t('quick.available_commands', commands=', '.join(QUICK_COMMANDS.keys()))}[/]")
         sys.exit(1)
 
     prompt_template = command_data["prompt"]
@@ -115,9 +116,9 @@ async def _run_quick_command_async(
     try:
         prompt = prompt_template.format(**params)
     except KeyError as e:
-        console.print(f"[red bold]✗[/] Missing parameter: {e}")
+        console.print(f"[red bold]✗[/] {t('quick.missing_parameter', param=e)}")
         console.print(
-            f"[dim]Required parameters for '{command}': {', '.join(_extract_params(prompt_template))}"
+            f"[dim]{t('quick.required_params', command=command, params=', '.join(_extract_params(prompt_template)))}[/]"
         )
         sys.exit(1)
 
@@ -128,8 +129,8 @@ async def _run_quick_command_async(
             all_models = await client.list_models()
             model_names = [m.get("name", "") for m in all_models]
             if model not in model_names:
-                console.print(f"[red bold]✗[/] Model '{model}' not found")
-                console.print(f"[dim]Download with: miru pull {model}")
+                console.print(f"[red bold]✗[/] {t('error.model_not_found', model=model)}")
+                console.print(f"[dim]{t('suggestion.pull_model', model=model)}[/]")
                 sys.exit(1)
 
             options = build_options()
@@ -160,8 +161,8 @@ async def _run_quick_command_async(
                 print(f"\n[{eval_count} tokens · {tokens_per_second:.1f} tok/s]")
 
         except OllamaModelNotFound:
-            console.print(f"[red bold]✗[/] Model '{model}' not found")
-            console.print(f"[dim]Download with: miru pull {model}")
+            console.print(f"[red bold]✗[/] {t('error.model_not_found', model=model)}")
+            console.print(f"[dim]{t('suggestion.pull_model', model=model)}[/]")
             sys.exit(1)
         except OllamaConnectionError as e:
             console.print(f"[red bold]✗[/] {e}")
@@ -177,10 +178,10 @@ def _extract_params(template: str) -> list[str]:
 
 def quick_list() -> None:
     """List available quick commands."""
-    table = console.Table(title="Quick Commands", show_header=True, header_style="bold cyan")
-    table.add_column("Command", style="green")
-    table.add_column("Description")
-    table.add_column("Parameters")
+    table = console.Table(title=t("quick.title"), show_header=True, header_style="bold cyan")
+    table.add_column(t("quick.command_header"), style="green")
+    table.add_column(t("quick.description_header"))
+    table.add_column(t("quick.params_header"))
 
     for cmd, data in sorted(QUICK_COMMANDS.items()):
         params = ", ".join(_extract_params(data["prompt"]))
@@ -188,9 +189,9 @@ def quick_list() -> None:
 
     console.print(table)
     console.print()
-    console.print("[dim]Usage: miru quick <command> <model> --param KEY=VALUE[/]")
+    console.print(f"[dim]{t('quick.usage')}")
     console.print(
-        "[dim]Example: miru quick code gemma3 --param language=python --param task='sort a list'[/]"
+        f"[dim]{t('quick.example')}[/]"
     )
 
 
@@ -245,15 +246,15 @@ def quick(
         config = load_config()
         model = config.default_model
         if model is None:
-            console.print("[red bold]✗[/] Model not specified")
-            console.print("[dim]Set default model: miru config set default_model gemma3:latest")
-            console.print("[dim]Or specify: miru quick <command> <model>")
+            console.print(f"[red bold]✗[/] {t('prompt.model_required')}")
+            console.print(f"[dim]{t('prompt.use_specify', command='quick <command> <model>')}")
+            console.print(f"[dim]{t('prompt.or_configure')}")
             sys.exit(1)
 
     params_dict: dict[str, str] = {}
     for param_str in param:
         if "=" not in param_str:
-            console.print(f"[red bold]✗[/] Invalid parameter: {param_str}. Use KEY=VALUE")
+            console.print(f"[red bold]✗[/] {t('quick.invalid_param', param=param_str)}")
             sys.exit(1)
         key, value = param_str.split("=", 1)
         params_dict[key] = value

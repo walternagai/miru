@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from miru.history import clear_history, get_history, search_history
+from miru.core.i18n import t
 
 console = Console()
 
@@ -35,7 +36,7 @@ def history_cmd(
     """
     if clear:
         clear_history()
-        console.print("[green bold]✓[/] History cleared")
+        console.print(f"[green bold]✓[/] {t('history.cleared')}")
         return
 
     if search:
@@ -44,7 +45,7 @@ def history_cmd(
         entries = get_history(limit=limit, command=command)
 
     if not entries:
-        console.print("[dim]Nenhum histórico encontrado[/]")
+        console.print(f"[dim]{t('history.none_found')}[/]")
         return
 
     if format == "json":
@@ -52,13 +53,13 @@ def history_cmd(
         print(json.dumps(output, indent=2, ensure_ascii=False))
         return
 
-    table = Table(title="Histórico de Prompts", show_header=True, header_style="bold cyan")
-    table.add_column("#", style="dim", width=4)
-    table.add_column("Data/Hora", width=16)
-    table.add_column("Comando", width=8)
-    table.add_column("Modelo", style="green", width=20)
-    table.add_column("Prompt", width=40)
-    table.add_column("Status", width=8)
+    table = Table(title=t("history.title"), show_header=True, header_style="bold cyan")
+    table.add_column(t("history.index_header"), style="dim", width=4)
+    table.add_column(t("history.datetime_header"), width=16)
+    table.add_column(t("history.command_header"), width=8)
+    table.add_column(t("history.model_header"), style="green", width=20)
+    table.add_column(t("history.prompt_header"), width=40)
+    table.add_column(t("history.status_header"), width=8)
 
     for idx, entry in enumerate(entries):
         timestamp = entry.timestamp[:16] if len(entry.timestamp) >= 16 else entry.timestamp
@@ -73,7 +74,7 @@ def history_cmd(
 
     if entries:
         console.print()
-        console.print("[dim]Use: miru history show <index> para ver detalhes[/]")
+        console.print(f"[dim]{t('history.use_show')}[/]")
 
 
 def history_show(
@@ -89,41 +90,41 @@ def history_show(
     entry = get_history_by_index(index)
 
     if not entry:
-        console.print(f"[red bold]✗[/] Entry {index} not found")
+        console.print(f"[red bold]✗[/] {t('history.entry_not_found', index=index)}")
         sys.exit(1)
 
-    console.print(f"[bold]Data/Hora:[/] {entry.timestamp}")
-    console.print(f"[bold]Comando:[/] {entry.command}")
-    console.print(f"[bold]Modelo:[/] {entry.model}")
-    console.print(f"[bold]Status:[/] {'✓ Success' if entry.success else '✗ Failed'}")
+    console.print(f"[bold]{t('history.datetime_label')}[/] {entry.timestamp}")
+    console.print(f"[bold]{t('history.command_label')}[/] {entry.command}")
+    console.print(f"[bold]{t('history.model_label')}[/] {entry.model}")
+    console.print(f"[bold]{t('history.status_label')}[/] {'✓ ' + t('history.success') if entry.success else '✗ ' + t('history.failed')}")
 
     if entry.system_prompt:
-        console.print("[bold]System Prompt:[/]")
+        console.print(f"[bold]{t('history.system_prompt_label')}[/]")
         console.print(
             f"  {entry.system_prompt[:100]}{'...' if len(entry.system_prompt) > 100 else ''}"
         )
 
     console.print()
-    console.print("[bold]Prompt:[/]")
+    console.print(f"[bold]{t('history.prompt_label')}[/]")
     console.print(entry.prompt)
 
     if entry.response:
         console.print()
-        console.print("[bold]Response:[/]")
+        console.print(f"[bold]{t('history.response_label')}[/]")
         console.print(entry.response)
 
     if entry.metrics:
         console.print()
-        console.print("[bold]Métricas:[/]")
+        console.print(f"[bold]{t('history.metrics_label')}[/]")
         metrics = entry.metrics
         if "eval_count" in metrics:
-            console.print(f"  Tokens: {metrics['eval_count']}")
+            console.print(f"  {t('history.tokens')} {metrics['eval_count']}")
         if "tokens_per_second" in metrics:
-            console.print(f"  Velocidade: {metrics['tokens_per_second']:.1f} tok/s")
+            console.print(f"  {t('history.speed', speed=metrics['tokens_per_second'])}")
         if "total_duration_ns" in metrics:
             total_seconds = metrics["total_duration_ns"] / 1e9
-            console.print(f"  Tempo: {total_seconds:.1f}s")
+            console.print(f"  {t('history.time', time=total_seconds)}")
 
     if entry.error:
         console.print()
-        console.print(f"[bold]Erro:[/] {entry.error}")
+        console.print(f"[bold]{t('history.error_label')}[/] {entry.error}")

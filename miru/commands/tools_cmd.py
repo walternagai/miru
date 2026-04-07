@@ -9,6 +9,7 @@ from rich.table import Table
 from miru.tools import ToolRegistry, create_file_tools, create_system_tools
 from miru.tools.files import FileSandbox
 from miru.tools.system import CommandWhitelist, EnvironmentWhitelist
+from miru.core.i18n import t
 
 console = Console()
 app = typer.Typer(help="Manage tools for function calling")
@@ -56,7 +57,7 @@ def tools_list(
         tools = [t for t in tools if t.name.startswith(category_prefix)]
 
     if not tools:
-        console.print("[yellow]No tools found[/]")
+        console.print(f"[yellow]{t('tools.no_tools_found')}[/]")
         return
 
     if format == "json":
@@ -75,10 +76,10 @@ def tools_list(
         console.print(json.dumps(data, indent=2))
         return
 
-    table = Table(title="Available Tools")
-    table.add_column("Name", style="cyan")
-    table.add_column("Description", style="white")
-    table.add_column("Parameters", style="dim")
+    table = Table(title=t("tools.available_tools"))
+    table.add_column(t("tools.name_header"), style="cyan")
+    table.add_column(t("tools.description_header"), style="white")
+    table.add_column(t("tools.parameters_header"), style="dim")
 
     for tool in sorted(tools, key=lambda t: t.name):
         params = tool.parameters.get("required", [])
@@ -90,7 +91,7 @@ def tools_list(
 
     console.print(table)
     console.print()
-    console.print(f"[dim]Total: {len(tools)} tools[/]")
+    console.print(f"[dim]{t('tools.total_tools', count=len(tools))}[/]")
 
 
 @app.command("show")
@@ -107,8 +108,8 @@ def tools_show(
     try:
         tool = registry.get(name)
     except Exception:
-        console.print(f"[red bold]✗[/] Tool not found: {name}")
-        console.print("[dim]Use 'miru tools list' to see available tools[/]")
+        console.print(f"[red bold]✗[/] {t('tools.not_found', name=name)}")
+        console.print(f"[dim]{t('tools.list_available')}[/]")
         raise typer.Exit(1)
 
     console.print(f"\n[bold cyan]{tool.name}[/]\n")
@@ -119,7 +120,7 @@ def tools_show(
     required = tool.parameters.get("required", [])
 
     if properties:
-        console.print("[bold]Parameters:[/]")
+        console.print(f"[bold]{t('tools.parameters')}[/]")
         for param_name, param_info in properties.items():
             param_type = param_info.get("type", "any")
             param_desc = param_info.get("description", "")
@@ -129,7 +130,7 @@ def tools_show(
             if param_desc:
                 console.print(f"    [dim]{param_desc}[/]")
 
-    console.print("\n[bold]Ollama Format:[/]")
+    console.print(f"\n[bold]{t('tools.ollama_format')}[/]")
     import json
 
     console.print(f"  {json.dumps(tool.to_ollama_format(), indent=2)}\n")
@@ -161,7 +162,7 @@ def tools_exec(
     try:
         tool = registry.get(name)
     except Exception:
-        console.print(f"[red bold]✗[/] Tool not found: {name}")
+        console.print(f"[red bold]✗[/] {t('tools.not_found', name=name)}")
         raise typer.Exit(1)
 
     arguments: dict = {}
@@ -170,38 +171,38 @@ def tools_exec(
         try:
             arguments = json.loads(json_input)
         except json.JSONDecodeError as e:
-            console.print(f"[red bold]✗[/] Invalid JSON: {e}")
+            console.print(f"[red bold]✗[/] {t('tools.invalid_json', error=e)}")
             raise typer.Exit(1)
     else:
         for a in arg:
             if "=" not in a:
-                console.print(f"[red bold]✗[/] Invalid argument format: {a}")
-                console.print("[dim]Use KEY=VALUE format[/]")
+                console.print(f"[red bold]✗[/] {t('tools.invalid_arg_format', arg=a)}")
+                console.print(f"[dim]{t('tools.use_key_value')}[/]")
                 raise typer.Exit(1)
             key, value = a.split("=", 1)
             arguments[key] = value
 
     validation_errors = tool.validate_arguments(arguments)
     if validation_errors:
-        console.print("[red bold]✗[/] Validation errors:")
+        console.print(f"[red bold]✗[/] {t('tools.validation_errors')}")
         for error in validation_errors:
             console.print(f"  • {error}")
         raise typer.Exit(1)
 
-    console.print(f"[dim]Executing {name}...[/]\n")
+    console.print(f"[dim]{t('tools.executing', name=name)}...[/]\n")
 
     try:
         result = registry.execute(name, arguments)
-        console.print("[green bold]✓ Result:[/]")
+        console.print(f"[green bold]✓ {t('tools.result')}[/]")
         if isinstance(result, str):
             if len(result) > 500:
-                console.print(result[:500] + "...[dim](truncated)[/]")
+                console.print(result[:500] + f"...[dim]{t('tools.truncated')}[/]")
             else:
                 console.print(result)
         else:
             console.print(json.dumps(result, indent=2, default=str))
     except Exception as e:
-        console.print(f"[red bold]✗[/] Execution failed: {e}")
+        console.print(f"[red bold]✗[/] {t('tools.exec_failed', error=e)}")
         raise typer.Exit(1)
 
 
@@ -221,10 +222,10 @@ def tools_docs(
     tools = sorted(registry.list_tools(), key=lambda t: t.name)
 
     lines = [
-        "# Tools Reference\n",
+        f"# {t('tools.reference_header')}\n",
         "This document lists all available tools for function calling.\n",
-        "## Overview\n\n",
-        f"Total tools: {len(tools)}\n\n",
+        f"## {t('tools.overview_header')}\n\n",
+        f"{t('tools.total_tools_count', count=len(tools))}\n\n",
         "---\n\n",
     ]
 
@@ -249,7 +250,7 @@ def tools_docs(
         required = tool.parameters.get("required", [])
 
         if properties:
-            lines.append("**Parameters:**\n\n")
+            lines.append(f"**{t('tools.parameters')}**\n\n")
             lines.append("| Name | Type | Required | Description |\n")
             lines.append("|------|------|----------|-------------|\n")
             for param_name, param_info in properties.items():
@@ -269,6 +270,6 @@ def tools_docs(
         from pathlib import Path
 
         Path(output).write_text(doc_content)
-        console.print(f"[green bold]✓[/] Documentation written to {output}")
+        console.print(f"[green bold]✓[/] {t('tools.docs_written', path=output)}")
     else:
         console.print(doc_content)
