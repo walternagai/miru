@@ -14,12 +14,49 @@ from miru.config_manager import CONFIG_DIR, ensure_config_dir
 
 console = Console()
 SESSIONS_DIR = CONFIG_DIR / "sessions"
+FAVORITES_FILE = CONFIG_DIR / "favorites.json"
 
 
 def ensure_sessions_dir() -> None:
     """Ensure sessions directory exists."""
     ensure_config_dir()
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def load_favorites() -> set[str]:
+    """Load favorite session names."""
+    if not FAVORITES_FILE.exists():
+        return set()
+    try:
+        with open(FAVORITES_FILE, encoding="utf-8") as f:
+            return set(json.load(f))
+    except Exception:
+        return set()
+
+
+def save_favorites(favorites: set[str]) -> None:
+    """Save favorite session names."""
+    ensure_config_dir()
+    with open(FAVORITES_FILE, "w", encoding="utf-8") as f:
+        json.dump(list(favorites), f)
+
+
+def toggle_favorite(name: str) -> bool:
+    """Toggle session favorite status. Returns new status."""
+    favorites = load_favorites()
+    if name in favorites:
+        favorites.discard(name)
+        is_favorite = False
+    else:
+        favorites.add(name)
+        is_favorite = True
+    save_favorites(favorites)
+    return is_favorite
+
+
+def is_favorite(name: str) -> bool:
+    """Check if session is favorite."""
+    return name in load_favorites()
 
 
 def get_session_path(name: str) -> Path:
@@ -38,7 +75,7 @@ def list_sessions() -> list[dict]:
 
     for file in SESSIONS_DIR.glob("*.json"):
         try:
-            with open(file, "r", encoding="utf-8") as f:
+            with open(file, encoding="utf-8") as f:
                 data = json.load(f)
                 sessions.append(
                     {
@@ -76,7 +113,7 @@ def save_session(
 
     if path.exists():
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 existing = json.load(f)
                 session_data["created"] = existing.get("created", session_data["created"])
         except Exception:
@@ -94,7 +131,7 @@ def load_session(name: str) -> dict | None:
         return None
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return None
@@ -228,7 +265,7 @@ def session_show(name: str) -> None:
     console.print(f"[bold]Updated:[/] {session.get('updated', 'unknown')[:19]}")
 
     if session.get("system_prompt"):
-        console.print(f"[bold]System Prompt:[/]")
+        console.print("[bold]System Prompt:[/]")
         console.print(f"  {session['system_prompt'][:100]}...")
 
     console.print(f"[bold]Messages:[/] {len(session.get('messages', []))}")

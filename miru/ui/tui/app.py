@@ -23,8 +23,16 @@ from miru.core.config import get_config, reload_config, resolve_host, resolve_mo
 from miru.latex_unicode import latex_to_unicode
 from miru.ollama.client import OllamaClient
 from miru.output.renderer import format_metrics
-from miru.session import delete_session, list_sessions, load_session, save_session
+from miru.session import (
+    delete_session,
+    list_sessions,
+    load_favorites,
+    load_session,
+    save_session,
+    toggle_favorite,
+)
 from miru.ui.tui.config_screen import ConfigScreen
+from miru.ui.tui.preset_screen import PRESETS, PresetScreen
 from miru.ui.tui.rename_screen import RenameScreen
 
 
@@ -162,6 +170,10 @@ class TUIApp(App[None]):
         padding: 1;
     }
 
+    #sidebar.hidden {
+        display: none;
+    }
+
     #session_filter {
         margin-bottom: 1;
     }
@@ -241,6 +253,17 @@ class TUIApp(App[None]):
     #session_list {
         height: 1fr;
     }
+
+    #preset_button {
+        margin-top: 1;
+        background: #3b4261;
+        color: #c0caf5;
+        border: none;
+    }
+
+    #preset_button:hover {
+        background: #565f89;
+    }
     """
 
     BINDINGS = [
@@ -255,6 +278,9 @@ class TUIApp(App[None]):
         Binding("f2", "rename_session", "Rename Session"),
         Binding("delete", "delete_session", "Delete Session"),
         Binding("ctrl+i", "add_image", "Add Image"),
+        Binding("ctrl+o", "select_preset", "Presets"),
+        Binding("ctrl+z", "zen_mode", "Zen Mode"),
+        Binding("ctrl+f", "toggle_favorite", "Toggle Favorite"),
     ]
 
     def __init__(
@@ -277,6 +303,7 @@ class TUIApp(App[None]):
         self.available_models: list[tuple[str, str]] = []
         self.message_counter: int = 0
         self.pending_images: list[str] = []
+        self.zen_mode: bool = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -383,15 +410,54 @@ class TUIApp(App[None]):
         system_prompt_area.placeholder = "System prompt opcional..."
         params_container.mount(system_prompt_area)
 
+        params_container.mount(Button("Personalidades", id="preset_button", variant="default"))
+
         params_container.mount(Label(f"\nHost: {self.host}"))
 
         self.refresh_sessions()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "preset_button":
+            self.push_screen(PresetScreen(), callback=self._on_preset_selected)
+
+    def _on_preset_selected(self, preset_name: str | None) -> None:
+        if preset_name and preset_name in PRESETS:
+            preset = PRESETS[preset_name]
+
+            temp_input = self.query_one("#input_temp", Input)
+            temp_input.value = str(preset["temperature"])
+
+            top_p_input = self.query_one("#input_top_p", Input)
+            top_p_input.value = str(preset["top_p"])
+
+            system_prompt_area = self.query_one("#system_prompt_area", TextArea)
+            system_prompt_area.text = preset["system_prompt"]
+
+            self.notify(f"Preset '{preset_name}' aplicado")
+
+    def action_select_preset(self) -> None:
+        self.push_screen(PresetScreen(), callback=self._on_preset_selected)
+
+    def action_zen_mode(self) -> None:
+        self.zen_mode = not self.zen_mode
+        sidebar = self.query_one("#sidebar", Vertical)
+        context_panel = self.query_one("#context_panel", Vertical)
+
+        if self.zen_mode:
+            sidebar.add_class("hidden")
+            context_panel.add_class("hidden")
+            self.notify("Modo Zen ativado (Ctrl+Z para sair)")
+        else:
+            sidebar.remove_class("hidden")
+            context_panel.remove_class("hidden")
+            self.notify("Modo Zen desativado")
 
     def refresh_sessions(self) -> None:
         session_list = self.query_one("#session_list", ListView)
 
         sessions = list_sessions()
         session_names = {s["name"] for s in sessions}
+        favorites = load_favorites()
 
         # Remove items that no longer exist
         for child in list(session_list.children):
@@ -405,8 +471,20 @@ class TUIApp(App[None]):
         # Add new sessions
         for s in sessions:
             if s["name"] not in existing_ids:
-                item = ListItem(Label(s["name"]), id=s["name"])
+                prefix = "★ " if s["name"] in favorites else "  "
+                item = ListItem(Label(f"{prefix}{s['name']}"), id=s["name"])
                 session_list.append(item)
+
+    def action_toggle_favorite(self) -> None:
+        if not self.current_session_name:
+            self.notify("Nenhuma sessão selecionada")
+            return
+
+        is_now_favorite = toggle_favorite(self.current_session_name)
+        self.refresh_sessions()
+
+        status = "favoritada" if is_now_favorite else "desfavoritada"
+        self.notify(f"Sessão '{self.current_session_name}' {status}")
 
     def action_toggle_context(self) -> None:
         panel = self.query_one("#context_panel")
@@ -453,21 +531,13 @@ class TUIApp(App[None]):
             system_prompt = system_prompt_widget.text.strip()
 
             try:
-                current_temp = (
-                    float(temp_input)
-                    if temp_input
-                    else self.temp_override or self.config.default_temperature or 0.7
-                )
-                current_top_p = (
-                    float(top_p_input)
-                    if top_p_input
-                    else self.temp_override or self.config.default_top_p or 0.9
-                )
+                current_temp = float(temp_input) if temp_input else 0.7
+                current_top_p = float(top_p_input) if top_p_input else 0.9
                 current_max_tokens = int(max_tokens_input) if max_tokens_input else None
                 current_seed = int(seed_input) if seed_input else None
             except ValueError:
-                current_temp = self.temp_override or self.config.default_temperature or 0.7
-                current_top_p = self.top_p_override or self.config.default_top_p or 0.9
+                current_temp = 0.7
+                current_top_p = 0.9
                 current_max_tokens = None
                 current_seed = None
 
