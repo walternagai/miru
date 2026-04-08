@@ -92,7 +92,6 @@ class MessageWidget(Static):
 
     MessageWidget .actions {
         height: auto;
-        align: left;
     }
 
     MessageWidget Button {
