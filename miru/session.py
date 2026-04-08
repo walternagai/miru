@@ -4,7 +4,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -64,11 +64,11 @@ def get_session_path(name: str) -> Path:
     return SESSIONS_DIR / f"{name}.json"
 
 
-def list_sessions() -> list[dict]:
+def list_sessions() -> list[dict[str, Any]]:
     """List all saved sessions."""
     ensure_sessions_dir()
 
-    sessions = []
+    sessions: list[dict[str, Any]] = []
 
     if not SESSIONS_DIR.exists():
         return sessions
@@ -94,12 +94,12 @@ def list_sessions() -> list[dict]:
 
 
 def save_session(
-    name: str, model: str, messages: list[dict], system_prompt: str | None = None
+    name: str, model: str, messages: list[dict[str, Any]], system_prompt: str | None = None
 ) -> None:
     """Save session to file."""
     ensure_sessions_dir()
 
-    session_data = {
+    session_data: dict[str, Any] = {
         "name": name,
         "model": model,
         "system_prompt": system_prompt,
@@ -123,7 +123,7 @@ def save_session(
         json.dump(session_data, f, indent=2, ensure_ascii=False)
 
 
-def load_session(name: str) -> dict | None:
+def load_session(name: str) -> dict[str, Any] | None:
     """Load session from file."""
     path = get_session_path(name)
 
@@ -132,7 +132,8 @@ def load_session(name: str) -> dict | None:
 
     try:
         with open(path, encoding="utf-8") as f:
-            return json.load(f)
+            data: dict[str, Any] = json.load(f)
+            return data
     except Exception:
         return None
 
@@ -148,13 +149,16 @@ def delete_session(name: str) -> bool:
     return True
 
 
-def export_session(name: str, output: str, format: str = "json") -> None:
+def export_session(name: str, output: str | None = None, format: str = "json") -> None:
     """Export session to different formats."""
     session = load_session(name)
 
     if not session:
         console.print(f"[red bold]✗[/] Session '{name}' not found")
         sys.exit(1)
+
+    if output is None:
+        output = f"{name}.{format if format != 'markdown' else 'md'}"
 
     if format == "json":
         with open(output, "w", encoding="utf-8") as f:
@@ -320,7 +324,7 @@ def session_delete_cmd(
 @app.command("export")
 def session_export_cmd(
     name: Annotated[str, typer.Argument(help="Session name")],
-    output: Annotated[str, typer.Option("--output", "-o", help="Output file")] = None,
+    output: Annotated[str | None, typer.Option("--output", "-o", help="Output file")] = None,
     format: Annotated[
         str, typer.Option("--format", "-f", help="Format (json/markdown/txt)")
     ] = "json",

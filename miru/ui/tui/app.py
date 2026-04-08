@@ -1,3 +1,5 @@
+import json
+import uuid
 from typing import Any
 
 from rich.markdown import Markdown
@@ -19,6 +21,7 @@ from textual.widgets import (
 )
 from textual.widgets._select import NoSelection
 
+from miru.config_manager import CONFIG_DIR
 from miru.core.config import get_config, reload_config, resolve_host, resolve_model
 from miru.latex_unicode import latex_to_unicode
 from miru.ollama.client import OllamaClient
@@ -28,6 +31,7 @@ from miru.session import (
     list_sessions,
     load_favorites,
     load_session,
+    save_favorites,
     save_session,
     toggle_favorite,
 )
@@ -379,7 +383,7 @@ class TUIApp(App[None]):
         params_container = self.query_one("#params_container", Vertical)
 
         params_container.mount(Label("Modelo", classes="param_label"))
-        model_select: Select = Select(
+        model_select: Select[str] = Select(
             [],
             id="select_model",
             classes="param_input",
@@ -585,8 +589,6 @@ class TUIApp(App[None]):
             self.messages.append({"role": "assistant", "content": full_response})
 
             if not self.current_session_name:
-                import uuid
-
                 self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
 
             save_session(self.current_session_name, current_model, self.messages)
@@ -623,8 +625,6 @@ class TUIApp(App[None]):
             return
 
         if not self.current_session_name:
-            import uuid
-
             self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
 
         model_select = self.query_one("#select_model", Select)
@@ -721,8 +721,6 @@ class TUIApp(App[None]):
         if not old_session:
             return False
 
-        from miru.config_manager import CONFIG_DIR
-
         sessions_dir = CONFIG_DIR / "sessions"
         old_path = sessions_dir / f"{old_name}.json"
         new_path = sessions_dir / f"{new_name}.json"
@@ -732,12 +730,18 @@ class TUIApp(App[None]):
 
         old_session["name"] = new_name
 
-        import json
-
         with open(new_path, "w", encoding="utf-8") as f:
             json.dump(old_session, f, indent=2, ensure_ascii=False)
 
         old_path.unlink(missing_ok=True)
+
+        # Migrate favorites
+        favorites = load_favorites()
+        if old_name in favorites:
+            favorites.discard(old_name)
+            favorites.add(new_name)
+            save_favorites(favorites)
+
         return True
 
     def action_delete_session(self) -> None:

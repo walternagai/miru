@@ -1,36 +1,60 @@
 """Preset selection screen for model personalities."""
 
+from typing import TypedDict
 
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label
 
-PRESETS = {
+
+class PresetConfig(TypedDict):
+    temperature: float
+    top_p: float
+    system_prompt: str
+
+
+PRESETS: dict[str, PresetConfig] = {
     "Preciso": {
         "temperature": 0.3,
         "top_p": 0.9,
-        "system_prompt": "Você é um assistente preciso e objetivo. Responda de forma clara e concisa, focando nos fatos.",
+        "system_prompt": (
+            "Você é um assistente preciso e objetivo. "
+            "Responda de forma clara e concisa, focando nos fatos."
+        ),
     },
     "Criativo": {
         "temperature": 1.0,
         "top_p": 0.95,
-        "system_prompt": "Você é um assistente criativo e imaginativo. Explore ideias de forma inovadora e divertida.",
+        "system_prompt": (
+            "Você é um assistente criativo e imaginativo. "
+            "Explore ideias de forma inovadora e divertida."
+        ),
     },
     "Programador": {
         "temperature": 0.2,
         "top_p": 0.95,
-        "system_prompt": "Você é um assistente especializado em programação. Forneça código bem estruturado, comentado e siga boas práticas.",
+        "system_prompt": (
+            "Você é um assistente especializado em programação. "
+            "Forneça código bem estruturado, comentado e siga boas práticas."
+        ),
     },
     "Acadêmico": {
         "temperature": 0.4,
         "top_p": 0.9,
-        "system_prompt": "Você é um assistente acadêmico. Responda de forma rigorosa, cite fontes quando relevante e use terminologia técnica apropriada.",
+        "system_prompt": (
+            "Você é um assistente acadêmico. "
+            "Responda de forma rigorosa, cite fontes quando relevante "
+            "e use terminologia técnica apropriada."
+        ),
     },
     "Conversacional": {
         "temperature": 0.8,
         "top_p": 0.92,
-        "system_prompt": "Você é um assistente amigável e conversacional. Engaje de forma natural, seja prestativo e mantenha um tom caloroso.",
+        "system_prompt": (
+            "Você é um assistente amigável e conversacional. "
+            "Engaje de forma natural, seja prestativo e mantenha um tom caloroso."
+        ),
     },
 }
 
