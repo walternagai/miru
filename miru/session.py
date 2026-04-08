@@ -1,6 +1,7 @@
 """Session save and restore functionality."""
 
 import json
+import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +13,7 @@ from rich.table import Table
 
 from miru.config_manager import CONFIG_DIR, ensure_config_dir
 
+logger = logging.getLogger(__name__)
 console = Console()
 SESSIONS_DIR = CONFIG_DIR / "sessions"
 FAVORITES_FILE = CONFIG_DIR / "favorites.json"
@@ -86,7 +88,8 @@ def list_sessions() -> list[dict[str, Any]]:
                         "updated": data.get("updated", ""),
                     }
                 )
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to load session {file.name}: {e}")
             continue
 
     sessions.sort(key=lambda x: x.get("updated", ""), reverse=True)
@@ -134,7 +137,8 @@ def load_session(name: str) -> dict[str, Any] | None:
         with open(path, encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
             return data
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Failed to load session {name}: {e}")
         return None
 
 

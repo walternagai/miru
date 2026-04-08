@@ -10,6 +10,7 @@ from rich.progress import (
     BarColumn,
     Progress,
     SpinnerColumn,
+    TaskID,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
@@ -449,9 +450,8 @@ async def render_pull_progress(
     Yields:
         Each progress chunk
     """
-    progress = None
-    task_id = None
-    current_status = None
+    progress: Progress | None = None
+    task_id: TaskID | None = None
 
     try:
         async for chunk in chunks:
@@ -473,9 +473,11 @@ async def render_pull_progress(
                     total = chunk.get("total", 0)
 
                     if total and total > 0:
-                        progress.update(task_id, completed=completed, total=total)
+                        if task_id is not None:
+                            progress.update(task_id, completed=completed, total=total)
                     else:
-                        progress.update(task_id, completed=completed)
+                        if task_id is not None:
+                            progress.update(task_id, completed=completed)
 
                 elif status == "verifying sha256 digest":
                     console.print("Verificando integridade...")
