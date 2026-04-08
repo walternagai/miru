@@ -21,8 +21,9 @@ from textual.widgets._select import NoSelection
 from miru.core.config import get_config, reload_config, resolve_host, resolve_model
 from miru.latex_unicode import latex_to_unicode
 from miru.ollama.client import OllamaClient
-from miru.session import list_sessions, load_session, save_session
+from miru.session import delete_session, list_sessions, load_session, save_session
 from miru.ui.tui.config_screen import ConfigScreen
+from miru.ui.tui.rename_screen import RenameScreen
 
 
 class MarkdownWidget(Static):
@@ -61,6 +62,10 @@ class TUIApp(App[None]):
         background: #24283b;
         border-right: solid #414868;
         padding: 1;
+    }
+
+    #session_filter {
+        margin-bottom: 1;
     }
 
     #chat_area {
@@ -134,6 +139,10 @@ class TUIApp(App[None]):
         min-height: 3;
         max-height: 8;
     }
+
+    #session_list {
+        height: 1fr;
+    }
     """
 
     BINDINGS = [
@@ -145,6 +154,8 @@ class TUIApp(App[None]):
         Binding("ctrl+q", "quit", "Quit"),
         Binding("ctrl+p", "toggle_context", "Toggle Panel"),
         Binding("ctrl+r", "reload_sessions", "Reload Sessions"),
+        Binding("f2", "rename_session", "Rename Session"),
+        Binding("delete", "delete_session", "Delete Session"),
     ]
 
     def __init__(
@@ -171,6 +182,11 @@ class TUIApp(App[None]):
         with Horizontal(id="main_container"):
             with Vertical(id="sidebar"):
                 yield Label("Sessões")
+                yield Input(
+                    placeholder="Filtrar sessões...",
+                    id="session_filter",
+                    classes="session_filter",
+                )
                 yield ListView(id="session_list")
 
             with Vertical(id="chat_area"):
@@ -378,8 +394,12 @@ class TUIApp(App[None]):
 
             self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
 
-        model_input = self.query_one("#input_model", Input).value
-        current_model = model_input if model_input else self.model
+        model_select = self.query_one("#select_model", Select)
+        selected_value = model_select.value
+        if isinstance(selected_value, NoSelection) or selected_value is None:
+            current_model = self.model
+        else:
+            current_model = str(selected_value)
 
         save_session(self.current_session_name, current_model, self.messages)
         self.refresh_sessions()
@@ -416,6 +436,91 @@ class TUIApp(App[None]):
             self.notify(f"Sessão '{session_name}' carregada")
         else:
             self.notify("Erro ao carregar sessão")
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "session_filter":
+            self.filter_sessions(event.value)
+
+    def filter_sessions(self, filter_text: str) -> None:
+        """Filter sessions by name."""
+        session_list = self.query_one("#session_list", ListView)
+
+        filter_lower = filter_text.lower().strip()
+
+        for child in session_list.children:
+            if isinstance(child, ListItem) and child.id:
+                if filter_lower:
+                    visible = filter_lower in child.id.lower()
+                    child.set_class(not visible, "hidden")
+                else:
+                    child.remove_class("hidden")
+
+    def action_rename_session(self) -> None:
+        if not self.current_session_name:
+            self.notify("Nenhuma sessão selecionada para renomear")
+            return
+
+        self.push_screen(
+            RenameScreen(self.current_session_name),
+            callback=self._on_rename_complete,
+        )
+
+    def _on_rename_complete(self, new_name: str | None) -> None:
+        if new_name and self.current_session_name:
+            old_name = self.current_session_name
+
+            success = self._rename_session_file(old_name, new_name)
+            if success:
+                self.current_session_name = new_name
+                self.refresh_sessions()
+                self.notify(f"Sessão renomeada para '{new_name}'")
+            else:
+                self.notify("Erro ao renomear sessão")
+
+    def _rename_session_file(self, old_name: str, new_name: str) -> bool:
+        """Rename session file on disk."""
+        old_session = load_session(old_name)
+        if not old_session:
+            return False
+
+        from miru.config_manager import CONFIG_DIR
+
+        sessions_dir = CONFIG_DIR / "sessions"
+        old_path = sessions_dir / f"{old_name}.json"
+        new_path = sessions_dir / f"{new_name}.json"
+
+        if new_path.exists():
+            return False
+
+        old_session["name"] = new_name
+
+        import json
+
+        with open(new_path, "w", encoding="utf-8") as f:
+            json.dump(old_session, f, indent=2, ensure_ascii=False)
+
+        old_path.unlink(missing_ok=True)
+        return True
+
+    def action_delete_session(self) -> None:
+        if not self.current_session_name:
+            self.notify("Nenhuma sessão selecionada para deletar")
+            return
+
+        session_name = self.current_session_name
+
+        if delete_session(session_name):
+            self.current_session_name = None
+            self.messages = []
+
+            chat_window = self.query_one("#chat_window", Vertical)
+            for child in list(chat_window.children):
+                child.remove()
+
+            self.refresh_sessions()
+            self.notify(f"Sessão '{session_name}' deletada")
+        else:
+            self.notify(f"Erro ao deletar sessão '{session_name}'")
 
     def action_new_chat(self) -> None:
         self.current_session_name = None
