@@ -217,25 +217,46 @@ class ConfigScreen(ModalScreen[None]):
 
     def _save_config(self) -> None:
         try:
-            host = self.query_one("#config_host", Input).value
-            timeout_str = self.query_one("#config_timeout", Input).value
-            model = self.query_one("#config_model", Input).value
-            temp_str = self.query_one("#config_temp", Input).value
-            top_p_str = self.query_one("#config_top_p", Input).value
-            max_tokens_str = self.query_one("#config_max_tokens", Input).value
-            seed_str = self.query_one("#config_seed", Input).value
-            language = self.query_one("#config_language", Input).value
+            host = self.query_one("#config_host", Input).value.strip()
+            timeout_str = self.query_one("#config_timeout", Input).value.strip()
+            model = self.query_one("#config_model", Input).value.strip()
+            temp_str = self.query_one("#config_temp", Input).value.strip()
+            top_p_str = self.query_one("#config_top_p", Input).value.strip()
+            max_tokens_str = self.query_one("#config_max_tokens", Input).value.strip()
+            seed_str = self.query_one("#config_seed", Input).value.strip()
+            language = self.query_one("#config_language", Input).value.strip()
             history_enabled = self.query_one("#config_history", Checkbox).value
             verbose = self.query_one("#config_verbose", Checkbox).value
             enable_tools = self.query_one("#config_tools", Checkbox).value
             enable_tavily = self.query_one("#config_tavily", Checkbox).value
-            tool_mode = self.query_one("#config_tool_mode", Input).value
-            sandbox_dir = self.query_one("#config_sandbox", Input).value
+            tool_mode = self.query_one("#config_tool_mode", Input).value.strip()
+            sandbox_dir = self.query_one("#config_sandbox", Input).value.strip()
+
+            # Validation
+            if not host:
+                self.app.notify("Erro: Host URL é obrigatório")
+                return
 
             timeout = float(timeout_str) if timeout_str else 30.0
+            if timeout <= 0:
+                self.app.notify("Erro: Timeout deve ser maior que 0")
+                return
+
             temperature = float(temp_str) if temp_str else None
+            if temperature is not None and not (0 <= temperature <= 2):
+                self.app.notify("Erro: Temperature deve estar entre 0 e 2")
+                return
+
             top_p = float(top_p_str) if top_p_str else None
+            if top_p is not None and not (0 <= top_p <= 1):
+                self.app.notify("Erro: Top-P deve estar entre 0 e 1")
+                return
+
             max_tokens = int(max_tokens_str) if max_tokens_str else None
+            if max_tokens is not None and max_tokens < 1:
+                self.app.notify("Erro: Max Tokens deve ser maior que 0")
+                return
+
             seed = int(seed_str) if seed_str else None
 
             new_config = Config(

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from typing import Any
@@ -591,7 +592,10 @@ class TUIApp(App[None]):
             if not self.current_session_name:
                 self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
 
-            save_session(self.current_session_name, current_model, self.messages)
+            # Save session in background to avoid blocking UI
+            await asyncio.to_thread(
+                save_session, self.current_session_name, current_model, self.messages
+            )
             self.refresh_sessions()
 
         except Exception as e:
@@ -677,7 +681,7 @@ class TUIApp(App[None]):
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "session_filter":
-            self.filter_sessions(event.value)
+            self._debounced_filter_sessions(event.value)
 
     def filter_sessions(self, filter_text: str) -> None:
         """Filter sessions by name."""
@@ -692,6 +696,15 @@ class TUIApp(App[None]):
                     child.set_class(not visible, "hidden")
                 else:
                     child.remove_class("hidden")
+
+    def _debounced_filter_sessions(self, filter_text: str, delay: float = 0.15) -> None:
+        """Debounced session filtering to avoid UI lag."""
+
+        async def _filter() -> None:
+            await asyncio.sleep(delay)
+            self.filter_sessions(filter_text)
+
+        self.run_worker(_filter(), exclusive=True)
 
     def action_rename_session(self) -> None:
         if not self.current_session_name:
