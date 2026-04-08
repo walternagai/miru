@@ -387,20 +387,22 @@ class TUIApp(App[None]):
 
         self.refresh_sessions()
 
-    async def _load_available_models(self) -> None:
-        """Load available models from Ollama server and populate the select."""
-        try:
-            async with OllamaClient(host=self.host) as client:
-                models = await client.list_models()
-                self.available_models = [(m["name"], m["name"]) for m in models]
-        except Exception:
-            self.available_models = [(self.model, self.model)]
-
     def refresh_sessions(self) -> None:
         session_list = self.query_one("#session_list", ListView)
-        existing_ids = {child.id for child in session_list.children if child.id}
 
         sessions = list_sessions()
+        session_names = {s["name"] for s in sessions}
+
+        # Remove items that no longer exist
+        for child in list(session_list.children):
+            if isinstance(child, ListItem) and child.id:
+                if child.id not in session_names:
+                    child.remove()
+
+        # Track existing IDs after removal
+        existing_ids = {child.id for child in session_list.children if child.id}
+
+        # Add new sessions
         for s in sessions:
             if s["name"] not in existing_ids:
                 item = ListItem(Label(s["name"]), id=s["name"])
