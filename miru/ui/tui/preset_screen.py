@@ -1,5 +1,6 @@
 """Preset selection screen for model personalities."""
 
+import unicodedata
 from typing import TypedDict
 
 from textual.app import ComposeResult
@@ -59,6 +60,13 @@ PRESETS: dict[str, PresetConfig] = {
 }
 
 
+def _preset_id(preset_name: str) -> str:
+    normalized = (
+        unicodedata.normalize("NFKD", preset_name).encode("ascii", "ignore").decode("ascii")
+    )
+    return f"preset_{normalized.lower()}"
+
+
 class PresetScreen(ModalScreen[str | None]):
     """Modal screen for selecting personality presets."""
 
@@ -116,10 +124,10 @@ class PresetScreen(ModalScreen[str | None]):
         with Vertical(id="preset_dialog"):
             yield Label("Personalidade do Modelo", id="preset_title")
             with Vertical(id="preset_list"):
-                for preset_name, preset_data in PRESETS.items():
+                for preset_name in PRESETS:
                     yield Button(
                         f"{preset_name}\n{self._get_short_desc(preset_name)}",
-                        id=f"preset_{preset_name.lower()}",
+                        id=_preset_id(preset_name),
                         classes="preset_button",
                     )
             yield Button("Cancelar", id="cancel_button")
@@ -138,6 +146,7 @@ class PresetScreen(ModalScreen[str | None]):
         if event.button.id == "cancel_button":
             self.dismiss(None)
         elif event.button.id and event.button.id.startswith("preset_"):
-            preset_name = event.button.id.replace("preset_", "").capitalize()
-            if preset_name in PRESETS:
-                self.dismiss(preset_name)
+            for preset_name in PRESETS:
+                if event.button.id == _preset_id(preset_name):
+                    self.dismiss(preset_name)
+                    break

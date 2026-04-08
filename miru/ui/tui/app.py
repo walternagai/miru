@@ -1,7 +1,25 @@
 import asyncio
 import json
+import re
+import unicodedata
 import uuid
 from typing import Any
+
+
+def _session_id(session_name: str) -> str:
+    normalized = (
+        unicodedata.normalize("NFKD", session_name).encode("ascii", "ignore").decode("ascii")
+    )
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in normalized)
+    return f"session_{safe}"
+
+
+def _extract_code_blocks(text: str) -> str:
+    """Extract all code blocks from text and return them joined by newlines."""
+    pattern = r"```(?:\w*)\n(.*?)```"
+    matches = re.findall(pattern, text, re.DOTALL)
+    return "\n\n".join(matches) if matches else ""
+
 
 from rich.markdown import Markdown
 from textual.app import App, ComposeResult
@@ -36,7 +54,6 @@ from miru.session import (
     save_session,
     toggle_favorite,
 )
-from miru.ui.tui.config_screen import ConfigScreen
 from miru.ui.tui.preset_screen import PRESETS, PresetScreen
 from miru.ui.tui.rename_screen import RenameScreen
 
@@ -131,6 +148,7 @@ class MessageWidget(Static):
 
         with Horizontal(classes="actions"):
             yield Button("Copiar", id=f"copy_{self._message_id}", variant="default")
+            yield Button("Copiar Código", id=f"copy_code_{self._message_id}", variant="default")
             yield Button("Regenerar", id=f"regen_{self._message_id}", variant="default")
 
     def on_mount(self) -> None:
@@ -138,10 +156,24 @@ class MessageWidget(Static):
         content.update_text(self._text)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id and event.button.id.startswith("copy_"):
+        if event.button.id and event.button.id.startswith("copy_code_"):
+            self._copy_code_to_clipboard()
+        elif event.button.id and event.button.id.startswith("copy_"):
             self._copy_to_clipboard()
         elif event.button.id and event.button.id.startswith("regen_"):
             self._regenerate()
+
+    def _copy_code_to_clipboard(self) -> None:
+        """Copy only code blocks from message content to clipboard."""
+        try:
+            code_blocks = _extract_code_blocks(self._text)
+            if code_blocks:
+                self.app.copy_to_clipboard(code_blocks)
+                self.app.notify("Código copiado para clipboard")
+            else:
+                self.app.notify("Nenhum bloco de código encontrado")
+        except Exception:
+            self.app.notify("Erro ao copiar código")
 
     def _copy_to_clipboard(self) -> None:
         """Copy message content to clipboard."""
@@ -309,6 +341,7 @@ class TUIApp(App[None]):
         self.message_counter: int = 0
         self.pending_images: list[str] = []
         self.zen_mode: bool = False
+        self._session_id_to_name: dict[str, str] = {}
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -464,20 +497,28 @@ class TUIApp(App[None]):
         session_names = {s["name"] for s in sessions}
         favorites = load_favorites()
 
+        # Build new mapping
+        new_mapping: dict[str, str] = {_session_id(s["name"]): s["name"] for s in sessions}
+
         # Remove items that no longer exist
         for child in list(session_list.children):
             if isinstance(child, ListItem) and child.id:
-                if child.id not in session_names:
+                real_name = self._session_id_to_name.get(child.id)
+                if real_name and real_name not in session_names:
                     child.remove()
+
+        # Update mapping
+        self._session_id_to_name = new_mapping
 
         # Track existing IDs after removal
         existing_ids = {child.id for child in session_list.children if child.id}
 
         # Add new sessions
         for s in sessions:
-            if s["name"] not in existing_ids:
+            session_id = _session_id(s["name"])
+            if session_id not in existing_ids:
                 prefix = "★ " if s["name"] in favorites else "  "
-                item = ListItem(Label(f"{prefix}{s['name']}"), id=s["name"])
+                item = ListItem(Label(f"{prefix}{s['name']}"), id=session_id)
                 session_list.append(item)
 
     def action_toggle_favorite(self) -> None:
@@ -643,7 +684,11 @@ class TUIApp(App[None]):
         self.notify(f"Sessão '{self.current_session_name}' salva")
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
-        session_name = event.item.id
+        session_id = event.item.id
+        if not session_id:
+            return
+
+        session_name = self._session_id_to_name.get(session_id)
         if not session_name:
             return
 
