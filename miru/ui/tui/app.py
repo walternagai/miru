@@ -156,7 +156,7 @@ class TUIApp(App[None]):
     }
 
     #sidebar {
-        width: 25%;
+        width: 18%;
         background: #24283b;
         border-right: solid #414868;
         padding: 1;
