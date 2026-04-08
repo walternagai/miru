@@ -102,35 +102,39 @@ def render_metrics(chunk: dict, quiet: bool = False) -> None:
     if quiet:
         return
 
+    metrics_str = format_metrics(chunk)
+    if metrics_str:
+        print(f"✓ {metrics_str}")
+
+
+def format_metrics(chunk: dict) -> str:
+    """
+    Format metrics from generation chunk into a string.
+
+    Args:
+        chunk: Final done chunk with metrics
+
+    Returns:
+        Formatted metrics string (e.g., "150 tokens · 1.2s · 125.0 tok/s")
+    """
     eval_count = chunk.get("eval_count", 0)
     total_duration_ns = chunk.get("total_duration", 0)
     eval_duration_ns = chunk.get("eval_duration", 0)
 
-    # Also check for prompt_eval_duration which might be relevant
-    prompt_eval_duration_ns = chunk.get("prompt_eval_duration", 0)
-
     total_seconds = total_duration_ns / 1e9 if total_duration_ns else 0.0
 
-    # Calculate tokens per second using eval_duration if available
-    # Otherwise use total_duration as fallback
     if eval_duration_ns and eval_duration_ns > 0:
         eval_seconds = eval_duration_ns / 1e9
         tokens_per_second = eval_count / eval_seconds if eval_seconds > 0 else 0.0
     elif total_duration_ns and total_duration_ns > 0:
-        # Fallback: use total_duration for rate calculation
-        # This includes prompt processing time so it's less accurate
         tokens_per_second = eval_count / total_seconds if total_seconds > 0 else 0.0
-        # If we got zero but have tokens, show a dash
-        if tokens_per_second == 0.0 and eval_count > 0:
-            tokens_per_second = 0.0
     else:
         tokens_per_second = 0.0
 
-    # Format output
     if tokens_per_second > 0:
-        print(f"✓ {eval_count} tokens · {total_seconds:.1f}s · {tokens_per_second:.1f} tok/s")
+        return f"{eval_count} tokens · {total_seconds:.1f}s · {tokens_per_second:.1f} tok/s"
     else:
-        print(f"✓ {eval_count} tokens · {total_seconds:.1f}s")
+        return f"{eval_count} tokens · {total_seconds:.1f}s"
 
 
 def render_error(message: str, hint: str | None = None) -> None:
@@ -347,21 +351,21 @@ def render_model_info(
     content_lines.append("")
 
     content_lines.append("[bold]Capacidades[/]")
-    
+
     # Visão (mantém verificação separada por families + capabilities)
     supports_vision = capabilities.get("supports_vision", False)
     vision_emoji = "🖼" if supports_vision else "○"
     vision_text = "sim" if supports_vision else "não"
     content_lines.append(f"  {vision_emoji} Visão                {vision_text}")
-    
+
     # Lista de capabilities ordenadas por importância
     capabilities_list = capabilities.get("capabilities", [])
-    
+
     if capabilities_list:
         # Remover "vision" da lista se supports_vision=True (evitar duplicação)
         if supports_vision and "vision" in capabilities_list:
             capabilities_list = [c for c in capabilities_list if c != "vision"]
-        
+
         # Ordem de importância (capabilities mais relevantes primeiro)
         importance_order = [
             "tools",
@@ -369,7 +373,7 @@ def render_model_info(
             "audio",
             "completion",
         ]
-        
+
         # Mapear capabilities para nomes amigáveis em português
         capability_names = {
             "tools": "Tools/Function Calling",
@@ -377,18 +381,20 @@ def render_model_info(
             "audio": "Áudio",
             "completion": "Completion",
         }
-        
+
         # Ordenar capabilities por importância
         sorted_capabilities = sorted(
             capabilities_list,
-            key=lambda x: importance_order.index(x) if x in importance_order else len(importance_order)
+            key=lambda x: (
+                importance_order.index(x) if x in importance_order else len(importance_order)
+            ),
         )
-        
+
         # Exibir cada capability
         for cap in sorted_capabilities:
             cap_name = capability_names.get(cap, cap.capitalize())
             content_lines.append(f"  ✓ {cap_name}")
-    
+
     # Contexto máximo
     max_context = capabilities.get("max_context", 2048)
     content_lines.append(f"  📐 Contexto máximo     {max_context:,} tokens")

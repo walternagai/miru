@@ -5,6 +5,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
+    Button,
     Footer,
     Header,
     Input,
@@ -21,6 +22,7 @@ from textual.widgets._select import NoSelection
 from miru.core.config import get_config, reload_config, resolve_host, resolve_model
 from miru.latex_unicode import latex_to_unicode
 from miru.ollama.client import OllamaClient
+from miru.output.renderer import format_metrics
 from miru.session import delete_session, list_sessions, load_session, save_session
 from miru.ui.tui.config_screen import ConfigScreen
 from miru.ui.tui.rename_screen import RenameScreen
@@ -45,6 +47,103 @@ class MarkdownWidget(Static):
 
     def on_mount(self) -> None:
         self.update_text(self._raw_text)
+
+
+class MetricsWidget(Static):
+    """Widget to display generation metrics."""
+
+    DEFAULT_CSS = """
+    MetricsWidget {
+        height: auto;
+        color: #565f89;
+        text-style: italic;
+        margin-top: 0;
+        padding: 0 1;
+    }
+    """
+
+    def __init__(self, text: str = "", **kwargs: Any) -> None:
+        self._text = text
+        super().__init__(**kwargs)
+
+    def update_metrics(self, text: str) -> None:
+        self._text = text
+        self.update(self._text)
+
+    def on_mount(self) -> None:
+        if self._text:
+            self.update(self._text)
+
+
+class MessageWidget(Static):
+    """Widget for bot messages with action buttons."""
+
+    DEFAULT_CSS = """
+    MessageWidget {
+        margin: 1 0;
+        padding: 1;
+        border: solid #414868;
+        background: #24283b;
+    }
+
+    MessageWidget .message-content {
+        margin-bottom: 1;
+    }
+
+    MessageWidget .actions {
+        height: auto;
+        align: left;
+    }
+
+    MessageWidget Button {
+        min-width: 8;
+        margin-right: 1;
+        background: #3b4261;
+        color: #c0caf5;
+        border: none;
+    }
+
+    MessageWidget Button:hover {
+        background: #565f89;
+    }
+    """
+
+    def __init__(self, text: str = "", message_id: int = 0, **kwargs: Any) -> None:
+        self._text = text
+        self._message_id = message_id
+        super().__init__(**kwargs)
+
+    def compose(self) -> ComposeResult:
+        content = MarkdownWidget(self._text, classes="message-content")
+        yield content
+
+        with Horizontal(classes="actions"):
+            yield Button("Copiar", id=f"copy_{self._message_id}", variant="default")
+            yield Button("Regenerar", id=f"regen_{self._message_id}", variant="default")
+
+    def on_mount(self) -> None:
+        content = self.query_one(MarkdownWidget)
+        content.update_text(self._text)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id and event.button.id.startswith("copy_"):
+            self._copy_to_clipboard()
+        elif event.button.id and event.button.id.startswith("regen_"):
+            self._regenerate()
+
+    def _copy_to_clipboard(self) -> None:
+        """Copy message content to clipboard."""
+        try:
+            self.app.copy_to_clipboard(self._text)
+            self.app.notify("Mensagem copiada para clipboard")
+        except Exception:
+            self.app.notify("Erro ao copiar mensagem")
+
+    def _regenerate(self) -> None:
+        """Request message regeneration."""
+        app = self.app
+        if isinstance(app, TUIApp):
+            app.regenerate_last_message()
 
 
 class TUIApp(App[None]):
@@ -156,6 +255,7 @@ class TUIApp(App[None]):
         Binding("ctrl+r", "reload_sessions", "Reload Sessions"),
         Binding("f2", "rename_session", "Rename Session"),
         Binding("delete", "delete_session", "Delete Session"),
+        Binding("ctrl+i", "add_image", "Add Image"),
     ]
 
     def __init__(
@@ -176,6 +276,8 @@ class TUIApp(App[None]):
         self.messages: list[dict[str, str]] = []
         self.system_prompt: str = ""
         self.available_models: list[tuple[str, str]] = []
+        self.message_counter: int = 0
+        self.pending_images: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -200,6 +302,49 @@ class TUIApp(App[None]):
             yield Input(placeholder="Digite sua mensagem aqui...", id="user_input")
         yield Footer()
 
+    async def _suggest_model_from_prompt(self, system_prompt: str) -> None:
+        """Suggest model based on system prompt keywords."""
+        if not system_prompt or not self.available_models:
+            return
+
+        prompt_lower = system_prompt.lower()
+        suggested = None
+
+        if "code" in prompt_lower or "programming" in prompt_lower or "código" in prompt_lower:
+            coder_models = [m for m in self.available_models if "coder" in m[0].lower()]
+            if coder_models:
+                suggested = coder_models[0][0]
+
+        if suggested:
+            try:
+                model_select = self.query_one("#select_model", Select)
+                model_select.value = suggested
+                self.notify(f"Modelo sugerido: {suggested}")
+            except Exception:
+                pass
+
+    async def _load_available_models(self) -> None:
+        """Load available models from Ollama server and populate the select."""
+        try:
+            async with OllamaClient(host=self.host) as client:
+                models = await client.list_models()
+                self.available_models = [(m["name"], m["name"]) for m in models]
+        except Exception:
+            self.available_models = [(self.model, self.model)]
+
+        try:
+            model_select = self.query_one("#select_model", Select)
+            model_select.set_options(self.available_models)
+            if self.model in [m[0] for m in self.available_models]:
+                model_select.value = self.model
+
+            system_prompt_widget = self.query_one("#system_prompt_area", TextArea)
+            current_prompt = system_prompt_widget.text.strip()
+            if current_prompt:
+                await self._suggest_model_from_prompt(current_prompt)
+        except Exception:
+            pass
+
     async def on_mount(self) -> None:
         self.host = self.host_override or resolve_host()
         self.model = self.model_override or resolve_model() or "llama3"
@@ -208,14 +353,13 @@ class TUIApp(App[None]):
         params_container = self.query_one("#params_container", Vertical)
 
         params_container.mount(Label("Modelo", classes="param_label"))
-        await self._load_available_models()
-        model_select = Select(
-            self.available_models,
+        model_select: Select = Select(
+            [],
             id="select_model",
             classes="param_input",
-            value=self.model if self.model in [m[0] for m in self.available_models] else None,
         )
         params_container.mount(model_select)
+        await self._load_available_models()
 
         params_container.mount(Label("Temperature", classes="param_label"))
         temp_val = self.temp_override or self.config.default_temperature or 0.7
@@ -283,11 +427,14 @@ class TUIApp(App[None]):
 
     async def run_llm_response(self, prompt: str) -> None:
         chat_window = self.query_one("#chat_window", Vertical)
-        bot_msg = MarkdownWidget("...", classes="message bot_message")
+        self.message_counter += 1
+        bot_msg = MessageWidget("...", message_id=self.message_counter, classes="bot_message")
         chat_window.mount(bot_msg)
         loading = LoadingIndicator()
         chat_window.mount(loading)
         chat_window.scroll_end()
+
+        metrics_widget = None
 
         try:
             model_select = self.query_one("#select_model", Select)
@@ -323,6 +470,8 @@ class TUIApp(App[None]):
                 current_max_tokens = None
                 current_seed = None
 
+            final_chunk = None
+
             async with OllamaClient(host=self.host) as client:
                 full_response = ""
 
@@ -347,7 +496,18 @@ class TUIApp(App[None]):
                 ):
                     content = chunk.get("message", {}).get("content", "")
                     full_response += content
-                    bot_msg.update_text(full_response)
+                    content_widget = bot_msg.query_one(MarkdownWidget)
+                    content_widget.update_text(full_response)
+                    chat_window.scroll_end()
+
+                    if chunk.get("done"):
+                        final_chunk = chunk
+
+            if final_chunk:
+                metrics_str = format_metrics(final_chunk)
+                if metrics_str:
+                    metrics_widget = MetricsWidget(metrics_str)
+                    chat_window.mount(metrics_widget)
                     chat_window.scroll_end()
 
             self.messages.append({"role": "user", "content": prompt})
@@ -362,7 +522,9 @@ class TUIApp(App[None]):
             self.refresh_sessions()
 
         except Exception as e:
-            bot_msg.update_text(f"**Erro:** {str(e)}")
+            bot_msg._text = f"**Erro:** {str(e)}"
+            content_widget = bot_msg.query_one(MarkdownWidget)
+            content_widget.update_text(f"**Erro:** {str(e)}")
         finally:
             loading.remove()
 
@@ -430,7 +592,12 @@ class TUIApp(App[None]):
                 if msg.get("role") == "user":
                     chat_window.mount(Label(content, classes=f"message {role_class}"))
                 else:
-                    chat_window.mount(MarkdownWidget(content, classes=f"message {role_class}"))
+                    self.message_counter += 1
+                    chat_window.mount(
+                        MessageWidget(
+                            content, message_id=self.message_counter, classes="bot_message"
+                        )
+                    )
 
             chat_window.scroll_end()
             self.notify(f"Sessão '{session_name}' carregada")
@@ -543,6 +710,37 @@ class TUIApp(App[None]):
             model_select.value = default_model
 
         self.notify("Configurações sincronizadas")
+
+    def regenerate_last_message(self) -> None:
+        """Regenerate the last assistant response."""
+        if len(self.messages) < 2:
+            self.notify("Nenhuma mensagem para regenerar")
+            return
+
+        last_user_msg = None
+        for i in range(len(self.messages) - 1, -1, -1):
+            if self.messages[i].get("role") == "user":
+                last_user_msg = self.messages[i].get("content")
+                break
+
+        if not last_user_msg:
+            self.notify("Nenhuma pergunta encontrada")
+            return
+
+        self.messages.pop()
+        self.messages.pop()
+
+        chat_window = self.query_one("#chat_window", Vertical)
+        children = list(chat_window.children)
+        if len(children) >= 2:
+            children[-1].remove()
+            children[-2].remove()
+
+        self.run_worker(self.run_llm_response(last_user_msg))
+
+    def action_add_image(self) -> None:
+        """Prompt user to add an image path for multimodal support."""
+        self.notify("Funcionalidade de imagem em desenvolvimento. Use o CLI para imagens.")
 
 
 if __name__ == "__main__":
