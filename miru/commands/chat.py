@@ -227,95 +227,61 @@ async def _chat_async(
                 if stripped.startswith("/recall"):
                     parts = stripped.split(maxsplit=1)
                     entries = get_history(limit=10, command="chat")
-                    
+
                     if not entries:
                         render_error(t("chat.recall_empty"))
                         continue
-                    
+
+                    recalled_prompt: str | None = None
+
                     if len(parts) > 1:
+                        # /recall N — load by index and auto-execute
                         try:
                             idx = int(parts[1])
                             if 0 <= idx < len(entries):
                                 entry = entries[idx]
-                                user_input = entry.prompt
+                                recalled_prompt = entry.prompt
                                 if not quiet:
                                     date_str = entry.timestamp[:16] if len(entry.timestamp) >= 16 else entry.timestamp
                                     render_success(t("chat.recall_loaded", date=date_str))
-                                    print(f">>> {user_input}")
-                                    last_user_input = user_input
-                                    continue
+                                    print(f">>> {recalled_prompt}")
                             else:
                                 render_error(f"Index {idx} out of range (0-{len(entries)-1})")
                                 continue
                         except ValueError:
                             render_error(f"Invalid index: {parts[1]}")
                             continue
-                    
-                    console.print(f"\n[bold]{t('chat.recall_title')}[/]")
-                    for idx, entry in enumerate(entries):
-                        date_str = entry.timestamp[:16] if len(entry.timestamp) >= 16 else entry.timestamp
-                        prompt_preview = entry.prompt[:57] + "..." if len(entry.prompt) > 60 else entry.prompt
-                        console.print(f"  [{idx}] {date_str} - {prompt_preview}")
-                    console.print(f"\n[dim]{t('chat.recall_prompt', count=len(entries)-1)}[/]")
-                    
-                    try:
-                        selection = input(">>> ").strip()
-                        if not selection:
+                    else:
+                        # /recall — interactive selection
+                        console.print(f"\n[bold]{t('chat.recall_title')}[/]")
+                        for idx, entry in enumerate(entries):
+                            date_str = entry.timestamp[:16] if len(entry.timestamp) >= 16 else entry.timestamp
+                            prompt_preview = entry.prompt[:57] + "..." if len(entry.prompt) > 60 else entry.prompt
+                            console.print(f"  [{idx}] {date_str} - {prompt_preview}")
+                        console.print(f"\n[dim]{t('chat.recall_prompt', count=len(entries)-1)}[/]")
+
+                        try:
+                            selection = input(">>> ").strip()
+                            if not selection:
+                                continue
+                            idx = int(selection)
+                            if 0 <= idx < len(entries):
+                                entry = entries[idx]
+                                recalled_prompt = entry.prompt
+                                if not quiet:
+                                    date_str = entry.timestamp[:16] if len(entry.timestamp) >= 16 else entry.timestamp
+                                    render_success(t("chat.recall_loaded", date=date_str))
+                            else:
+                                render_error(f"Index {idx} out of range (0-{len(entries)-1})")
+                                continue
+                        except (ValueError, KeyboardInterrupt, EOFError):
                             continue
-                        idx = int(selection)
-                        if 0 <= idx < len(entries):
-                            entry = entries[idx]
-                            user_input = entry.prompt
-                            if not quiet:
-                                date_str = entry.timestamp[:16] if len(entry.timestamp) >= 16 else entry.timestamp
-                                render_success(t("chat.recall_loaded", date=date_str))
-                            last_user_input = user_input
-                        else:
-                            render_error(f"Index {idx} out of range (0-{len(entries)-1})")
-                            continue
-                    except (ValueError, KeyboardInterrupt, EOFError):
+
+                    if recalled_prompt:
+                        user_input = recalled_prompt
+                        # Fall through to normal message processing below
+                    else:
                         continue
-                    
-                    if user_input:
-                        messages.append({"role": "user", "content": user_input})
-                        
-                        if tool_manager:
-                            response_text = await execute_tool_loop(
-                                client=client,
-                                model=current_model,
-                                messages=messages,
-                                tool_manager=tool_manager,
-                                options=options,
-                                quiet=quiet,
-                            )
-                            final_chunk = None
-                        else:
-                            chunks = client.chat(current_model, messages, options=options, stream=True)
-                            response_text, final_chunk = await stream_as_markdown_live(
-                                chunks, quiet=quiet, show_metrics=not quiet
-                            )
-                        
-                        if final_chunk and not quiet:
-                            eval_count = final_chunk.get("eval_count", 0)
-                            eval_duration_ns = final_chunk.get("eval_duration", 0)
-                            total_duration_ns = final_chunk.get("total_duration", 0)
-                            duration_ns = eval_duration_ns if eval_duration_ns > 0 else total_duration_ns
-                            total_tokens += eval_count
-                            total_time_ns += duration_ns
-                        
-                        messages.append({"role": "assistant", "content": response_text})
-                        turn_count += 1
-                        
-                        record_history(
-                            command="chat",
-                            model=current_model,
-                            prompt=user_input,
-                            system_prompt=current_system,
-                            response=response_text[:1000],
-                            success=True,
-                            metrics={"eval_count": final_chunk.get("eval_count", 0) if final_chunk else 0},
-                        )
-                    continue
 
                 if stripped == "/retry":
                     if last_user_input is None:

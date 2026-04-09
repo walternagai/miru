@@ -104,42 +104,30 @@ class RenameScreen(ModalScreen[str | None]):
         input_widget = self.query_one("#rename_input", Input)
         input_widget.focus()
 
+    def _confirm_rename(self, new_name: str) -> None:
+        """Validate new_name and dismiss the screen with the result."""
+        is_valid, error_msg = validate_session_name(new_name)
+
+        if not is_valid:
+            self.app.notify(f"Erro: {error_msg}")
+            return
+
+        if new_name == self.session_name:
+            self.dismiss(None)
+            return
+
+        if get_session_path(new_name).exists():
+            self.app.notify(f"Erro: Sessão '{new_name}' já existe")
+            return
+
+        self.dismiss(new_name)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "confirm_btn":
-            new_name = self.query_one("#rename_input", Input).value.strip()
-            is_valid, error_msg = validate_session_name(new_name)
-
-            if not is_valid:
-                self.app.notify(f"Erro: {error_msg}")
-                return
-
-            if new_name == self.session_name:
-                self.dismiss(None)
-                return
-
-            if get_session_path(new_name).exists():
-                self.app.notify(f"Erro: Sessão '{new_name}' já existe")
-                return
-
-            self.dismiss(new_name)
+            self._confirm_rename(self.query_one("#rename_input", Input).value.strip())
         else:
             self.dismiss(None)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "rename_input":
-            new_name = event.value.strip()
-            is_valid, error_msg = validate_session_name(new_name)
-
-            if not is_valid:
-                self.app.notify(f"Erro: {error_msg}")
-                return
-
-            if new_name == self.session_name:
-                self.dismiss(None)
-                return
-
-            if get_session_path(new_name).exists():
-                self.app.notify(f"Erro: Sessão '{new_name}' já existe")
-                return
-
-            self.dismiss(new_name)
+            self._confirm_rename(event.value.strip())

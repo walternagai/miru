@@ -55,6 +55,7 @@ from miru.session import (
     toggle_favorite,
 )
 from miru.ui.tui.config_screen import ConfigScreen
+from miru.ui.tui.confirm_screen import ConfirmScreen
 from miru.ui.tui.preset_screen import PRESETS, PresetScreen
 from miru.ui.tui.rename_screen import RenameScreen
 
@@ -414,8 +415,12 @@ class TUIApp(App[None]):
             async with OllamaClient(host=self.host) as client:
                 models = await client.list_models()
                 self.available_models = [(m["name"], m["name"]) for m in models]
-        except Exception:
-            self.available_models = [(self.model, self.model)]
+        except Exception as e:
+            self.available_models = [(self.model, self.model)] if self.model else []
+            self.notify(
+                f"Não foi possível carregar modelos: {e}",
+                severity="warning",
+            )
 
         try:
             model_select = self.query_one("#select_model", Select)
@@ -609,6 +614,10 @@ class TUIApp(App[None]):
                 current_top_p = 0.9
                 current_max_tokens = None
                 current_seed = None
+                self.notify(
+                    "Parâmetros inválidos — usando valores padrão",
+                    severity="warning",
+                )
 
             final_chunk = None
 
@@ -657,10 +666,13 @@ class TUIApp(App[None]):
                 self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
 
             # Save session in background to avoid blocking UI
-            await asyncio.to_thread(
-                save_session, self.current_session_name, current_model, self.messages
-            )
-            self.refresh_sessions()
+            try:
+                await asyncio.to_thread(
+                    save_session, self.current_session_name, current_model, self.messages
+                )
+                self.refresh_sessions()
+            except Exception as save_err:
+                self.notify(f"Erro ao salvar sessão: {save_err}", severity="error")
 
         except Exception as e:
             bot_msg._text = f"**Erro:** {str(e)}"
@@ -680,6 +692,22 @@ class TUIApp(App[None]):
         self.notify("Input limpo")
 
     def action_clear_chat(self) -> None:
+        if not self.messages:
+            self.notify("Nenhuma conversa para limpar")
+            return
+
+        self.push_screen(
+            ConfirmScreen(
+                "Limpar conversa atual?\nO histórico de mensagens será perdido.",
+                title="Limpar Conversa",
+            ),
+            self._on_confirm_clear,
+        )
+
+    def _on_confirm_clear(self, confirmed: bool) -> None:
+        if not confirmed:
+            return
+
         self.current_session_name = None
         self.messages = []
         chat_window = self.query_one("#chat_window", Vertical)
@@ -831,16 +859,28 @@ class TUIApp(App[None]):
             self.notify("Nenhuma sessão selecionada para deletar")
             return
 
+        self.push_screen(
+            ConfirmScreen(
+                f"Deletar sessão '{self.current_session_name}'?\nEssa ação não pode ser desfeita.",
+                title="Deletar Sessão",
+            ),
+            self._on_confirm_delete,
+        )
+
+    def _on_confirm_delete(self, confirmed: bool) -> None:
+        if not confirmed:
+            return
+
         session_name = self.current_session_name
+        if not session_name:
+            return
 
         if delete_session(session_name):
             self.current_session_name = None
             self.messages = []
-
             chat_window = self.query_one("#chat_window", Vertical)
             for child in list(chat_window.children):
                 child.remove()
-
             self.refresh_sessions()
             self.notify(f"Sessão '{session_name}' deletada")
         else:
@@ -870,25 +910,39 @@ class TUIApp(App[None]):
 
     def regenerate_last_message(self) -> None:
         """Regenerate the last assistant response."""
-        if len(self.messages) < 2:
+        # Find the last user→assistant pair (ignoring system messages)
+        last_assistant_idx: int | None = None
+        last_user_idx: int | None = None
+
+        for i in range(len(self.messages) - 1, -1, -1):
+            role = self.messages[i].get("role")
+            if role == "assistant" and last_assistant_idx is None:
+                last_assistant_idx = i
+            elif role == "user" and last_assistant_idx is not None:
+                last_user_idx = i
+                break
+
+        if last_user_idx is None or last_assistant_idx is None:
             self.notify("Nenhuma mensagem para regenerar")
             return
 
-        last_user_msg = None
-        for i in range(len(self.messages) - 1, -1, -1):
-            if self.messages[i].get("role") == "user":
-                last_user_msg = self.messages[i].get("content")
-                break
+        last_user_msg = self.messages[last_user_idx].get("content", "")
 
-        if not last_user_msg:
-            self.notify("Nenhuma pergunta encontrada")
-            return
+        # Remove assistant first (higher index), then user
+        self.messages.pop(last_assistant_idx)
+        self.messages.pop(last_user_idx)
 
-        self.messages.pop()
-        self.messages.pop()
-
+        # Remove trailing UI widgets: skip MetricsWidgets, then remove
+        # the bot MessageWidget and the user Label
         chat_window = self.query_one("#chat_window", Vertical)
         children = list(chat_window.children)
+
+        # Strip trailing metrics widgets
+        while children and isinstance(children[-1], MetricsWidget):
+            children[-1].remove()
+            children.pop()
+
+        # Remove last two visible widgets (bot message + user label)
         if len(children) >= 2:
             children[-1].remove()
             children[-2].remove()
