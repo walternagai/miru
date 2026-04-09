@@ -31,9 +31,9 @@ from miru.cli_options import (
 )
 from miru.core.config import resolve_host
 from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.core.i18n import t
 from miru.inference_params import build_options
-from miru.ollama.client import OllamaClient
 from miru.ui.render import render_error
 
 console = Console()
@@ -170,13 +170,6 @@ async def _process_single_prompt(
             error="No final chunk received",
         )
 
-    except Exception:
-        return BatchResult(
-            prompt=prompt,
-            response="",
-            success=False,
-            error=t("error.model_not_found", model=model),
-        )
     except Exception as e:
         return BatchResult(
             prompt=prompt,
@@ -191,58 +184,12 @@ def _render_results_table(results: list[BatchResult], quiet: bool = False) -> No
     if quiet:
         return
 
-    from miru.core.i18n import get_language
-    lang = get_language()
-    
-    if lang == "pt_BR":
-        title = "Resultados do Batch"
-        col_num = "#"
-        col_prompt = "Prompt"
-        col_status = "Status"
-        col_tokens = "Tokens"
-        col_time = "Tempo"
-        summary = "Resumo:"
-        total_label = "Total:"
-        success_label = "Sucesso:"
-        error_label = "Erro:"
-        tokens_label = "Tokens gerados:"
-        time_label = "Tempo total:"
-        speed_label = "Velocidade média:"
-    elif lang == "es_ES":
-        title = "Resultados del Batch"
-        col_num = "#"
-        col_prompt = "Prompt"
-        col_status = "Estado"
-        col_tokens = "Tokens"
-        col_time = "Tiempo"
-        summary = "Resumen:"
-        total_label = "Total:"
-        success_label = "Éxito:"
-        error_label = "Error:"
-        tokens_label = "Tokens generados:"
-        time_label = "Tiempo total:"
-        speed_label = "Velocidad media:"
-    else:
-        title = "Batch Results"
-        col_num = "#"
-        col_prompt = "Prompt"
-        col_status = "Status"
-        col_tokens = "Tokens"
-        col_time = "Time"
-        summary = "Summary:"
-        total_label = "Total:"
-        success_label = "Success:"
-        error_label = "Error:"
-        tokens_label = "Tokens generated:"
-        time_label = "Total time:"
-        speed_label = "Average speed:"
-
-    table = Table(title=title, show_header=True, header_style="bold cyan")
-    table.add_column(col_num, style="dim", width=4)
-    table.add_column(col_prompt, width=40)
-    table.add_column(col_status, width=8)
-    table.add_column(col_tokens, justify="right")
-    table.add_column(col_time, justify="right")
+    table = Table(title=t("batch.title"), show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Prompt", width=40)
+    table.add_column(t("batch.col_status"), width=8)
+    table.add_column("Tokens", justify="right")
+    table.add_column(t("batch.col_time"), justify="right")
 
     for idx, result in enumerate(results, start=1):
         prompt_display = result.prompt[:37] + "..." if len(result.prompt) > 40 else result.prompt
@@ -273,12 +220,12 @@ def _render_results_table(results: list[BatchResult], quiet: bool = False) -> No
     avg_tokens_per_sec = total_tokens / total_time if total_time > 0 else 0.0
 
     console.print()
-    console.print(f"[bold]{summary}[/]")
-    console.print(f"  {total_label} {len(results)} prompts")
-    console.print(f"  {success_label} {success_count} | {error_label} {len(results) - success_count}")
-    console.print(f"  {tokens_label} {total_tokens}")
-    console.print(f"  {time_label} {total_time:.1f}s")
-    console.print(f"  {speed_label} {avg_tokens_per_sec:.1f} tok/s")
+    console.print(f"[bold]{t('batch.summary')}[/]")
+    console.print(f"  {t('batch.total')} {len(results)} prompts")
+    console.print(f"  {t('batch.success')} {success_count} | {t('batch.error')} {len(results) - success_count}")
+    console.print(f"  {t('batch.tokens_generated')} {total_tokens}")
+    console.print(f"  {t('batch.total_time')} {total_time:.1f}s")
+    console.print(f"  {t('batch.avg_speed')} {avg_tokens_per_sec:.1f} tok/s")
 
 
 def _render_results_json(results: list[BatchResult], model: str) -> None:
@@ -361,15 +308,7 @@ async def _batch_async(
 
     async with OllamaClient(host, timeout=timeout) as client:
         if not quiet and output_format == "text":
-            from miru.core.i18n import get_language
-            lang = get_language()
-            if lang == "pt_BR":
-                msg = f"[bold]Processando {len(prompts)} prompts com {model}[/]"
-            elif lang == "es_ES":
-                msg = f"[bold]Procesando {len(prompts)} prompts con {model}[/]"
-            else:
-                msg = f"[bold]Processing {len(prompts)} prompts with {model}[/]"
-            console.print(msg)
+            console.print(f"[bold]{t('batch.processing', count=len(prompts), model=model)}[/]")
             console.print()
 
         for idx, prompt in enumerate(prompts, start=1):
@@ -400,20 +339,11 @@ async def _batch_async(
                     console.print()
             else:
                 if not quiet and output_format == "text":
-                    from miru.core.i18n import t
                     console.print(f"[red]✗ {t('error.prefix')}:[/] {result.error}")
                     console.print()
 
                 if stop_on_error:
-                    from miru.core.i18n import get_language
-                    lang = get_language()
-                    if lang == "pt_BR":
-                        msg = "[red bold]Parando devido a erro (stop-on-error)[/]"
-                    elif lang == "es_ES":
-                        msg = "[red bold]Deteniendo debido a error (stop-on-error)[/]"
-                    else:
-                        msg = "[red bold]Stopping due to error (stop-on-error)[/]"
-                    console.print(msg)
+                    console.print(f"[red bold]{t('batch.stop_on_error')}[/]")
                     break
 
     if output_format == "json":
@@ -518,7 +448,7 @@ def batch(
         )
     except KeyboardInterrupt:
         print()
-        console.print("[yellow]Interrompido pelo usuário[/]")
+        console.print(f"[yellow]{t('batch.interrupted')}[/]")
         sys.exit(0)
     except OllamaConnectionError as e:
         console.print(f"[red bold]✗[/] {e}")

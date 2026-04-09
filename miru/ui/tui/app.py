@@ -54,6 +54,7 @@ from miru.session import (
     save_session,
     toggle_favorite,
 )
+from miru.ui.tui.config_screen import ConfigScreen
 from miru.ui.tui.preset_screen import PRESETS, PresetScreen
 from miru.ui.tui.rename_screen import RenameScreen
 
@@ -326,6 +327,16 @@ class TUIApp(App[None]):
         host: str | None = None,
         temperature: float | None = None,
         top_p: float | None = None,
+        top_k: int | None = None,
+        max_tokens: int | None = None,
+        seed: int | None = None,
+        ctx: int | None = None,
+        system_prompt: str | None = None,
+        timeout: float | None = None,
+        enable_tools: bool = False,
+        enable_tavily: bool = False,
+        sandbox_dir: str | None = None,
+        tool_mode: str = "auto_safe",
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -333,6 +344,16 @@ class TUIApp(App[None]):
         self.host_override = host
         self.temp_override = temperature
         self.top_p_override = top_p
+        self.top_k_override = top_k
+        self.max_tokens_override = max_tokens
+        self.seed_override = seed
+        self.ctx_override = ctx
+        self.system_prompt_override = system_prompt
+        self.timeout_override = timeout
+        self.enable_tools = enable_tools
+        self.enable_tavily = enable_tavily
+        self.sandbox_dir = sandbox_dir
+        self.tool_mode = tool_mode
         self.client: OllamaClient | None = None
         self.current_session_name: str | None = None
         self.messages: list[dict[str, str]] = []
@@ -434,18 +455,20 @@ class TUIApp(App[None]):
         params_container.mount(Input(value=str(top_p_val), id="input_top_p", classes="param_input"))
 
         params_container.mount(Label("Max Tokens", classes="param_label"))
-        max_tokens_val = self.config.default_max_tokens or 2048
+        max_tokens_val = self.max_tokens_override or self.config.default_max_tokens or 2048
         params_container.mount(
             Input(value=str(max_tokens_val), id="input_max_tokens", classes="param_input")
         )
 
         params_container.mount(Label("Seed", classes="param_label"))
-        seed_val = self.config.default_seed or ""
+        seed_val = self.seed_override if self.seed_override is not None else (self.config.default_seed or "")
         params_container.mount(Input(value=str(seed_val), id="input_seed", classes="param_input"))
 
         params_container.mount(Label("System Prompt", classes="param_label"))
         system_prompt_area = TextArea(id="system_prompt_area", classes="param_input")
         system_prompt_area.placeholder = "System prompt opcional..."
+        if self.system_prompt_override:
+            system_prompt_area.text = self.system_prompt_override
         params_container.mount(system_prompt_area)
 
         params_container.mount(Button("Personalidades", id="preset_button", variant="default"))
@@ -737,7 +760,8 @@ class TUIApp(App[None]):
         for child in session_list.children:
             if isinstance(child, ListItem) and child.id:
                 if filter_lower:
-                    visible = filter_lower in child.id.lower()
+                    real_name = self._session_id_to_name.get(child.id, child.id)
+                    visible = filter_lower in real_name.lower()
                     child.set_class(not visible, "hidden")
                 else:
                     child.remove_class("hidden")
