@@ -113,7 +113,7 @@ def list_sessions() -> list[dict[str, Any]]:
                         "updated": data.get("updated", ""),
                     }
                 )
-        except Exception as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.debug(f"Failed to load session {file.name}: {e}")
             continue
 
@@ -144,7 +144,7 @@ def save_session(
             with open(path, encoding="utf-8") as f:
                 existing = json.load(f)
                 session_data["created"] = existing.get("created", session_data["created"])
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             pass
 
     with open(path, "w", encoding="utf-8") as f:

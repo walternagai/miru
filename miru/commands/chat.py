@@ -61,7 +61,7 @@ def _print_help() -> None:
     console.print(f"  /recall [n]    - {t('chat.commands.recall')}")
     console.print(f"  /retry         - {t('chat.commands.retry')}")
     console.print(f"  /save <file>   - {t('chat.commands.save')}")
-    console.print(f"  /help          - Mostrar esta ajuda")
+    console.print(f"  /help          - {t('chat.commands.help_cmd')}")
     console.print()
 
 
@@ -482,7 +482,17 @@ def chat(
             model=model,
             host=resolved_host,
             temperature=temperature,
-            top_p=top_p
+            top_p=top_p,
+            top_k=top_k,
+            max_tokens=max_tokens,
+            seed=seed,
+            ctx=ctx,
+            system_prompt=final_system_prompt,
+            timeout=timeout,
+            enable_tools=final_enable_tools,
+            enable_tavily=final_enable_tavily,
+            sandbox_dir=final_sandbox_dir,
+            tool_mode=final_tool_mode,
         ).run()
     except ImportError:
         # Fallback to old chat if TUI is not available

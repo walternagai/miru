@@ -41,7 +41,7 @@ from miru.history import record_history
 from miru.inference_params import build_options
 from miru.input import encode_images, extract_text, format_for_prompt, transcribe
 from miru.model.capabilities import get_capabilities
-from miru.ollama.client import OllamaClient
+from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
 from miru.output import collect_stream, render_json_output, render_metrics, render_markdown, stream_as_markdown_live
 from miru.ui.render import render_error
 
@@ -220,25 +220,23 @@ async def _run_async(
                 success=True,
             )
 
+    except OllamaModelNotFound:
+        all_models = []
+        try:
+            async with OllamaClient(host) as client:
+                models = await client.list_models()
+                all_models = [m.get("name", "") for m in models[:5]]
+        except Exception:
+            pass
+
+        error = ModelNotFoundError(model, all_models)
+        render_error(error.message, error.suggestion)
+        sys.exit(1)
+    except OllamaConnectionError:
+        error = MiruConnectionError(host)
+        render_error(error.message, error.suggestion)
+        sys.exit(1)
     except Exception as e:
-        if "OllamaModelNotFound" in str(type(e).__name__):
-            all_models = []
-            try:
-                async with OllamaClient(host) as client:
-                    models = await client.list_models()
-                    all_models = [m.get("name", "") for m in models[:5]]
-            except Exception:
-                pass
-            
-            error = ModelNotFoundError(model, all_models)
-            render_error(error.message, error.suggestion)
-            sys.exit(1)
-        
-        if "OllamaConnectionError" in str(type(e).__name__):
-            error = MiruConnectionError(host)
-            render_error(error.message, error.suggestion)
-            sys.exit(1)
-        
         render_error(str(e))
         sys.exit(1)
 
@@ -277,7 +275,7 @@ def run(
     ctx: Context = None,
     no_stream: Annotated[bool, typer.Option("--no-stream", help="Disable streaming")] = False,
     host: Host = None,
-    format: Annotated[str, typer.Option("--format", "-f", help="Output format (text/json)")] = "text",
+    format: Annotated[str, typer.Option("--format", help="Output format (text/json)")] = "text",
     quiet: Quiet = False,
     auto_pull: Annotated[bool, typer.Option("--auto-pull", help="Auto-download model if missing")] = False,
     timeout: Timeout = None,

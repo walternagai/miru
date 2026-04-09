@@ -55,7 +55,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.commands.save": "Save conversation",
         "chat.commands.export": "Export (json/md/txt)",
         "chat.commands.recall": "Recall previous prompt",
-        
+        "chat.commands.help_cmd": "Show this help",
+
         "chat.session_ended": "Session ended · {turns} turn(s) · {model}",
         "chat.recall_title": "Previous Prompts",
         "chat.recall_empty": "No previous prompts found",
@@ -338,6 +339,21 @@ MESSAGES: dict[str, dict[str, str]] = {
                               "  miru embed nomic-embed-text --batch texts.txt",
         "embed.use_one_option": "Use only one option: text, --file, or --batch (do not combine).",
         
+        # Batch command
+        "batch.title": "Batch Results",
+        "batch.col_status": "Status",
+        "batch.col_time": "Time",
+        "batch.summary": "Summary:",
+        "batch.total": "Total:",
+        "batch.success": "Success:",
+        "batch.error": "Error:",
+        "batch.tokens_generated": "Tokens generated:",
+        "batch.total_time": "Total time:",
+        "batch.avg_speed": "Average speed:",
+        "batch.processing": "Processing {count} prompts with {model}",
+        "batch.stop_on_error": "Stopping due to error (stop-on-error)",
+        "batch.interrupted": "Interrupted by user",
+
         # History command
         "history.cleared": "History cleared",
         "history.none_found": "No history found",
@@ -420,7 +436,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.commands.save": "Salvar conversa",
         "chat.commands.export": "Exportar (json/md/txt)",
         "chat.commands.recall": "Resgatar prompt anterior",
-        
+        "chat.commands.help_cmd": "Mostrar esta ajuda",
+
         "chat.session_ended": "Sessão encerrada · {turns} turno(s) · {model}",
         "chat.recall_title": "Prompts Anteriores",
         "chat.recall_empty": "Nenhum prompt anterior encontrado",
@@ -703,6 +720,21 @@ MESSAGES: dict[str, dict[str, str]] = {
                               "  miru embed nomic-embed-text --batch textos.txt",
         "embed.use_one_option": "Use apenas uma opção: texto, --file, ou --batch (não combine).",
         
+        # Batch command
+        "batch.title": "Resultados do Batch",
+        "batch.col_status": "Status",
+        "batch.col_time": "Tempo",
+        "batch.summary": "Resumo:",
+        "batch.total": "Total:",
+        "batch.success": "Sucesso:",
+        "batch.error": "Erro:",
+        "batch.tokens_generated": "Tokens gerados:",
+        "batch.total_time": "Tempo total:",
+        "batch.avg_speed": "Velocidade média:",
+        "batch.processing": "Processando {count} prompts com {model}",
+        "batch.stop_on_error": "Parando devido a erro (stop-on-error)",
+        "batch.interrupted": "Interrompido pelo usuário",
+
         # History command
         "history.cleared": "Histórico limpo",
         "history.none_found": "Nenhum histórico encontrado",
@@ -785,7 +817,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.commands.save": "Guardar conversación",
         "chat.commands.export": "Exportar (json/md/txt)",
         "chat.commands.recall": "Recuperar prompt anterior",
-        
+        "chat.commands.help_cmd": "Mostrar esta ayuda",
+
         "chat.session_ended": "Sesión terminada · {turns} turno(s) · {model}",
         "chat.recall_title": "Prompts Anteriores",
         "chat.recall_empty": "Ningún prompt anterior encontrado",
@@ -1068,6 +1101,21 @@ MESSAGES: dict[str, dict[str, str]] = {
                               "  miru embed nomic-embed-text --batch textos.txt",
         "embed.use_one_option": "Use solo una opción: texto, --file, o --batch (no combine).",
         
+        # Batch command
+        "batch.title": "Resultados del Batch",
+        "batch.col_status": "Estado",
+        "batch.col_time": "Tiempo",
+        "batch.summary": "Resumen:",
+        "batch.total": "Total:",
+        "batch.success": "Éxito:",
+        "batch.error": "Error:",
+        "batch.tokens_generated": "Tokens generados:",
+        "batch.total_time": "Tiempo total:",
+        "batch.avg_speed": "Velocidad media:",
+        "batch.processing": "Procesando {count} prompts con {model}",
+        "batch.stop_on_error": "Deteniendo debido a error (stop-on-error)",
+        "batch.interrupted": "Interrumpido por el usuario",
+
         # History command
         "history.cleared": "Historial limpiado",
         "history.none_found": "Ningún historial encontrado",
