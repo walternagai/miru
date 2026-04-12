@@ -47,10 +47,9 @@ class ModelNotFoundError(MiruError):
         if not suggestion:
             if available_models:
                 models_str = "\n  ".join(f"  • {m}" for m in available_models[:5])
-                models_list = available_models[:5]
                 if len(available_models) > 5:
-                    models_str += f"\n  ... and {len(available_models) - 5} more"
-                suggestion = f"Available models:\n{models_str}\n\n{t('suggestion.pull_model', model=model)}"
+                    models_str += f"\n  {t('error.more_models', count=len(available_models) - 5)}"
+                suggestion = f"{t('error.available_models')}\n{models_str}\n\n{t('suggestion.pull_model', model=model)}"
             else:
                 suggestion = t("suggestion.pull_model", model=model)
         

@@ -26,7 +26,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.file_processing": "Error processing file '{path}': {error}",
         "error.system_prompt_file": "Error reading system prompt file: {error}",
         "error.model_no_vision": "Model '{model}' does not support images.",
-        
+        "error.available_models": "Available models:",
+        "error.more_models": "... and {count} more",
+
         "audio.transcription": "Audio transcription",
         
         # Suggestions
@@ -407,7 +409,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.file_processing": "Erro ao processar arquivo '{path}': {error}",
         "error.system_prompt_file": "Erro ao ler arquivo de system prompt: {error}",
         "error.model_no_vision": "Modelo '{model}' não suporta imagens.",
-        
+        "error.available_models": "Modelos disponíveis:",
+        "error.more_models": "... e mais {count}",
+
         "audio.transcription": "Transcrição de áudio",
         
         # Suggestions
@@ -788,7 +792,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.file_processing": "Error al procesar archivo '{path}': {error}",
         "error.system_prompt_file": "Error al leer archivo de system prompt: {error}",
         "error.model_no_vision": "Modelo '{model}' no soporta imágenes.",
-        
+        "error.available_models": "Modelos disponibles:",
+        "error.more_models": "... y {count} más",
+
         "audio.transcription": "Transcripción de audio",
         
         # Suggestions
