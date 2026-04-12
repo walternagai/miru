@@ -651,6 +651,7 @@ class TUIApp(App[None]):
         self.host = self.host_override or resolve_host()
         self.model = self.model_override or resolve_model() or "llama3"
         self.config = get_config()
+        self._update_chat_header()
 
         params_container = self.query_one("#params_container", Vertical)
 
@@ -891,9 +892,19 @@ class TUIApp(App[None]):
                 self.notify(f"Erro ao salvar sessão: {save_err}", severity="error")
 
         except Exception as e:
-            bot_msg._text = f"**Erro:** {str(e)}"
+            err_lower = str(e).lower()
+            if "connection" in err_lower or "refused" in err_lower or "connect" in err_lower:
+                friendly = "Servidor não responde. Verifique com `miru status` ou acesse Configurações (Ctrl+K)."
+            elif "timeout" in err_lower:
+                friendly = "Tempo limite excedido. Aumente o timeout nas Configurações (Ctrl+K)."
+            elif "not found" in err_lower or "404" in err_lower:
+                friendly = "Modelo não encontrado. Selecione outro no painel de parâmetros (Ctrl+P)."
+            elif "model" in err_lower:
+                friendly = f"Erro no modelo. Verifique com `miru list` se o modelo está disponível."
+            else:
+                friendly = f"Erro inesperado. Tente novamente ou verifique os logs com `miru logs`."
             content_widget = bot_msg.query_one(MarkdownWidget)
-            content_widget.update_text(f"**Erro:** {str(e)}")
+            content_widget.update_text(f"**Erro:** {friendly}")
         finally:
             loading.remove()
 

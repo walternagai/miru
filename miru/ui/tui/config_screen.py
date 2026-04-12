@@ -5,7 +5,8 @@ from typing import Any
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Checkbox, Input, Label
+from textual.widgets import Button, Checkbox, Input, Label, Select
+from textual.widgets._select import NoSelection
 
 from miru.core.config import Config, reload_config, save_config
 
@@ -159,11 +160,15 @@ class ConfigScreen(ModalScreen[None]):
                     yield Label("Preferências", classes="section_title")
                     with Vertical(classes="config_field"):
                         yield Label("Idioma:", classes="field_label")
-                        yield Input(
-                            value=self.config.language,
+                        yield Select(
+                            [
+                                ("Português (BR) — pt_BR", "pt_BR"),
+                                ("English (US) — en_US", "en_US"),
+                                ("Español — es_ES", "es_ES"),
+                            ],
+                            value=self.config.language or "pt_BR",
                             id="config_language",
                             classes="field_input",
-                            placeholder="pt_BR",
                         )
                     yield Checkbox(
                         "Habilitar histórico",
@@ -190,11 +195,15 @@ class ConfigScreen(ModalScreen[None]):
                     )
                     with Vertical(classes="config_field"):
                         yield Label("Modo de Tools:", classes="field_label")
-                        yield Input(
-                            value=self.config.tool_mode,
+                        yield Select(
+                            [
+                                ("auto_safe — aprova ações perigosas", "auto_safe"),
+                                ("auto — executa tudo automaticamente", "auto"),
+                                ("manual — confirma cada chamada", "manual"),
+                            ],
+                            value=self.config.tool_mode or "auto_safe",
                             id="config_tool_mode",
                             classes="field_input",
-                            placeholder="auto_safe",
                         )
                     with Vertical(classes="config_field"):
                         yield Label("Sandbox Dir:", classes="field_label")
@@ -224,12 +233,14 @@ class ConfigScreen(ModalScreen[None]):
             top_p_str = self.query_one("#config_top_p", Input).value.strip()
             max_tokens_str = self.query_one("#config_max_tokens", Input).value.strip()
             seed_str = self.query_one("#config_seed", Input).value.strip()
-            language = self.query_one("#config_language", Input).value.strip()
+            lang_widget = self.query_one("#config_language", Select)
+            language = str(lang_widget.value) if not isinstance(lang_widget.value, NoSelection) else "pt_BR"
             history_enabled = self.query_one("#config_history", Checkbox).value
             verbose = self.query_one("#config_verbose", Checkbox).value
             enable_tools = self.query_one("#config_tools", Checkbox).value
             enable_tavily = self.query_one("#config_tavily", Checkbox).value
-            tool_mode = self.query_one("#config_tool_mode", Input).value.strip()
+            tool_mode_widget = self.query_one("#config_tool_mode", Select)
+            tool_mode = str(tool_mode_widget.value) if not isinstance(tool_mode_widget.value, NoSelection) else "auto_safe"
             sandbox_dir = self.query_one("#config_sandbox", Input).value.strip()
 
             # Validation
