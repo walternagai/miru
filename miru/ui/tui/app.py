@@ -25,6 +25,7 @@ from rich.markdown import Markdown
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
+from textual.events import Key
 from textual.widgets import (
     Button,
     Footer,
@@ -70,12 +71,18 @@ class MarkdownWidget(Static):
 
     def __init__(self, text: str = "", **kwargs: Any) -> None:
         self._raw_text = text
+        self._is_streaming = False
         super().__init__(**kwargs)
 
-    def update_text(self, text: str) -> None:
+    def update_text(self, text: str, streaming: bool = False) -> None:
         self._raw_text = latex_to_unicode(text)
-        markdown_obj = Markdown(self._raw_text)
-        self.update(markdown_obj)
+        self._is_streaming = streaming
+
+        if streaming:
+            self.update(self._raw_text)
+        else:
+            markdown_obj = Markdown(self._raw_text)
+            self.update(markdown_obj)
 
     def on_mount(self) -> None:
         self.update_text(self._raw_text)
@@ -197,21 +204,75 @@ class MessageWidget(Static):
             app.regenerate_last_message()
 
 
+class PromptInput(TextArea):
+    """Custom TextArea that allows app bindings to work."""
+
+    BINDINGS = [
+        Binding("ctrl+j", "submit_message", "Enviar", show=True),
+        Binding("ctrl+n", "new_chat", "Novo", show=True),
+        Binding("ctrl+shift+s", "toggle_sidebar", "Sessões", show=True),
+        Binding("ctrl+p", "toggle_context", "Params", show=True),
+        Binding("ctrl+y", "copy_last_message", "Copiar", show=True),
+        Binding("ctrl+shift+r", "regen_last_message", "Regenerar", show=True),
+        Binding("ctrl+q", "quit", "Sair", show=True),
+    ]
+
+    def action_submit_message(self) -> None:
+        self.app.action_submit_message()
+
+    def action_toggle_sidebar(self) -> None:
+        self.app.action_toggle_sidebar()
+
+    def action_new_chat(self) -> None:
+        self.app.action_new_chat()
+
+    def action_toggle_context(self) -> None:
+        self.app.action_toggle_context()
+
+    def action_copy_last_message(self) -> None:
+        self.app.action_copy_last_message()
+
+    def action_regen_last_message(self) -> None:
+        self.app.action_regen_last_message()
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "ctrl+enter":
+            self.app.action_submit_message()
+            event.stop()
+        elif event.key == "ctrl+shift+s":
+            self.app.action_toggle_sidebar()
+            event.stop()
+
+
 class TUIApp(App[None]):
     CSS = """
     Screen {
         background: #1a1b26;
     }
 
-    #main_container {
-        layout: horizontal;
+    Header {
+        background: #16161e;
+        color: #565f89;
+        border-bottom: solid #2d3149;
     }
 
+    Footer {
+        background: #16161e;
+        color: #565f89;
+        border-top: solid #2d3149;
+    }
+
+    #main_container {
+        layout: horizontal;
+        height: 1fr;
+    }
+
+    /* ── Sidebar ── */
     #sidebar {
-        width: 30;
-        background: #24283b;
-        border-right: solid #414868;
-        padding: 1;
+        width: 28;
+        background: #16161e;
+        border-right: solid #2d3149;
+        padding: 0;
         display: none;
     }
 
@@ -219,20 +280,88 @@ class TUIApp(App[None]):
         display: block;
     }
 
-    #session_filter {
-        margin-bottom: 1;
+    #sidebar_title {
+        height: 3;
+        background: #1f2335;
+        color: #7aa2f7;
+        text-style: bold;
+        padding: 1 2;
+        border-bottom: solid #2d3149;
+        width: 100%;
     }
 
+    #session_filter {
+        margin: 1;
+        background: #1a1b26;
+        color: #c0caf5;
+        border: solid #2d3149;
+    }
+
+    #session_filter:focus {
+        border: solid #7aa2f7;
+    }
+
+    #session_list {
+        height: 1fr;
+        background: transparent;
+    }
+
+    #session_list > ListItem {
+        padding: 0 1;
+        color: #a9b1d6;
+        background: transparent;
+        border-left: thick transparent;
+    }
+
+    #session_list > ListItem:hover {
+        background: #1f2335;
+        color: #c0caf5;
+        border-left: thick #3b4261;
+    }
+
+    #session_list > ListItem.--highlight {
+        background: #1f2335;
+        color: #7aa2f7;
+        border-left: thick #7aa2f7;
+    }
+
+    #session_list > ListItem.active-session {
+        background: #1f2335;
+        color: #9d7cd8;
+        border-left: thick #9d7cd8;
+    }
+
+    /* ── Chat area ── */
     #chat_area {
         width: 1fr;
         background: #1a1b26;
     }
 
+    #chat_header {
+        height: 3;
+        background: #1f2335;
+        border-bottom: solid #2d3149;
+        padding: 0 2;
+        color: #565f89;
+        content-align: left middle;
+    }
+
+    #chat_header .model-badge {
+        color: #7aa2f7;
+        text-style: bold;
+    }
+
+    #chat_window {
+        height: 1fr;
+        overflow-y: scroll;
+    }
+
+    /* ── Context panel ── */
     #context_panel {
         width: 30;
-        background: #24283b;
-        border-left: solid #414868;
-        padding: 1;
+        background: #16161e;
+        border-left: solid #2d3149;
+        padding: 0 1;
         display: none;
     }
 
@@ -240,47 +369,58 @@ class TUIApp(App[None]):
         display: block;
     }
 
+    #context_panel_title {
+        height: 3;
+        background: #1f2335;
+        color: #7aa2f7;
+        text-style: bold;
+        padding: 1 2;
+        border-bottom: solid #2d3149;
+        width: 100%;
+        margin-bottom: 1;
+    }
+
+    /* ── Messages ── */
     .message {
-        margin: 1 2;
+        margin: 0 2 1 2;
         padding: 0 1;
         width: 100%;
         height: auto;
     }
 
     .user_message {
-        background: #292e42;
-        text-align: left;
-        margin-bottom: 1;
-        margin-left: 4;
-        border: none;
+        background: #1f2335;
         color: #c0caf5;
+        border-left: thick #9d7cd8;
+        margin-bottom: 1;
+        margin-left: 6;
         padding: 1;
     }
 
     .bot_message {
         background: transparent;
-        text-align: left;
+        color: #c0caf5;
+        border-left: thick #7aa2f7;
         margin-bottom: 1;
         margin-top: 1;
-        border: none;
-        border-left: solid #7aa2f7;
         padding: 1;
     }
 
+    /* ── Input container ── */
     #input_container {
         dock: bottom;
         height: auto;
-        padding: 1;
-        background: #1a1b26;
-        border-top: solid #414868;
+        padding: 1 2;
+        background: #1f2335;
+        border-top: solid #2d3149;
     }
 
     .prompt_input {
         height: auto;
-        min-height: 1;
-        max-height: 5;
-        background: #24283b;
-        border: none;
+        min-height: 3;
+        max-height: 6;
+        background: #1a1b26;
+        border: solid #2d3149;
         color: #c0caf5;
     }
 
@@ -288,11 +428,26 @@ class TUIApp(App[None]):
         border: solid #7aa2f7;
     }
 
-    #chat_window {
-        height: 100%;
-        overflow-y: scroll;
+    #input_container Horizontal {
+        width: 100%;
+        height: auto;
     }
 
+    #send_button {
+        width: 10;
+        height: 3;
+        margin-left: 1;
+        background: #7aa2f7;
+        color: #16161e;
+        border: none;
+        text-style: bold;
+    }
+
+    #send_button:hover {
+        background: #89b4fa;
+    }
+
+    /* ── Param panel ── */
     .param_label {
         color: #7aa2f7;
         text-style: bold;
@@ -306,7 +461,7 @@ class TUIApp(App[None]):
     .param_section {
         margin-bottom: 1;
         padding: 1;
-        border-bottom: solid #414868;
+        border-bottom: solid #2d3149;
     }
 
     #system_prompt_area {
@@ -315,39 +470,47 @@ class TUIApp(App[None]):
         max-height: 8;
     }
 
-    #session_list {
-        height: 1fr;
-    }
-
     #preset_button {
         margin-top: 1;
-        background: #3b4261;
-        color: #c0caf5;
+        background: #2d3149;
+        color: #a9b1d6;
         border: none;
     }
 
     #preset_button:hover {
-        background: #565f89;
+        background: #3b4261;
+        color: #c0caf5;
+    }
+
+    /* ── Onboarding hint ── */
+    .onboarding_hint {
+        color: #414868;
+        text-style: italic;
+        padding: 4 6;
+        height: auto;
     }
     """
 
     BINDINGS = [
-        Binding("ctrl+n", "new_chat", "New Chat"),
-        Binding("ctrl+s", "save_session", "Save Session"),
-        Binding("ctrl+l", "clear_input", "Clear Input"),
-        Binding("ctrl+shift+l", "clear_chat", "Clear Chat"),
-        Binding("ctrl+k", "open_config", "Config"),
-        Binding("ctrl+q", "quit", "Quit"),
-        Binding("ctrl+p", "toggle_context", "Toggle Panel"),
-        Binding("ctrl+r", "reload_sessions", "Reload Sessions"),
-        Binding("f2", "rename_session", "Rename Session"),
-        Binding("delete", "delete_session", "Delete Session"),
-        Binding("ctrl+i", "add_image", "Add Image"),
-        Binding("ctrl+o", "select_preset", "Presets"),
-        Binding("ctrl+z", "zen_mode", "Zen Mode"),
-        Binding("ctrl+f", "toggle_favorite", "Toggle Favorite"),
-        Binding("ctrl+enter", "submit_message", "Send"),
-        Binding("ctrl+semicolon", "toggle_sidebar", "Sessions"),
+        Binding("ctrl+n", "new_chat", "Novo Chat", show=False),
+        Binding("ctrl+s", "save_session", "Salvar", show=False),
+        Binding("ctrl+l", "clear_input", "Limpar Input", show=False),
+        Binding("ctrl+shift+l", "clear_chat", "Limpar Chat", show=False),
+        Binding("ctrl+k", "open_config", "Config", show=False),
+        Binding("ctrl+q", "quit", "Sair", show=False),
+        Binding("ctrl+p", "toggle_context", "Parâmetros", show=False),
+        Binding("ctrl+r", "reload_sessions", "Recarregar", show=False),
+        Binding("f2", "rename_session", "Renomear", show=False),
+        Binding("delete", "delete_session", "Deletar", show=False),
+        Binding("ctrl+i", "add_image", "Imagem", show=False),
+        Binding("ctrl+o", "select_preset", "Presets", show=False),
+        Binding("ctrl+z", "zen_mode", "Zen", show=False),
+        Binding("ctrl+f", "toggle_favorite", "Favorito", show=False),
+        Binding("ctrl+enter", "submit_message", "Enviar", show=False),
+        Binding("ctrl+shift+s", "toggle_sidebar", "Sessões", show=False),
+        Binding("ctrl+y", "copy_last_message", "Copiar Última", show=False),
+        Binding("ctrl+shift+y", "copy_last_code", "Copiar Código", show=False),
+        Binding("ctrl+shift+r", "regen_last_message", "Regenerar", show=False),
     ]
 
     def __init__(
@@ -397,24 +560,45 @@ class TUIApp(App[None]):
         yield Header()
         with Horizontal(id="main_container"):
             with Vertical(id="sidebar"):
-                yield Label("Sessões")
+                yield Static("  Sessões", id="sidebar_title")
                 yield Input(
-                    placeholder="Filtrar sessões...",
+                    placeholder="  Filtrar...",
                     id="session_filter",
                     classes="session_filter",
                 )
                 yield ListView(id="session_list")
 
             with Vertical(id="chat_area"):
-                yield Vertical(id="chat_window")
+                yield Static("", id="chat_header")
+                with Vertical(id="chat_window"):
+                    yield Static(
+                        "  Bem-vindo ao miru\n\n"
+                        "  Ctrl+J Enviar  ·  Ctrl+Shift+S Sessões  ·  Ctrl+P Parâmetros\n"
+                        "  Ctrl+N Novo Chat  ·  Ctrl+O Presets  ·  Ctrl+Y Copiar última\n"
+                        "  Ctrl+Shift+R Regenerar  ·  Ctrl+Q Sair",
+                        id="onboarding",
+                        classes="onboarding_hint",
+                    )
 
-            with Vertical(id="context_panel"):
-                yield Label("Modelo & Params")
+            with Vertical(id="context_panel", classes="visible"):
+                yield Static("  Modelo & Params", id="context_panel_title")
                 yield Vertical(id="params_container")
 
         with Container(id="input_container"):
-            yield TextArea(id="user_input", classes="prompt_input")
+            with Horizontal():
+                yield PromptInput(id="user_input", classes="prompt_input")
+                yield Button("Enviar", id="send_button", variant="primary")
         yield Footer()
+
+    def _update_chat_header(self) -> None:
+        """Update the chat header bar with current model and session info."""
+        try:
+            header = self.query_one("#chat_header", Static)
+            model_name = getattr(self, "model", "—")
+            session_name = self.current_session_name or "nova conversa"
+            header.update(f"  {model_name}   ·   {session_name}")
+        except Exception:
+            pass
 
     async def _suggest_model_from_prompt(self, system_prompt: str) -> None:
         """Suggest model based on system prompt keywords."""
@@ -513,10 +697,13 @@ class TUIApp(App[None]):
         params_container.mount(Label(f"\nHost: {self.host}"))
 
         self.refresh_sessions()
+        self._update_chat_header()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "preset_button":
             self.push_screen(PresetScreen(), callback=self._on_preset_selected)
+        elif event.button.id == "send_button":
+            self.action_submit_message()
 
     def _on_preset_selected(self, preset_name: str | None) -> None:
         if preset_name and preset_name in PRESETS:
@@ -599,7 +786,7 @@ class TUIApp(App[None]):
     async def run_llm_response(self, prompt: str) -> None:
         chat_window = self.query_one("#chat_window", Vertical)
         self.message_counter += 1
-        bot_msg = MessageWidget("...", message_id=self.message_counter, classes="bot_message")
+        bot_msg = MessageWidget("", message_id=self.message_counter, classes="bot_message")
         chat_window.mount(bot_msg)
         loading = LoadingIndicator()
         chat_window.mount(loading)
@@ -638,37 +825,48 @@ class TUIApp(App[None]):
                 )
 
             final_chunk = None
+            full_response = ""
+            last_update = 0.0
+            update_interval = 0.05
+
+            chat_history = list(self.messages)
+
+            if system_prompt and not any(msg.get("role") == "system" for msg in chat_history):
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
+
+            chat_history.append({"role": "user", "content": prompt})
+
+            options: dict[str, Any] = {
+                "temperature": current_temp,
+                "top_p": current_top_p,
+            }
+            if current_max_tokens:
+                options["num_predict"] = current_max_tokens
+            if current_seed is not None:
+                options["seed"] = current_seed
 
             async with OllamaClient(host=self.host) as client:
-                full_response = ""
-
-                chat_history = list(self.messages)
-
-                if system_prompt and not any(msg.get("role") == "system" for msg in chat_history):
-                    chat_history.insert(0, {"role": "system", "content": system_prompt})
-
-                chat_history.append({"role": "user", "content": prompt})
-
-                options: dict[str, Any] = {
-                    "temperature": current_temp,
-                    "top_p": current_top_p,
-                }
-                if current_max_tokens:
-                    options["num_predict"] = current_max_tokens
-                if current_seed is not None:
-                    options["seed"] = current_seed
-
                 async for chunk in client.chat(
                     model=current_model, messages=chat_history, options=options
                 ):
                     content = chunk.get("message", {}).get("content", "")
-                    full_response += content
-                    content_widget = bot_msg.query_one(MarkdownWidget)
-                    content_widget.update_text(full_response)
-                    chat_window.scroll_end()
+                    if content:
+                        full_response += content
+                        current_time = asyncio.get_event_loop().time()
+
+                        if current_time - last_update >= update_interval:
+                            content_widget = bot_msg.query_one(MarkdownWidget)
+                            content_widget.update_text(full_response, streaming=True)
+                            chat_window.scroll_end()
+                            last_update = current_time
+                            await asyncio.sleep(0)
 
                     if chunk.get("done"):
                         final_chunk = chunk
+
+            content_widget = bot_msg.query_one(MarkdownWidget)
+            content_widget.update_text(full_response, streaming=False)
+            chat_window.scroll_end()
 
             if final_chunk:
                 metrics_str = format_metrics(final_chunk)
@@ -682,8 +880,8 @@ class TUIApp(App[None]):
 
             if not self.current_session_name:
                 self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
+                self._update_chat_header()
 
-            # Save session in background to avoid blocking UI
             try:
                 await asyncio.to_thread(
                     save_session, self.current_session_name, current_model, self.messages
@@ -789,6 +987,14 @@ class TUIApp(App[None]):
                     )
 
             chat_window.scroll_end()
+            self._update_chat_header()
+
+            session_list = self.query_one("#session_list", ListView)
+            for child in session_list.children:
+                if isinstance(child, ListItem):
+                    child.remove_class("active-session")
+            event.item.add_class("active-session")
+
             self.notify(f"Sessão '{session_name}' carregada")
         else:
             self.notify("Erro ao carregar sessão")
@@ -910,6 +1116,7 @@ class TUIApp(App[None]):
         chat_window = self.query_one("#chat_window", Vertical)
         for child in list(chat_window.children):
             child.remove()
+        self._update_chat_header()
         self.notify("Nova conversa iniciada")
 
     def action_open_config(self) -> None:
@@ -980,14 +1187,42 @@ class TUIApp(App[None]):
                 return
 
             user_input.text = ""
+
+            try:
+                self.query_one("#onboarding").remove()
+            except Exception:
+                pass
+
             chat_window = self.query_one("#chat_window", Vertical)
             user_msg = Label(user_text, classes="message user_message")
             chat_window.mount(user_msg)
             chat_window.scroll_end()
 
             self.run_worker(self.run_llm_response(user_text))
-        except Exception:
-            pass
+        except Exception as e:
+            self.notify(f"Erro ao enviar mensagem: {e}", severity="error")
+
+    def action_copy_last_message(self) -> None:
+        """Copy the last assistant message to clipboard."""
+        chat_window = self.query_one("#chat_window", Vertical)
+        for child in reversed(list(chat_window.children)):
+            if isinstance(child, MessageWidget):
+                child._copy_to_clipboard()
+                return
+        self.notify("Nenhuma mensagem para copiar")
+
+    def action_copy_last_code(self) -> None:
+        """Copy code blocks from the last assistant message to clipboard."""
+        chat_window = self.query_one("#chat_window", Vertical)
+        for child in reversed(list(chat_window.children)):
+            if isinstance(child, MessageWidget):
+                child._copy_code_to_clipboard()
+                return
+        self.notify("Nenhuma mensagem para copiar")
+
+    def action_regen_last_message(self) -> None:
+        """Regenerate the last assistant message."""
+        self.regenerate_last_message()
 
     def action_toggle_sidebar(self) -> None:
         """Toggle the visibility of the sidebar."""
