@@ -268,6 +268,19 @@ class TUIApp(App[None]):
         border-top: solid #414868;
     }
 
+    .prompt_input {
+        height: auto;
+        min-height: 1;
+        max-height: 5;
+        background: #24283b;
+        border: none;
+        color: #c0caf5;
+    }
+
+    .prompt_input:focus {
+        border: solid #7aa2f7;
+    }
+
     #chat_window {
         height: 100%;
         overflow-y: scroll;
@@ -326,6 +339,8 @@ class TUIApp(App[None]):
         Binding("ctrl+o", "select_preset", "Presets"),
         Binding("ctrl+z", "zen_mode", "Zen Mode"),
         Binding("ctrl+f", "toggle_favorite", "Toggle Favorite"),
+        Binding("ctrl+enter", "submit_message", "Send"),
+        Binding("ctrl+semicolon", "toggle_sidebar", "Sessions"),
     ]
 
     def __init__(
@@ -391,7 +406,7 @@ class TUIApp(App[None]):
                 yield Vertical(id="params_container")
 
         with Container(id="input_container"):
-            yield Input(placeholder="Digite sua mensagem aqui...", id="user_input")
+            yield TextArea(id="user_input", classes="prompt_input")
         yield Footer()
 
     async def _suggest_model_from_prompt(self, system_prompt: str) -> None:
@@ -574,20 +589,6 @@ class TUIApp(App[None]):
         panel = self.query_one("#context_panel")
         panel.toggle_class("visible")
 
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
-        user_text = event.value.strip()
-        if not user_text:
-            return
-
-        event.input.value = ""
-
-        chat_window = self.query_one("#chat_window", Vertical)
-        user_msg = Label(user_text, classes="message user_message")
-        chat_window.mount(user_msg)
-        chat_window.scroll_end()
-
-        self.run_worker(self.run_llm_response(user_text))
-
     async def run_llm_response(self, prompt: str) -> None:
         chat_window = self.query_one("#chat_window", Vertical)
         self.message_counter += 1
@@ -696,8 +697,8 @@ class TUIApp(App[None]):
         self.notify("Sessões recarregadas")
 
     def action_clear_input(self) -> None:
-        user_input = self.query_one("#user_input", Input)
-        user_input.value = ""
+        user_input = self.query_one("#user_input", TextArea)
+        user_input.text = ""
         user_input.focus()
         self.notify("Input limpo")
 
@@ -962,6 +963,29 @@ class TUIApp(App[None]):
     def action_add_image(self) -> None:
         """Prompt user to add an image path for multimodal support."""
         self.notify("Funcionalidade de imagem em desenvolvimento. Use o CLI para imagens.")
+
+    def action_submit_message(self) -> None:
+        """Submit the current message from the TextArea."""
+        try:
+            user_input = self.query_one("#user_input", TextArea)
+            user_text = user_input.text.strip()
+            if not user_text:
+                return
+
+            user_input.text = ""
+            chat_window = self.query_one("#chat_window", Vertical)
+            user_msg = Label(user_text, classes="message user_message")
+            chat_window.mount(user_msg)
+            chat_window.scroll_end()
+
+            self.run_worker(self.run_llm_response(user_text))
+        except Exception:
+            pass
+
+    def action_toggle_sidebar(self) -> None:
+        """Toggle the visibility of the sidebar."""
+        sidebar = self.query_one("#sidebar", Vertical)
+        sidebar.toggle_class("visible")
 
 
 if __name__ == "__main__":
