@@ -253,9 +253,8 @@ class TUIApp(App[None]):
         margin-bottom: 1;
         margin-left: 4;
         border: none;
-        border-radius: 0.2rem;
         color: #c0caf5;
-        padding: 0.5rem;
+        padding: 1;
     }
 
     .bot_message {
@@ -265,8 +264,7 @@ class TUIApp(App[None]):
         margin-top: 1;
         border: none;
         border-left: solid #7aa2f7;
-        border-width: 0 0 0 0.15rem;
-        padding: 0.5rem 1;
+        padding: 1;
     }
 
     #input_container {
