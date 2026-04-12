@@ -3,6 +3,7 @@ import json
 import re
 import unicodedata
 import uuid
+from datetime import datetime
 from typing import Any
 
 
@@ -34,7 +35,6 @@ from textual.widgets import (
     Label,
     ListItem,
     ListView,
-    LoadingIndicator,
     Select,
     Static,
     TextArea,
@@ -489,6 +489,14 @@ class TUIApp(App[None]):
         padding: 4 6;
         height: auto;
     }
+
+    /* ── Stream status indicator ── */
+    .stream_status {
+        color: #565f89;
+        text-style: italic;
+        padding: 0 1;
+        height: 1;
+    }
     """
 
     BINDINGS = [
@@ -789,8 +797,8 @@ class TUIApp(App[None]):
         self.message_counter += 1
         bot_msg = MessageWidget("", message_id=self.message_counter, classes="bot_message")
         chat_window.mount(bot_msg)
-        loading = LoadingIndicator()
-        chat_window.mount(loading)
+        stream_status = Static("⟳  conectando...", classes="stream_status")
+        chat_window.mount(stream_status)
         chat_window.scroll_end()
 
         metrics_widget = None
@@ -829,6 +837,8 @@ class TUIApp(App[None]):
             full_response = ""
             last_update = 0.0
             update_interval = 0.05
+            chunk_count = 0
+            stream_start = asyncio.get_event_loop().time()
 
             chat_history = list(self.messages)
 
@@ -846,6 +856,8 @@ class TUIApp(App[None]):
             if current_seed is not None:
                 options["seed"] = current_seed
 
+            stream_status.update(f"⟳  {current_model}  ·  gerando...")
+
             async with OllamaClient(host=self.host) as client:
                 async for chunk in client.chat(
                     model=current_model, messages=chat_history, options=options
@@ -853,11 +865,16 @@ class TUIApp(App[None]):
                     content = chunk.get("message", {}).get("content", "")
                     if content:
                         full_response += content
+                        chunk_count += len(content.split())
                         current_time = asyncio.get_event_loop().time()
 
                         if current_time - last_update >= update_interval:
                             content_widget = bot_msg.query_one(MarkdownWidget)
                             content_widget.update_text(full_response, streaming=True)
+                            elapsed = current_time - stream_start
+                            stream_status.update(
+                                f"⟳  {current_model}  ·  {chunk_count} tokens  ·  {elapsed:.1f}s"
+                            )
                             chat_window.scroll_end()
                             last_update = current_time
                             await asyncio.sleep(0)
@@ -880,7 +897,10 @@ class TUIApp(App[None]):
             self.messages.append({"role": "assistant", "content": full_response})
 
             if not self.current_session_name:
-                self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
+                words = [w for w in re.split(r"\W+", prompt) if w and w.isascii() and w.isalpha()][:3]
+                slug = "_".join(w.lower() for w in words)[:24] if words else "chat"
+                date_str = datetime.now().strftime("%m%d_%H%M")
+                self.current_session_name = f"{date_str}_{slug}"
                 self._update_chat_header()
 
             try:
@@ -906,7 +926,7 @@ class TUIApp(App[None]):
             content_widget = bot_msg.query_one(MarkdownWidget)
             content_widget.update_text(f"**Erro:** {friendly}")
         finally:
-            loading.remove()
+            stream_status.remove()
 
     def action_reload_sessions(self) -> None:
         self.refresh_sessions()
@@ -948,7 +968,11 @@ class TUIApp(App[None]):
             return
 
         if not self.current_session_name:
-            self.current_session_name = f"chat_{uuid.uuid4().hex[:8]}"
+            first_msg = next((m["content"] for m in self.messages if m.get("role") == "user"), "")
+            words = [w for w in re.split(r"\W+", first_msg) if w and w.isascii() and w.isalpha()][:3]
+            slug = "_".join(w.lower() for w in words)[:24] if words else "chat"
+            date_str = datetime.now().strftime("%m%d_%H%M")
+            self.current_session_name = f"{date_str}_{slug}"
 
         model_select = self.query_one("#select_model", Select)
         selected_value = model_select.value

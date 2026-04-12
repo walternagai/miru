@@ -259,6 +259,18 @@ def quick(
         key, value = param_str.split("=", 1)
         params_dict[key] = value
 
+    # Auto-fill primary parameter from stdin when piped
+    if not sys.stdin.isatty():
+        stdin_content = sys.stdin.read().strip()
+        if stdin_content:
+            command_data = QUICK_COMMANDS.get(command, {})
+            template = command_data.get("prompt", "")
+            template_params = _extract_params(template)
+            for primary_key in ("text", "code", "topic"):
+                if primary_key in template_params and primary_key not in params_dict:
+                    params_dict[primary_key] = stdin_content
+                    break
+
     resolved_host = get_host(host)
 
     try:

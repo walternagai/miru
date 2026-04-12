@@ -17,6 +17,7 @@ console = Console()
 
 def history_cmd(
     limit: Annotated[int, typer.Option("--limit", "-n", help="Number of entries to show")] = 20,
+    page: Annotated[int, typer.Option("--page", "-p", help="Page number (1-based)")] = 1,
     command: Annotated[
         str | None, typer.Option("--command", "-c", help="Filter by command type")
     ] = None,
@@ -40,10 +41,14 @@ def history_cmd(
         console.print(f"[green bold]✓[/] {t('history.cleared')}")
         return
 
+    page = max(1, page)
+    offset = (page - 1) * limit
+
     if search:
         entries = search_history(search, limit=limit)
     else:
-        entries = get_history(limit=limit, command=command)
+        entries = get_history(limit=limit + offset, command=command)
+        entries = entries[offset:]
 
     if not entries:
         console.print(f"[dim]{t('history.none_found')}[/]")
@@ -75,7 +80,7 @@ def history_cmd(
 
     if entries:
         console.print()
-        console.print(f"[dim]{t('history.use_show')}[/]")
+        console.print(f"[dim]{t('history.use_show')}  ·  página {page}  (--page {page + 1} para próxima)[/]")
 
 
 def history_show(

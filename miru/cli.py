@@ -31,7 +31,7 @@ console = Console()
 
 COMMAND_CATEGORIES: dict[str, list[str]] = {
     "Gestão de Modelos": ["copy", "delete", "embed", "info", "list", "pull", "search"],
-    "Execução de Modelos": ["batch", "chat", "compare", "quick", "run"],
+    "Execução de Modelos": ["batch", "chat", "compare", "quick", "run", "tui"],
     "Servidor e Status": ["ps", "status", "stop"],
     "Configuração": ["alias", "config", "session", "setup", "template", "tools"],
     "Utilitários": ["completion", "examples", "history", "logs", "version"],
@@ -52,6 +52,7 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "pull": "Download a model from registry.",
     "run": "Generate text with a single prompt.",
     "chat": "Start interactive chat session.",
+    "tui": "Open the full-screen TUI interface.",
     "compare": "Compare responses from multiple models.",
     "delete": "Delete a model from local storage.",
     "copy": "Copy a model to a new name.",
@@ -339,6 +340,33 @@ def chat_cmd(
         sandbox_dir=sandbox_dir,
         tool_mode=tool_mode,
     )
+
+
+@app.command("tui")
+def tui_cmd(
+    model: str | None = typer.Argument(None, help="Model name"),
+    host: str | None = typer.Option(None, "--host", help="Ollama host URL"),
+) -> None:
+    """Open the full-screen TUI interface.
+
+    \b
+    Examples:
+        miru tui
+        miru tui gemma3:latest
+        miru tui --host http://localhost:11434
+    """
+    import os
+    import asyncio
+    from miru.core.config import resolve_host, resolve_model
+    from miru.ui.tui.app import TUIApp
+
+    resolved_host = resolve_host(host)
+    resolved_model = resolve_model(model)
+    tui = TUIApp(model=resolved_model, host=resolved_host)
+    try:
+        asyncio.run(tui.run_async())
+    except KeyboardInterrupt:
+        pass
 
 
 app.command("compare")(compare)

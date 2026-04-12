@@ -138,7 +138,13 @@ async def _chat_async(
 
             while True:
                 try:
-                    user_input = input(">>> ")
+                    prompt_parts = []
+                    if enable_tools:
+                        prompt_parts.append("tools")
+                    if enable_tavily:
+                        prompt_parts.append("tavily")
+                    prompt_indicator = f"[{'+'.join(prompt_parts)}] >>> " if prompt_parts else ">>> "
+                    user_input = input(prompt_indicator)
                 except EOFError:
                     break
                 except KeyboardInterrupt:
@@ -235,9 +241,10 @@ async def _chat_async(
                     recalled_prompt: str | None = None
 
                     if len(parts) > 1:
-                        # /recall N — load by index and auto-execute
+                        arg = parts[1]
                         try:
-                            idx = int(parts[1])
+                            # /recall N — load by index and auto-execute
+                            idx = int(arg)
                             if 0 <= idx < len(entries):
                                 entry = entries[idx]
                                 recalled_prompt = entry.prompt
@@ -249,8 +256,43 @@ async def _chat_async(
                                 render_error(f"Index {idx} out of range (0-{len(entries)-1})")
                                 continue
                         except ValueError:
-                            render_error(f"Invalid index: {parts[1]}")
-                            continue
+                            # /recall <text> — search by prompt text
+                            query = arg.lower()
+                            matches = [
+                                (i, e) for i, e in enumerate(entries)
+                                if query in e.prompt.lower()
+                            ]
+                            if not matches:
+                                render_error(f"Nenhum prompt encontrado com '{arg}'")
+                                continue
+                            if len(matches) == 1:
+                                recalled_prompt = matches[0][1].prompt
+                                if not quiet:
+                                    render_success(t("chat.recall_loaded", date=matches[0][1].timestamp[:16]))
+                                    print(f">>> {recalled_prompt}")
+                            else:
+                                from rich.table import Table as RichTable
+                                table = RichTable(show_header=True, header_style="bold cyan", box=None, padding=(0, 1))
+                                table.add_column("#", style="dim cyan", width=4)
+                                table.add_column("Data", style="dim", width=16)
+                                table.add_column("Prompt")
+                                for i, e in matches:
+                                    date_str = e.timestamp[:16] if len(e.timestamp) >= 16 else e.timestamp
+                                    preview = e.prompt[:72] + "…" if len(e.prompt) > 72 else e.prompt
+                                    table.add_row(str(i), date_str, preview)
+                                console.print(f"\n[bold]Resultados para '{arg}':[/]")
+                                console.print(table)
+                                try:
+                                    sel = input(">>> ").strip()
+                                    idx2 = int(sel)
+                                    matching_indices = [i for i, _ in matches]
+                                    if idx2 in matching_indices:
+                                        recalled_prompt = entries[idx2].prompt
+                                    else:
+                                        render_error(f"Index {idx2} não encontrado nos resultados")
+                                        continue
+                                except (ValueError, KeyboardInterrupt, EOFError):
+                                    continue
                     else:
                         # /recall — interactive selection
                         from rich.table import Table

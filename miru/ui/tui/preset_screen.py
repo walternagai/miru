@@ -124,13 +124,13 @@ class PresetScreen(ModalScreen[str | None]):
         with Vertical(id="preset_dialog"):
             yield Label("Personalidade do Modelo", id="preset_title")
             with Vertical(id="preset_list"):
-                for preset_name in PRESETS:
+                for idx, preset_name in enumerate(PRESETS, start=1):
                     yield Button(
-                        f"{preset_name}\n{self._get_short_desc(preset_name)}",
+                        f"[{idx}] {preset_name}\n{self._get_short_desc(preset_name)}",
                         id=_preset_id(preset_name),
                         classes="preset_button",
                     )
-            yield Button("Cancelar", id="cancel_button")
+            yield Button("[Esc] Cancelar", id="cancel_button")
 
     def _get_short_desc(self, preset_name: str) -> str:
         descriptions = {
@@ -141,6 +141,18 @@ class PresetScreen(ModalScreen[str | None]):
             "Conversacional": "Tom amigável e natural",
         }
         return descriptions.get(preset_name, "")
+
+    def on_key(self, event: object) -> None:
+        from textual.events import Key
+        if not isinstance(event, Key):
+            return
+        preset_names = list(PRESETS.keys())
+        if event.character and event.character.isdigit():
+            idx = int(event.character) - 1
+            if 0 <= idx < len(preset_names):
+                self.dismiss(preset_names[idx])
+        elif event.key == "escape":
+            self.dismiss(None)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "cancel_button":

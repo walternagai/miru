@@ -84,6 +84,11 @@ class ConfigScreen(ModalScreen[None]):
         background: #565f89;
         color: #c0caf5;
     }
+
+    #reset_btn {
+        background: #414868;
+        color: #a9b1d6;
+    }
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -217,12 +222,32 @@ class ConfigScreen(ModalScreen[None]):
             with Horizontal(id="button_row"):
                 yield Button("Salvar", id="save_btn", variant="primary")
                 yield Button("Cancelar", id="cancel_btn", variant="default")
+                yield Button("Restaurar Padrões", id="reset_btn")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save_btn":
             self._save_config()
+        elif event.button.id == "reset_btn":
+            self._reset_to_defaults()
         else:
             self.dismiss()
+
+    def _reset_to_defaults(self) -> None:
+        self.query_one("#config_host", Input).value = "http://localhost:11434"
+        self.query_one("#config_timeout", Input).value = "30"
+        self.query_one("#config_model", Input).value = ""
+        self.query_one("#config_temp", Input).value = "0.7"
+        self.query_one("#config_top_p", Input).value = "0.9"
+        self.query_one("#config_max_tokens", Input).value = ""
+        self.query_one("#config_seed", Input).value = ""
+        self.query_one("#config_language", Select).value = "pt_BR"
+        self.query_one("#config_history", Checkbox).value = True
+        self.query_one("#config_verbose", Checkbox).value = False
+        self.query_one("#config_tools", Checkbox).value = False
+        self.query_one("#config_tavily", Checkbox).value = False
+        self.query_one("#config_tool_mode", Select).value = "auto_safe"
+        self.query_one("#config_sandbox", Input).value = ""
+        self.app.notify("Configurações restauradas para os padrões")
 
     def _save_config(self) -> None:
         try:
