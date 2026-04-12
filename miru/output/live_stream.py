@@ -1,6 +1,7 @@
 """Live streaming module for real-time Markdown rendering."""
 
 import re
+import sys
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
@@ -117,29 +118,44 @@ async def stream_as_markdown_live(
             content = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
             if content:
                 text_buffer += content
-            
+
             if chunk.get("done"):
                 final_chunk = chunk
-        
+
         return text_buffer, final_chunk
-    
+
+    if not sys.stdout.isatty():
+        # Plain text mode: no Rich markup or ANSI codes when output is piped
+        async for chunk in chunks:
+            content = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
+            if content:
+                text_buffer += content
+                print(latex_to_unicode(content), end="", flush=True)
+
+            if chunk.get("done"):
+                final_chunk = chunk
+
+        print()
+        text_buffer = latex_to_unicode(text_buffer)
+        return text_buffer, final_chunk
+
     with Live(console=console, refresh_per_second=10, vertical_overflow="visible") as live:
         async for chunk in chunks:
             content = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
-            
+
             if content:
                 text_buffer += content
-                
+
                 md = _render_with_syntax_highlight(latex_to_unicode(text_buffer))
                 live.update(md)
-            
+
             if chunk.get("done"):
                 final_chunk = chunk
-    
+
     if show_metrics and final_chunk and text_buffer:
         print()
         render_metrics(final_chunk)
-    
+
     text_buffer = latex_to_unicode(text_buffer)
-    
+
     return text_buffer, final_chunk
