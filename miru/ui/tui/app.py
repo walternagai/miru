@@ -203,14 +203,15 @@ class TUIApp(App[None]):
     }
 
     #sidebar {
-        width: 18%;
+        width: 30;
         background: #24283b;
         border-right: solid #414868;
         padding: 1;
+        display: none;
     }
 
-    #sidebar.hidden {
-        display: none;
+    #sidebar.visible {
+        display: block;
     }
 
     #session_filter {
@@ -224,34 +225,39 @@ class TUIApp(App[None]):
     }
 
     #context_panel {
-        width: 20%;
+        width: 30;
         background: #24283b;
         border-left: solid #414868;
         padding: 1;
-        overflow-y: scroll;
-    }
-
-    #context_panel.hidden {
         display: none;
     }
 
+    #context_panel.visible {
+        display: block;
+    }
+
     .message {
-        margin: 1 0;
-        padding: 1;
-        border: solid #414868;
+        margin: 1 2;
+        padding: 0 2;
         width: 100%;
+        height: auto;
     }
 
     .user_message {
-        background: #3b4261;
+        background: #2e3440;
         text-align: right;
         margin-bottom: 1;
+        border: none;
+        color: #c0caf5;
     }
 
     .bot_message {
-        background: #24283b;
+        background: transparent;
         text-align: left;
-        margin-bottom: 1;
+        margin-bottom: 2;
+        border: none;
+        border-left: solid #7aa2f7;
+        border-width: 0 0 0 0.2rem;
     }
 
     #input_container {
@@ -466,7 +472,11 @@ class TUIApp(App[None]):
         )
 
         params_container.mount(Label("Seed", classes="param_label"))
-        seed_val = self.seed_override if self.seed_override is not None else (self.config.default_seed or "")
+        seed_val = (
+            self.seed_override
+            if self.seed_override is not None
+            else (self.config.default_seed or "")
+        )
         params_container.mount(Input(value=str(seed_val), id="input_seed", classes="param_input"))
 
         params_container.mount(Label("System Prompt", classes="param_label"))
@@ -510,12 +520,12 @@ class TUIApp(App[None]):
         context_panel = self.query_one("#context_panel", Vertical)
 
         if self.zen_mode:
-            sidebar.add_class("hidden")
-            context_panel.add_class("hidden")
+            sidebar.remove_class("visible")
+            context_panel.remove_class("visible")
             self.notify("Modo Zen ativado (Ctrl+Z para sair)")
         else:
-            sidebar.remove_class("hidden")
-            context_panel.remove_class("hidden")
+            sidebar.add_class("visible")
+            context_panel.add_class("visible")
             self.notify("Modo Zen desativado")
 
     def refresh_sessions(self) -> None:
@@ -562,7 +572,7 @@ class TUIApp(App[None]):
 
     def action_toggle_context(self) -> None:
         panel = self.query_one("#context_panel")
-        panel.toggle_class("hidden")
+        panel.toggle_class("visible")
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         user_text = event.value.strip()
