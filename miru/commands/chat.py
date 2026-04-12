@@ -253,11 +253,17 @@ async def _chat_async(
                             continue
                     else:
                         # /recall — interactive selection
-                        console.print(f"\n[bold]{t('chat.recall_title')}[/]")
+                        from rich.table import Table
+                        table = Table(show_header=True, header_style="bold cyan", box=None, padding=(0, 1))
+                        table.add_column("#", style="dim cyan", width=4)
+                        table.add_column("Data", style="dim", width=16)
+                        table.add_column("Prompt")
                         for idx, entry in enumerate(entries):
                             date_str = entry.timestamp[:16] if len(entry.timestamp) >= 16 else entry.timestamp
-                            prompt_preview = entry.prompt[:57] + "..." if len(entry.prompt) > 60 else entry.prompt
-                            console.print(f"  [{idx}] {date_str} - {prompt_preview}")
+                            prompt_preview = entry.prompt[:72] + "…" if len(entry.prompt) > 72 else entry.prompt
+                            table.add_row(str(idx), date_str, prompt_preview)
+                        console.print(f"\n[bold]{t('chat.recall_title')}[/]")
+                        console.print(table)
                         console.print(f"\n[dim]{t('chat.recall_prompt', count=len(entries)-1)}[/]")
 
                         try:
