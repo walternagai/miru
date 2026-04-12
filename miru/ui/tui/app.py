@@ -258,13 +258,6 @@ class TUIApp(App[None]):
         padding: 0.5rem;
     }
 
-    .user_message::before {
-        content: "You";
-        color: #7aa2f7;
-        font-weight: bold;
-        margin-right: 1;
-    }
-
     .bot_message {
         background: transparent;
         text-align: left;
