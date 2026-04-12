@@ -442,26 +442,33 @@ def chat(
 
     resolved_host = resolve_host(host)
 
+    import os
+    _tui_disabled = not sys.stdout.isatty() or os.environ.get("MIRU_NO_TUI", "").strip() == "1"
+
+    if not _tui_disabled:
+        try:
+            from miru.ui.tui.app import TUIApp
+            TUIApp(
+                model=model,
+                host=resolved_host,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                max_tokens=max_tokens,
+                seed=seed,
+                ctx=ctx,
+                system_prompt=final_system_prompt,
+                timeout=timeout,
+                enable_tools=final_enable_tools,
+                enable_tavily=final_enable_tavily,
+                sandbox_dir=final_sandbox_dir,
+                tool_mode=final_tool_mode,
+            ).run()
+            return
+        except ImportError:
+            pass  # textual not available, fall through to CLI mode
+
     try:
-        from miru.ui.tui.app import TUIApp
-        TUIApp(
-            model=model,
-            host=resolved_host,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            max_tokens=max_tokens,
-            seed=seed,
-            ctx=ctx,
-            system_prompt=final_system_prompt,
-            timeout=timeout,
-            enable_tools=final_enable_tools,
-            enable_tavily=final_enable_tavily,
-            sandbox_dir=final_sandbox_dir,
-            tool_mode=final_tool_mode,
-        ).run()
-    except ImportError:
-        # Fallback to old chat if TUI is not available
         asyncio.run(
             _chat_async(
                 model=model,
