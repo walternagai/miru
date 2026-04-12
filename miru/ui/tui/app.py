@@ -112,10 +112,9 @@ class MessageWidget(Static):
 
     DEFAULT_CSS = """
     MessageWidget {
-        margin: 1 0;
-        padding: 1;
-        border: solid #414868;
-        background: #24283b;
+        margin: 0;
+        padding: 0 1;
+        background: transparent;
     }
 
     MessageWidget .message-content {
@@ -124,6 +123,12 @@ class MessageWidget(Static):
 
     MessageWidget .actions {
         height: auto;
+        display: none;
+    }
+
+    MessageWidget:hover .actions,
+    MessageWidget:focus-within .actions {
+        display: block;
     }
 
     MessageWidget Button {
