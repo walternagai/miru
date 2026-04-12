@@ -226,7 +226,6 @@ class TUIApp(App[None]):
     #chat_area {
         width: 1fr;
         background: #1a1b26;
-        padding: 1;
     }
 
     #context_panel {
@@ -243,26 +242,38 @@ class TUIApp(App[None]):
 
     .message {
         margin: 1 2;
-        padding: 0 2;
+        padding: 0 1;
         width: 100%;
         height: auto;
     }
 
     .user_message {
-        background: #2e3440;
-        text-align: right;
+        background: #292e42;
+        text-align: left;
         margin-bottom: 1;
+        margin-left: 4;
         border: none;
+        border-radius: 0.2rem;
         color: #c0caf5;
+        padding: 0.5rem;
+    }
+
+    .user_message::before {
+        content: "You";
+        color: #7aa2f7;
+        font-weight: bold;
+        margin-right: 1;
     }
 
     .bot_message {
         background: transparent;
         text-align: left;
-        margin-bottom: 2;
+        margin-bottom: 1;
+        margin-top: 1;
         border: none;
         border-left: solid #7aa2f7;
-        border-width: 0 0 0 0.2rem;
+        border-width: 0 0 0 0.15rem;
+        padding: 0.5rem 1;
     }
 
     #input_container {
