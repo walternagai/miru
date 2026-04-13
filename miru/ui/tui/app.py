@@ -25,7 +25,7 @@ def _extract_code_blocks(text: str) -> str:
 from rich.markdown import Markdown
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.events import Key
 from textual.widgets import (
     Button,
@@ -57,18 +57,12 @@ from miru.session import (
 )
 from miru.ui.tui.config_screen import ConfigScreen
 from miru.ui.tui.confirm_screen import ConfirmScreen
+from miru.ui.tui.image_screen import ImageScreen
 from miru.ui.tui.preset_screen import PRESETS, PresetScreen
 from miru.ui.tui.rename_screen import RenameScreen
 
 
 class MarkdownWidget(Static):
-    DEFAULT_CSS = """
-    MarkdownWidget {
-        height: auto;
-        min-height: 1;
-    }
-    """
-
     def __init__(self, text: str = "", **kwargs: Any) -> None:
         self._raw_text = text
         self._is_streaming = False
@@ -91,16 +85,6 @@ class MarkdownWidget(Static):
 class MetricsWidget(Static):
     """Widget to display generation metrics."""
 
-    DEFAULT_CSS = """
-    MetricsWidget {
-        height: auto;
-        color: #565f89;
-        text-style: italic;
-        margin-top: 0;
-        padding: 0 1;
-    }
-    """
-
     def __init__(self, text: str = "", **kwargs: Any) -> None:
         self._text = text
         super().__init__(**kwargs)
@@ -116,40 +100,6 @@ class MetricsWidget(Static):
 
 class MessageWidget(Static):
     """Widget for bot messages with action buttons."""
-
-    DEFAULT_CSS = """
-    MessageWidget {
-        margin: 0;
-        padding: 0 1;
-        background: transparent;
-    }
-
-    MessageWidget .message-content {
-        margin-bottom: 1;
-    }
-
-    MessageWidget .actions {
-        height: auto;
-        display: none;
-    }
-
-    MessageWidget:hover .actions,
-    MessageWidget:focus-within .actions {
-        display: block;
-    }
-
-    MessageWidget Button {
-        min-width: 8;
-        margin-right: 1;
-        background: #3b4261;
-        color: #c0caf5;
-        border: none;
-    }
-
-    MessageWidget Button:hover {
-        background: #565f89;
-    }
-    """
 
     def __init__(self, text: str = "", message_id: int = 0, **kwargs: Any) -> None:
         self._text = text
@@ -245,259 +195,7 @@ class PromptInput(TextArea):
 
 
 class TUIApp(App[None]):
-    CSS = """
-    Screen {
-        background: #1a1b26;
-    }
-
-    Header {
-        background: #16161e;
-        color: #565f89;
-        border-bottom: solid #2d3149;
-    }
-
-    Footer {
-        background: #16161e;
-        color: #565f89;
-        border-top: solid #2d3149;
-    }
-
-    #main_container {
-        layout: horizontal;
-        height: 1fr;
-    }
-
-    /* ── Sidebar ── */
-    #sidebar {
-        width: 28;
-        background: #16161e;
-        border-right: solid #2d3149;
-        padding: 0;
-        display: none;
-    }
-
-    #sidebar.visible {
-        display: block;
-    }
-
-    #sidebar_title {
-        height: 3;
-        background: #1f2335;
-        color: #7aa2f7;
-        text-style: bold;
-        padding: 1 2;
-        border-bottom: solid #2d3149;
-        width: 100%;
-    }
-
-    #session_filter {
-        margin: 1;
-        background: #1a1b26;
-        color: #c0caf5;
-        border: solid #2d3149;
-    }
-
-    #session_filter:focus {
-        border: solid #7aa2f7;
-    }
-
-    #session_list {
-        height: 1fr;
-        background: transparent;
-    }
-
-    #session_list > ListItem {
-        padding: 0 1;
-        color: #a9b1d6;
-        background: transparent;
-        border-left: thick transparent;
-    }
-
-    #session_list > ListItem:hover {
-        background: #1f2335;
-        color: #c0caf5;
-        border-left: thick #3b4261;
-    }
-
-    #session_list > ListItem.--highlight {
-        background: #1f2335;
-        color: #7aa2f7;
-        border-left: thick #7aa2f7;
-    }
-
-    #session_list > ListItem.active-session {
-        background: #1f2335;
-        color: #9d7cd8;
-        border-left: thick #9d7cd8;
-    }
-
-    /* ── Chat area ── */
-    #chat_area {
-        width: 1fr;
-        background: #1a1b26;
-    }
-
-    #chat_header {
-        height: 3;
-        background: #1f2335;
-        border-bottom: solid #2d3149;
-        padding: 0 2;
-        color: #565f89;
-        content-align: left middle;
-    }
-
-    #chat_header .model-badge {
-        color: #7aa2f7;
-        text-style: bold;
-    }
-
-    #chat_window {
-        height: 1fr;
-        overflow-y: scroll;
-    }
-
-    /* ── Context panel ── */
-    #context_panel {
-        width: 30;
-        background: #16161e;
-        border-left: solid #2d3149;
-        padding: 0 1;
-        display: none;
-    }
-
-    #context_panel.visible {
-        display: block;
-    }
-
-    #context_panel_title {
-        height: 3;
-        background: #1f2335;
-        color: #7aa2f7;
-        text-style: bold;
-        padding: 1 2;
-        border-bottom: solid #2d3149;
-        width: 100%;
-        margin-bottom: 1;
-    }
-
-    /* ── Messages ── */
-    .message {
-        margin: 0 2 1 2;
-        padding: 0 1;
-        width: 100%;
-        height: auto;
-    }
-
-    .user_message {
-        background: #1f2335;
-        color: #c0caf5;
-        border-left: thick #9d7cd8;
-        margin-bottom: 1;
-        margin-left: 6;
-        padding: 1;
-    }
-
-    .bot_message {
-        background: transparent;
-        color: #c0caf5;
-        border-left: thick #7aa2f7;
-        margin-bottom: 1;
-        margin-top: 1;
-        padding: 1;
-    }
-
-    /* ── Input container ── */
-    #input_container {
-        dock: bottom;
-        height: auto;
-        padding: 1 2;
-        background: #1f2335;
-        border-top: solid #2d3149;
-    }
-
-    .prompt_input {
-        height: auto;
-        min-height: 3;
-        max-height: 6;
-        background: #1a1b26;
-        border: solid #2d3149;
-        color: #c0caf5;
-    }
-
-    .prompt_input:focus {
-        border: solid #7aa2f7;
-    }
-
-    #input_container Horizontal {
-        width: 100%;
-        height: auto;
-    }
-
-    #send_button {
-        width: 10;
-        height: 3;
-        margin-left: 1;
-        background: #7aa2f7;
-        color: #16161e;
-        border: none;
-        text-style: bold;
-    }
-
-    #send_button:hover {
-        background: #89b4fa;
-    }
-
-    /* ── Param panel ── */
-    .param_label {
-        color: #7aa2f7;
-        text-style: bold;
-        margin-top: 1;
-    }
-
-    .param_input {
-        margin-bottom: 1;
-    }
-
-    .param_section {
-        margin-bottom: 1;
-        padding: 1;
-        border-bottom: solid #2d3149;
-    }
-
-    #system_prompt_area {
-        height: auto;
-        min-height: 3;
-        max-height: 8;
-    }
-
-    #preset_button {
-        margin-top: 1;
-        background: #2d3149;
-        color: #a9b1d6;
-        border: none;
-    }
-
-    #preset_button:hover {
-        background: #3b4261;
-        color: #c0caf5;
-    }
-
-    /* ── Onboarding hint ── */
-    .onboarding_hint {
-        color: #414868;
-        text-style: italic;
-        padding: 4 6;
-        height: auto;
-    }
-
-    /* ── Stream status indicator ── */
-    .stream_status {
-        color: #565f89;
-        text-style: italic;
-        padding: 0 1;
-        height: 1;
-    }
-    """
+    CSS_PATH = "app.tcss"
 
     BINDINGS = [
         Binding("ctrl+n", "new_chat", "Novo Chat", show=False),
@@ -583,16 +281,17 @@ class TUIApp(App[None]):
                         "  Bem-vindo ao miru\n\n"
                         "  Ctrl+J Enviar  ·  Ctrl+Shift+S Sessões  ·  Ctrl+P Parâmetros\n"
                         "  Ctrl+N Novo Chat  ·  Ctrl+O Presets  ·  Ctrl+Y Copiar última\n"
-                        "  Ctrl+Shift+R Regenerar  ·  Ctrl+Q Sair",
+                        "  Ctrl+I Adicionar Imagem  ·  Ctrl+Shift+R Regenerar  ·  Ctrl+Q Sair",
                         id="onboarding",
                         classes="onboarding_hint",
                     )
 
-            with Vertical(id="context_panel", classes="visible"):
+            with Vertical(id="context_panel"):
                 yield Static("  Modelo & Params", id="context_panel_title")
                 yield Vertical(id="params_container")
 
         with Container(id="input_container"):
+            yield Static("", id="pending_images")
             with Horizontal():
                 yield PromptInput(id="user_input", classes="prompt_input")
                 yield Button("Enviar", id="send_button", variant="primary")
@@ -708,12 +407,6 @@ class TUIApp(App[None]):
         self.refresh_sessions()
         self._update_chat_header()
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "preset_button":
-            self.push_screen(PresetScreen(), callback=self._on_preset_selected)
-        elif event.button.id == "send_button":
-            self.action_submit_message()
-
     def _on_preset_selected(self, preset_name: str | None) -> None:
         if preset_name and preset_name in PRESETS:
             preset = PRESETS[preset_name]
@@ -792,6 +485,58 @@ class TUIApp(App[None]):
         panel = self.query_one("#context_panel")
         panel.toggle_class("visible")
 
+    def _get_ui_params(self) -> tuple[str, float, float, int | None, int | None, str]:
+        """Extract current parameters from UI widgets."""
+        model_select = self.query_one("#select_model", Select)
+        selected_value = model_select.value
+        if isinstance(selected_value, NoSelection) or selected_value is None:
+            current_model = self.model
+        else:
+            current_model = str(selected_value)
+
+        temp_input = self.query_one("#input_temp", Input).value
+        top_p_input = self.query_one("#input_top_p", Input).value
+        max_tokens_input = self.query_one("#input_max_tokens", Input).value
+        seed_input = self.query_one("#input_seed", Input).value
+        system_prompt_widget = self.query_one("#system_prompt_area", TextArea)
+        system_prompt = system_prompt_widget.text.strip()
+
+        try:
+            current_temp = float(temp_input) if temp_input else 0.7
+            current_top_p = float(top_p_input) if top_p_input else 0.9
+            current_max_tokens = int(max_tokens_input) if max_tokens_input else None
+            current_seed = int(seed_input) if seed_input else None
+        except ValueError:
+            current_temp = 0.7
+            current_top_p = 0.9
+            current_max_tokens = None
+            current_seed = None
+            self.notify(
+                "Parâmetros inválidos — usando valores padrão",
+                severity="warning",
+            )
+
+        return current_model, current_temp, current_top_p, current_max_tokens, current_seed, system_prompt
+
+    def _build_chat_history(self, prompt: str, system_prompt: str) -> list[dict[str, Any]]:
+        """Build chat history with prompt and optional images."""
+        chat_history = list(self.messages)
+
+        if system_prompt and not any(msg.get("role") == "system" for msg in chat_history):
+            chat_history.insert(0, {"role": "system", "content": system_prompt})
+
+        user_msg: dict[str, Any] = {"role": "user", "content": prompt}
+        if self.pending_images:
+            from miru.input.image import encode_images
+            try:
+                user_msg["images"] = encode_images(self.pending_images)
+            except Exception as img_err:
+                self.notify(f"Erro ao processar imagens: {img_err}", severity="error")
+                raise
+
+        chat_history.append(user_msg)
+        return chat_history
+
     async def run_llm_response(self, prompt: str) -> None:
         chat_window = self.query_one("#chat_window", Vertical)
         self.message_counter += 1
@@ -801,37 +546,10 @@ class TUIApp(App[None]):
         chat_window.mount(stream_status)
         chat_window.scroll_end()
 
-        metrics_widget = None
-
         try:
-            model_select = self.query_one("#select_model", Select)
-            selected_value = model_select.value
-            if isinstance(selected_value, NoSelection) or selected_value is None:
-                current_model = self.model
-            else:
-                current_model = str(selected_value)
-
-            temp_input = self.query_one("#input_temp", Input).value
-            top_p_input = self.query_one("#input_top_p", Input).value
-            max_tokens_input = self.query_one("#input_max_tokens", Input).value
-            seed_input = self.query_one("#input_seed", Input).value
-            system_prompt_widget = self.query_one("#system_prompt_area", TextArea)
-            system_prompt = system_prompt_widget.text.strip()
-
-            try:
-                current_temp = float(temp_input) if temp_input else 0.7
-                current_top_p = float(top_p_input) if top_p_input else 0.9
-                current_max_tokens = int(max_tokens_input) if max_tokens_input else None
-                current_seed = int(seed_input) if seed_input else None
-            except ValueError:
-                current_temp = 0.7
-                current_top_p = 0.9
-                current_max_tokens = None
-                current_seed = None
-                self.notify(
-                    "Parâmetros inválidos — usando valores padrão",
-                    severity="warning",
-                )
+            current_model, current_temp, current_top_p, current_max_tokens, current_seed, system_prompt = (
+                self._get_ui_params()
+            )
 
             final_chunk = None
             full_response = ""
@@ -840,12 +558,11 @@ class TUIApp(App[None]):
             chunk_count = 0
             stream_start = asyncio.get_event_loop().time()
 
-            chat_history = list(self.messages)
-
-            if system_prompt and not any(msg.get("role") == "system" for msg in chat_history):
-                chat_history.insert(0, {"role": "system", "content": system_prompt})
-
-            chat_history.append({"role": "user", "content": prompt})
+            try:
+                chat_history = self._build_chat_history(prompt, system_prompt)
+            except Exception:
+                stream_status.remove()
+                return
 
             options: dict[str, Any] = {
                 "temperature": current_temp,
@@ -894,7 +611,15 @@ class TUIApp(App[None]):
                     chat_window.scroll_end()
 
             self.messages.append({"role": "user", "content": prompt})
+            if self.pending_images:
+                from miru.input.image import encode_images
+                try:
+                    self.messages[-1]["images"] = encode_images(self.pending_images)
+                except Exception:
+                    pass
             self.messages.append({"role": "assistant", "content": full_response})
+
+            self._clear_pending_images()
 
             if not self.current_session_name:
                 words = [w for w in re.split(r"\W+", prompt) if w and w.isascii() and w.isalpha()][:3]
@@ -1211,7 +936,39 @@ class TUIApp(App[None]):
 
     def action_add_image(self) -> None:
         """Prompt user to add an image path for multimodal support."""
-        self.notify("Funcionalidade de imagem em desenvolvimento. Use o CLI para imagens.")
+        self.push_screen(
+            ImageScreen(current_count=len(self.pending_images)),
+            callback=self._on_image_added,
+        )
+
+    def _on_image_added(self, image_path: str | None) -> None:
+        """Handle image path addition from ImageScreen."""
+        if not image_path:
+            return
+
+        self.pending_images.append(image_path)
+        self._update_pending_images_indicator()
+        self.notify(f"Imagem adicionada ({len(self.pending_images)} pendente(s))")
+
+    def _update_pending_images_indicator(self) -> None:
+        """Update the pending images indicator above input."""
+        try:
+            indicator = self.query_one("#pending_images", Static)
+            if self.pending_images:
+                count = len(self.pending_images)
+                text = f"  📎 {count} imagem{'ns' if count > 1 else ''} pendente{'s' if count > 1 else ''}"
+                indicator.update(text)
+                indicator.add_class("has_images")
+            else:
+                indicator.update("")
+                indicator.remove_class("has_images")
+        except Exception:
+            pass
+
+    def _clear_pending_images(self) -> None:
+        """Clear pending images after successful message send."""
+        self.pending_images = []
+        self._update_pending_images_indicator()
 
     def action_submit_message(self) -> None:
         """Submit the current message from the TextArea."""
