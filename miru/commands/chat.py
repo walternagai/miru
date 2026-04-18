@@ -12,6 +12,7 @@ import typer
 from rich.console import Console
 
 from miru.alias import resolve_alias
+from miru.session import save_session
 from miru.cli_options import (
     AudioFile,
     Context,
@@ -148,6 +149,18 @@ async def _chat_async(
                 except EOFError:
                     break
                 except KeyboardInterrupt:
+                    if messages and turn_count > 0:
+                        try:
+                            from datetime import datetime
+                            words = [w for w in current_model.split(":")[0].split("-") if w][:2]
+                            slug = "_".join(w.lower() for w in words)[:16] if words else "chat"
+                            date_str = datetime.now().strftime("%m%d_%H%M")
+                            session_name = f"{date_str}_{slug}_autosave"
+                            save_session(session_name, current_model, messages)
+                            if not quiet:
+                                print(f"\nSessão salva em ~/.miru/sessions/{session_name}.json")
+                        except Exception:
+                            pass
                     if not quiet:
                         print()
                         print("─" * 50)
@@ -467,7 +480,7 @@ def chat(
 
     final_enable_tools = enable_tools if enable_tools else _resolve_tools()
     final_enable_tavily = enable_tavily if enable_tavily else _resolve_tavily()
-    final_tool_mode = tool_mode if tool_mode != "auto_safe" else _resolve_mode()
+    final_tool_mode = _resolve_mode(tool_mode if tool_mode != "auto_safe" else None)
     final_sandbox_dir = sandbox_dir if sandbox_dir else _resolve_sandbox()
 
     if system is not None and system_file is not None:

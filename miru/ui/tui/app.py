@@ -531,8 +531,7 @@ class TUIApp(App[None]):
             try:
                 user_msg["images"] = encode_images(self.pending_images)
             except Exception as img_err:
-                self.notify(f"Erro ao processar imagens: {img_err}", severity="error")
-                raise
+                self.notify(f"Imagens ignoradas — erro ao processar: {img_err}", severity="warning")
 
         chat_history.append(user_msg)
         return chat_history
@@ -576,32 +575,56 @@ class TUIApp(App[None]):
             stream_status.update(f"⟳  {current_model}  ·  gerando...")
 
             async with OllamaClient(host=self.host) as client:
-                async for chunk in client.chat(
-                    model=current_model, messages=chat_history, options=options
-                ):
-                    content = chunk.get("message", {}).get("content", "")
-                    if content:
-                        full_response += content
-                        chunk_count += len(content.split())
-                        current_time = asyncio.get_event_loop().time()
+                tool_manager = None
+                if self.enable_tools or self.enable_tavily:
+                    from miru.tool_integration import create_tool_manager, execute_tool_loop
+                    tool_manager = create_tool_manager(
+                        enable_tools=self.enable_tools,
+                        enable_tavily=self.enable_tavily,
+                        sandbox_dir=self.sandbox_dir,
+                        tool_mode=self.tool_mode,
+                    )
 
-                        if current_time - last_update >= update_interval:
-                            content_widget = bot_msg.query_one(MarkdownWidget)
-                            content_widget.update_text(full_response, streaming=True)
-                            elapsed = current_time - stream_start
-                            stream_status.update(
-                                f"⟳  {current_model}  ·  {chunk_count} tokens  ·  {elapsed:.1f}s"
-                            )
-                            chat_window.scroll_end()
-                            last_update = current_time
-                            await asyncio.sleep(0)
+                if tool_manager:
+                    stream_status.update(f"⟳  {current_model}  ·  executando ferramentas...")
+                    full_response = await execute_tool_loop(
+                        client=client,
+                        model=current_model,
+                        messages=chat_history,
+                        tool_manager=tool_manager,
+                        options=options,
+                        quiet=True,
+                    )
+                    content_widget = bot_msg.query_one(MarkdownWidget)
+                    content_widget.update_text(full_response, streaming=False)
+                    chat_window.scroll_end()
+                else:
+                    async for chunk in client.chat(
+                        model=current_model, messages=chat_history, options=options
+                    ):
+                        content = chunk.get("message", {}).get("content", "")
+                        if content:
+                            full_response += content
+                            chunk_count += len(content.split())
+                            current_time = asyncio.get_event_loop().time()
 
-                    if chunk.get("done"):
-                        final_chunk = chunk
+                            if current_time - last_update >= update_interval:
+                                content_widget = bot_msg.query_one(MarkdownWidget)
+                                content_widget.update_text(full_response, streaming=True)
+                                elapsed = current_time - stream_start
+                                stream_status.update(
+                                    f"⟳  {current_model}  ·  {chunk_count} tokens  ·  {elapsed:.1f}s"
+                                )
+                                chat_window.scroll_end()
+                                last_update = current_time
+                                await asyncio.sleep(0)
 
-            content_widget = bot_msg.query_one(MarkdownWidget)
-            content_widget.update_text(full_response, streaming=False)
-            chat_window.scroll_end()
+                        if chunk.get("done"):
+                            final_chunk = chunk
+
+                    content_widget = bot_msg.query_one(MarkdownWidget)
+                    content_widget.update_text(full_response, streaming=False)
+                    chat_window.scroll_end()
 
             if final_chunk:
                 metrics_str = format_metrics(final_chunk)
@@ -886,10 +909,24 @@ class TUIApp(App[None]):
         """Reload config and update UI parameters after config screen is closed."""
         self.config = reload_config()
 
-        model_select = self.query_one("#select_model", Select)
-        default_model = self.config.default_model
-        if default_model:
-            model_select.value = default_model
+        try:
+            model_select = self.query_one("#select_model", Select)
+            if self.config.default_model:
+                model_select.value = self.config.default_model
+        except Exception:
+            pass
+
+        try:
+            if self.config.default_temperature is not None:
+                self.query_one("#input_temp", Input).value = str(self.config.default_temperature)
+            if self.config.default_top_p is not None:
+                self.query_one("#input_top_p", Input).value = str(self.config.default_top_p)
+            if self.config.default_max_tokens is not None:
+                self.query_one("#input_max_tokens", Input).value = str(self.config.default_max_tokens)
+            if self.config.default_seed is not None:
+                self.query_one("#input_seed", Input).value = str(self.config.default_seed)
+        except Exception:
+            pass
 
         self.notify("Configurações sincronizadas")
 

@@ -258,6 +258,19 @@ async def execute_tool_loop(
 
         progress_task = asyncio.create_task(show_progress())
 
+        def _clear_progress_line() -> None:
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+
+        def _append_tool_call(messages: list, tool_name: str, arguments: dict) -> None:
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"function": {"name": tool_name, "arguments": arguments}}],
+                }
+            )
+
         try:
             for iteration in range(max_iterations):
                 chunks = client.chat_with_tools(
@@ -281,39 +294,28 @@ async def execute_tool_loop(
                         tool_name = call.get("name", "")
                         arguments = call.get("arguments", {})
 
-                        # Enhance Tavily search with query variations
-                        if tool_name == "tavily_search" and "query" in arguments:
-                            enhanced_result, error = await enhance_tavily_search(
-                                client, model, arguments["query"], tool_manager, max_results=5
-                            )
-                            if error:
-                                result, error = tool_manager.execute_tool(tool_name, arguments)
+                        try:
+                            if tool_name == "tavily_search" and "query" in arguments:
+                                enhanced_result, error = await enhance_tavily_search(
+                                    client, model, arguments["query"], tool_manager, max_results=5
+                                )
+                                if error:
+                                    result, error = tool_manager.execute_tool(tool_name, arguments)
+                                else:
+                                    result = enhanced_result
                             else:
-                                result = enhanced_result
-                        else:
-                            result, error = tool_manager.execute_tool(tool_name, arguments)
+                                result, error = tool_manager.execute_tool(tool_name, arguments)
+                        except Exception as exc:
+                            result = None
+                            error = str(exc)
+                            if not quiet:
+                                console.print(f"\n[red]✗ Erro na ferramenta '{tool_name}': {exc}[/]\n")
 
-                        messages.append(
-                            {
-                                "role": "assistant",
-                                "content": "",
-                                "tool_calls": [
-                                    {
-                                        "function": {
-                                            "name": tool_name,
-                                            "arguments": arguments,
-                                        }
-                                    }
-                                ],
-                            }
-                        )
-
+                        _append_tool_call(messages, tool_name, arguments)
                         tool_result_msg = create_tool_result_message(tool_name, result, error)
                         messages.append(tool_result_msg)
                 else:
-                    # No tool calls - this is the final response
-                    sys.stdout.write("\r" + " " * 30 + "\r")
-                    sys.stdout.flush()
+                    _clear_progress_line()
                     final_response = "".join(response_parts)
                     render_markdown(final_response)
                     return final_response
@@ -324,8 +326,7 @@ async def execute_tool_loop(
             except asyncio.CancelledError:
                 pass
 
-        sys.stdout.write("\r" + " " * 30 + "\r")
-        sys.stdout.flush()
+        _clear_progress_line()
         console.print("\n[yellow]⚠ Limite de iterações de tools atingido[/]\n")
         return "".join(response_parts)
     else:
@@ -352,37 +353,31 @@ async def execute_tool_loop(
                     tool_name = call.get("name", "")
                     arguments = call.get("arguments", {})
 
-                    # Enhance Tavily search with query variations
-                    if tool_name == "tavily_search" and "query" in arguments:
-                        enhanced_result, error = await enhance_tavily_search(
-                            client, model, arguments["query"], tool_manager, max_results=5
-                        )
-                        if error:
-                            result, error = tool_manager.execute_tool(tool_name, arguments)
+                    try:
+                        if tool_name == "tavily_search" and "query" in arguments:
+                            enhanced_result, error = await enhance_tavily_search(
+                                client, model, arguments["query"], tool_manager, max_results=5
+                            )
+                            if error:
+                                result, error = tool_manager.execute_tool(tool_name, arguments)
+                            else:
+                                result = enhanced_result
                         else:
-                            result = enhanced_result
-                    else:
-                        result, error = tool_manager.execute_tool(tool_name, arguments)
+                            result, error = tool_manager.execute_tool(tool_name, arguments)
+                    except Exception as exc:
+                        result = None
+                        error = str(exc)
 
                     messages.append(
                         {
                             "role": "assistant",
                             "content": "",
-                            "tool_calls": [
-                                {
-                                    "function": {
-                                        "name": tool_name,
-                                        "arguments": arguments,
-                                    }
-                                }
-                            ],
+                            "tool_calls": [{"function": {"name": tool_name, "arguments": arguments}}],
                         }
                     )
-
                     tool_result_msg = create_tool_result_message(tool_name, result, error)
                     messages.append(tool_result_msg)
             else:
-                # No tool calls - this is the final response
                 final_response = "".join(response_parts)
                 return final_response
 

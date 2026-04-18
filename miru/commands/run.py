@@ -157,6 +157,8 @@ async def _run_async(
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": final_prompt})
 
+            response_text: str | None = None
+
             if tool_manager:
                 tools = tool_manager.get_tool_definitions()
                 response_text = await execute_tool_loop(
@@ -184,7 +186,7 @@ async def _run_async(
                             print(response_text)
                 else:
                     chunks = client.chat(model, messages, options=options, stream=True)
-                    await stream_as_markdown_live(chunks, quiet=quiet, show_metrics=True)
+                    response_text, _ = await stream_as_markdown_live(chunks, quiet=quiet, show_metrics=True)
             else:
                 if output_format == "json" or no_stream:
                     response_text, final_chunk, model_name = await collect_stream(
@@ -209,14 +211,14 @@ async def _run_async(
                     chunks = client.generate(
                         model, final_prompt, images=encoded_images, options=options, stream=True
                     )
-                    await stream_as_markdown_live(chunks, quiet=quiet, show_metrics=True)
+                    response_text, _ = await stream_as_markdown_live(chunks, quiet=quiet, show_metrics=True)
 
             record_history(
                 command="run",
                 model=model,
                 prompt=prompt[:500] if prompt else "",
                 system_prompt=system_prompt[:200] if system_prompt else None,
-                response=None,
+                response=response_text[:1000] if response_text else None,
                 success=True,
             )
 
@@ -316,7 +318,7 @@ def run(
 
     final_enable_tools = enable_tools if enable_tools else _resolve_tools()
     final_enable_tavily = enable_tavily if enable_tavily else _resolve_tavily()
-    final_tool_mode = tool_mode if tool_mode != "auto_safe" else _resolve_mode()
+    final_tool_mode = _resolve_mode(tool_mode if tool_mode != "auto_safe" else None)
     final_sandbox_dir = sandbox_dir if sandbox_dir else _resolve_sandbox()
 
     final_system_prompt: str | None = None

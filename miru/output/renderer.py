@@ -231,7 +231,7 @@ async def render_stream_as_markdown(
             except asyncio.CancelledError:
                 pass
 
-        sys.stdout.write("\r" + " " * 30 + "\r")
+        sys.stdout.write("\r\033[K")
         sys.stdout.flush()
     else:
         async for chunk in chunks:
