@@ -398,8 +398,9 @@ def create_progress_bar() -> Progress:
 
 def render_compare_header(model: str, index: int, total: int) -> None:
     """Display compare model header."""
+    hline = "\u2500" * 40
     console.print()
-    console.print(f"[bold]\u2500\u2500 [{index}/{total}] {model}[/] {'\u2500' * 40}")
+    console.print(f"[bold]\u2500\u2500 [{index}/{total}] {model}[/] {hline}")
 
 
 def render_compare_table(
