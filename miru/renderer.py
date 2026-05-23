@@ -7,7 +7,7 @@ from typing import Any
 from rich.console import Console
 from rich.text import Text
 
-from miru.output import (  # type: ignore
+from miru.output import (
     console,
     create_progress_bar,
     format_date,

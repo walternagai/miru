@@ -167,7 +167,6 @@ async def _run_async(
             response_text: str | None = None
 
             if tool_manager:
-                tools = tool_manager.get_tool_definitions()
                 response_text = await execute_tool_loop(
                     client=client,
                     model=model,
@@ -178,7 +177,7 @@ async def _run_async(
                 )
             elif system_prompt:
                 if output_format == "json" or no_stream:
-                    response_text, final_chunk, model_name = await _collect_chat_stream(
+                    response_text, final_chunk, _ = await _collect_chat_stream(
                         client.chat(model, messages, options=options, stream=False)
                     )
 
@@ -196,7 +195,7 @@ async def _run_async(
                     response_text, _ = await stream_as_markdown_live(chunks, quiet=quiet, show_metrics=True)
             else:
                 if output_format == "json" or no_stream:
-                    response_text, final_chunk, model_name = await collect_stream(
+                    response_text, final_chunk, _ = await collect_stream(
                         client.generate(
                             model,
                             final_prompt,

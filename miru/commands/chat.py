@@ -154,8 +154,9 @@ async def _chat_async(
                             from datetime import datetime
                             words = [w for w in current_model.split(":")[0].split("-") if w][:2]
                             slug = "_".join(w.lower() for w in words)[:16] if words else "chat"
-                            date_str = datetime.now().strftime("%m%d_%H%M")
-                            session_name = f"{date_str}_{slug}_autosave"
+                            ts = datetime.now().strftime("%H%M%S")
+                            date_str = datetime.now().strftime("%Y%m%d")
+                            session_name = f"{date_str}_{ts}_{slug}_autosave"
                             save_session(session_name, current_model, messages)
                             if not quiet:
                                 print(f"\nSessão salva em ~/.miru/sessions/{session_name}.json")

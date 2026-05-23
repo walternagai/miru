@@ -128,8 +128,6 @@ LATEX_SYMBOLS: Final[dict[str, str]] = {
     "trademark": "™",
     "top": "⊤",
     "bot": "⊥",
-    "true": "⊤",
-    "false": "⊥",
     "models": "⊨",
     "vdash": "⊢",
     "dashv": "⊣",

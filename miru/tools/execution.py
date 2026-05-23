@@ -8,15 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from miru.tools import (
-    CommandWhitelist,
-    EnvironmentWhitelist,
     FileSandbox,
     ToolRegistry,
     create_file_tools,
     create_system_tools,
 )
 from miru.tools.tavily import TavilyError, create_tavily_tools
-from miru.tools.utils import create_tool_result_message, extract_tool_calls, has_tool_calls
+from miru.tools.utils import create_tool_result_message, extract_tool_calls
 
 
 class ToolExecutionMode(Enum):

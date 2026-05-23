@@ -7,7 +7,7 @@ Consolidates all configuration logic into a single module with:
 - Precedence chain
 """
 
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field, fields as dc_fields
 from pathlib import Path
 from typing import Any
 
@@ -149,6 +149,17 @@ def load_config() -> Config:
         return Config()
 
 
+def _get_default_values() -> dict[str, Any]:
+    """Get default values from Config dataclass, respecting default_factory fields."""
+    defaults: dict[str, Any] = {}
+    for field_info in dc_fields(Config):
+        if field_info.default is not MISSING:
+            defaults[field_info.name] = field_info.default
+        elif field_info.default_factory is not MISSING:
+            defaults[field_info.name] = field_info.default_factory()
+    return defaults
+
+
 def save_config(config: Config) -> None:
     """Save configuration to TOML file.
     
@@ -163,10 +174,12 @@ def save_config(config: Config) -> None:
 
     data = config.to_dict()
 
+    # Keep only values that differ from defaults, handling default_factory fields
+    defaults = _get_default_values()
     data = {
         k: v
         for k, v in data.items()
-        if v is not None and v != Config.__dataclass_fields__[k].default
+        if v is not None and v != defaults.get(k)
     }
 
     with open(CONFIG_FILE, "wb") as f:

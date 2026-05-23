@@ -18,8 +18,46 @@ console = Console()
 SESSIONS_DIR = CONFIG_DIR / "sessions"
 FAVORITES_FILE = CONFIG_DIR / "favorites.json"
 
-# Cache for favorites with file modification time
-_favorites_cache: tuple[set[str], float] | None = None
+
+class _FavoritesCache:
+    """Thread-safe favorites cache with file modification time invalidation."""
+
+    def __init__(self) -> None:
+        self._data: set[str] | None = None
+        self._mtime: float = 0.0
+
+    def get(self) -> set[str]:
+        """Load favorites from file, using cache if still valid."""
+        if not FAVORITES_FILE.exists():
+            self._data = None
+            return set()
+
+        try:
+            current_mtime = FAVORITES_FILE.stat().st_mtime
+            if self._data is not None and self._mtime == current_mtime:
+                return self._data
+
+            with open(FAVORITES_FILE, encoding="utf-8") as f:
+                self._data = set(json.load(f))
+                self._mtime = current_mtime
+                return self._data
+        except Exception as e:
+            logger.debug(f"Failed to load favorites: {e}")
+            return set()
+
+    def save(self, favorites: set[str]) -> None:
+        """Save favorites and invalidate cache."""
+        ensure_config_dir()
+        with open(FAVORITES_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(favorites), f)
+        self._data = None
+
+    def clear(self) -> None:
+        """Clear the cache."""
+        self._data = None
+
+
+_favorites_cache = _FavoritesCache()
 
 
 def ensure_sessions_dir() -> None:
@@ -33,39 +71,12 @@ def load_favorites() -> set[str]:
 
     Uses file modification time to invalidate cache.
     """
-    global _favorites_cache
-
-    if not FAVORITES_FILE.exists():
-        _favorites_cache = None
-        return set()
-
-    try:
-        current_mtime = FAVORITES_FILE.stat().st_mtime
-
-        # Return cached value if valid
-        if _favorites_cache is not None and _favorites_cache[1] == current_mtime:
-            return _favorites_cache[0]
-
-        # Load from file and cache
-        with open(FAVORITES_FILE, encoding="utf-8") as f:
-            favorites = set(json.load(f))
-            _favorites_cache = (favorites, current_mtime)
-            return favorites
-    except Exception as e:
-        logger.debug(f"Failed to load favorites: {e}")
-        return set()
+    return _favorites_cache.get()
 
 
 def save_favorites(favorites: set[str]) -> None:
     """Save favorite session names and invalidate cache."""
-    global _favorites_cache
-
-    ensure_config_dir()
-    with open(FAVORITES_FILE, "w", encoding="utf-8") as f:
-        json.dump(list(favorites), f)
-
-    # Invalidate cache
-    _favorites_cache = None
+    _favorites_cache.save(favorites)
 
 
 def toggle_favorite(name: str) -> bool:
