@@ -35,14 +35,21 @@ from miru.cli_options import (
     TopP,
 )
 from miru.core.config import resolve_host
-from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.core.errors import ConnectionError as MiruConnectionError
+from miru.core.errors import ModelNotFoundError
 from miru.core.i18n import t
 from miru.history import record_history
 from miru.inference_params import build_options
 from miru.input import encode_images, extract_text, format_for_prompt, transcribe
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
-from miru.output import collect_stream, render_json_output, render_metrics, render_markdown, stream_as_markdown_live
+from miru.output import (
+    collect_stream,
+    render_json_output,
+    render_markdown,
+    render_metrics,
+    stream_as_markdown_live,
+)
 from miru.ui.render import render_error
 
 
@@ -103,15 +110,15 @@ async def _run_async(
                     models_list = "\n".join(f"    • {m}" for m in vision_models[:5])
                     if len(vision_models) > 5:
                         models_list += f"\n    ... and {len(vision_models) - 5} more"
-                    
+
                     suggestion = t(
                         "suggestion.available_vision_models",
                         models=models_list
                     ) if vision_models else t("suggestion.pull_vision_model")
-                    
+
                     if vision_models:
                         suggestion += f"\n\n{t('suggestion.use_vision_model', model=vision_models[0])}"
-                    
+
                     render_error(t("error.model_no_vision", model=model), suggestion)
                     sys.exit(1)
 
@@ -256,8 +263,32 @@ async def _collect_chat_stream(stream):
 
         if chunk.get("done"):
             final_chunk = chunk
+            model_name = chunk.get("model")
 
     return "".join(response_parts), final_chunk, model_name
+
+
+async def _ensure_model_available(model: str, host: str, quiet: bool) -> None:
+    """Pull model if not already available locally."""
+    from miru.ollama.client import OllamaClient
+    from miru.output.renderer import render_pull_progress
+
+    async with OllamaClient(host) as client:
+        models = await client.list_models()
+        model_names = [m.get("name", "") for m in models]
+        if model in model_names:
+            return
+
+        if not quiet:
+            print(f"Downloading {model}...")
+
+        try:
+            chunks = client.pull(model)
+            async for _ in render_pull_progress(chunks, model, quiet=quiet):
+                pass
+        except Exception:
+            if not quiet:
+                print(f"Failed to download {model}")
 
 
 def run(
@@ -310,10 +341,16 @@ def run(
 
     # Resolve tool settings from config if not specified via CLI
     from miru.core.config import (
-        resolve_enable_tools as _resolve_tools,
         resolve_enable_tavily as _resolve_tavily,
-        resolve_tool_mode as _resolve_mode,
+    )
+    from miru.core.config import (
+        resolve_enable_tools as _resolve_tools,
+    )
+    from miru.core.config import (
         resolve_sandbox_dir as _resolve_sandbox,
+    )
+    from miru.core.config import (
+        resolve_tool_mode as _resolve_mode,
     )
 
     final_enable_tools = enable_tools if enable_tools else _resolve_tools()
@@ -340,6 +377,13 @@ def run(
         final_system_prompt = system.strip()
 
     resolved_host = resolve_host(host)
+
+    if auto_pull:
+        try:
+            import asyncio as _asyncio
+            _asyncio.run(_ensure_model_available(model, resolved_host, quiet))
+        except Exception:
+            pass
 
     try:
         asyncio.run(

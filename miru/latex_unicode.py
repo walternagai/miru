@@ -201,7 +201,7 @@ SUBSCRIPT_LETTERS: Final[dict[str, str]] = {
     "n": "ₙ",
     "o": "ₒ",
     "p": "ₚ",
-    "r": "ₛ",
+    "r": "ᵣ",
     "t": "ₜ",
     "u": "ᵤ",
     "v": "ᵥ",
@@ -314,7 +314,7 @@ def latex_to_unicode(text: str) -> str:
         '∇² φ = ρ/ε₀'
     """
     result = text
-    
+
     sqrt_n_pattern = re.compile(r"\\sqrt\[(\d+)\]\{([^{}]+)\}")
     for match in list(sqrt_n_pattern.finditer(result)):
         expr = match.group(2)

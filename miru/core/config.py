@@ -49,7 +49,7 @@ class Config:
         profiles: Named configuration profiles
         current_profile: Active profile name
     """
-    
+
     default_host: str = "http://localhost:11434"
     default_model: str | None = None
     default_timeout: float = 30.0
@@ -58,34 +58,34 @@ class Config:
     default_top_p: float | None = None
     default_top_k: int | None = None
     default_seed: int | None = None
-    
+
     language: str = "en_US"
-    
+
     history_enabled: bool = True
     history_max_entries: int = 1000
     verbose: bool = False
-    
+
     tavily_api_key: str | None = None
     enable_tools: bool = False
     enable_tavily: bool = False
     tool_mode: str = "auto_safe"
     sandbox_dir: str | None = None
-    
+
     profiles: dict[str, dict[str, Any]] = field(default_factory=dict)
     current_profile: str | None = None
-    
+
     def get_host(self) -> str:
         """Get host with profile override."""
         if self.current_profile and self.current_profile in self.profiles:
             return self.profiles[self.current_profile].get("host", self.default_host)
         return self.default_host
-    
+
     def get_model(self) -> str | None:
         """Get default model with profile override."""
         if self.current_profile and self.current_profile in self.profiles:
             return self.profiles[self.current_profile].get("default_model", self.default_model)
         return self.default_model
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary."""
         data: dict[str, Any] = {
@@ -110,7 +110,7 @@ class Config:
             "current_profile": self.current_profile,
         }
         return data
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Config":
         """Create config from dictionary."""
@@ -137,10 +137,10 @@ def load_config() -> Config:
         Config object with loaded or default values
     """
     ensure_config_dir()
-    
+
     if not CONFIG_FILE.exists():
         return Config()
-    
+
     try:
         with open(CONFIG_FILE, "rb") as f:
             data = tomllib.load(f)
@@ -158,17 +158,17 @@ def save_config(config: Config) -> None:
     if tomli_w is None:
         print("Warning: tomli_w not installed. Cannot save config.")
         return
-    
+
     ensure_config_dir()
-    
+
     data = config.to_dict()
-    
+
     data = {
         k: v
         for k, v in data.items()
         if v is not None and v != Config.__dataclass_fields__[k].default
     }
-    
+
     with open(CONFIG_FILE, "wb") as f:
         tomli_w.dump(data, f)
 
@@ -188,22 +188,65 @@ def get_config_value(key: str) -> Any:
         Configuration value
     """
     import os
-    
+
     env_key = f"MIRU_{key.upper()}"
     env_value = os.environ.get(env_key)
-    
+
     if env_value is not None:
-        if env_value.lower() in ("true", "1", "yes"):
-            return True
-        if env_value.lower() in ("false", "0", "no"):
-            return False
-        try:
-            return float(env_value) if "." in env_value else int(env_value)
-        except ValueError:
+        expected_type = _get_config_type(key)
+        if expected_type is bool:
+            if env_value.lower() in ("true", "1", "yes"):
+                return True
+            if env_value.lower() in ("false", "0", "no"):
+                return False
             return env_value
-    
+        elif expected_type is int:
+            try:
+                return int(env_value)
+            except ValueError:
+                return env_value
+        elif expected_type is float:
+            try:
+                return float(env_value)
+            except ValueError:
+                return env_value
+        return env_value
+
     config = load_config()
     return getattr(config, key, None)
+
+
+def _get_config_type(key: str) -> type:
+    """Get the expected Python type for a config key from Config dataclass."""
+    import typing
+
+    field = Config.__dataclass_fields__.get(key)
+    if field is None:
+        return str
+
+    field_type = field.type
+    origin = typing.get_origin(field_type)
+
+    if origin is not None:
+        args = typing.get_args(field_type)
+        if origin is dict:
+            return dict
+        if origin is list:
+            return list
+        if args:
+            for arg in args:
+                if arg is not None and arg in (bool, int, float, str):
+                    return arg
+        return str
+
+    if field_type is bool:
+        return bool
+    if field_type is int:
+        return int
+    if field_type is float:
+        return float
+
+    return str
 
 
 def resolve_host(cli_override: str | None = None) -> str:
@@ -223,18 +266,18 @@ def resolve_host(cli_override: str | None = None) -> str:
         Resolved host URL
     """
     import os
-    
+
     if cli_override:
         return cli_override.rstrip("/")
-    
+
     ollama_host = os.environ.get("OLLAMA_HOST")
     if ollama_host:
         return ollama_host.rstrip("/")
-    
+
     config_host = get_config_value("default_host")
     if config_host:
         return str(config_host).rstrip("/")
-    
+
     return "http://localhost:11434"
 
 
@@ -249,7 +292,7 @@ def resolve_model(cli_override: str | None = None) -> str | None:
     """
     if cli_override:
         return cli_override
-    
+
     return get_config_value("default_model")
 
 
@@ -264,7 +307,7 @@ def resolve_enable_tools(cli_override: bool | None = None) -> bool:
     """
     if cli_override is not None:
         return cli_override
-    
+
     return bool(get_config_value("enable_tools"))
 
 
@@ -279,7 +322,7 @@ def resolve_enable_tavily(cli_override: bool | None = None) -> bool:
     """
     if cli_override is not None:
         return cli_override
-    
+
     return bool(get_config_value("enable_tavily"))
 
 
@@ -294,11 +337,11 @@ def resolve_tool_mode(cli_override: str | None = None) -> str:
     """
     if cli_override:
         return cli_override
-    
+
     mode = get_config_value("tool_mode")
     if mode and mode in ("manual", "auto", "auto_safe"):
         return str(mode)
-    
+
     return "auto_safe"
 
 
@@ -313,7 +356,7 @@ def resolve_sandbox_dir(cli_override: str | None = None) -> str | None:
     """
     if cli_override:
         return cli_override
-    
+
     return get_config_value("sandbox_dir")
 
 

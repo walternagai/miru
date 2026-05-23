@@ -5,10 +5,9 @@ import sys
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
-from rich.syntax import Syntax
 
 from miru.latex_unicode import latex_to_unicode
 
@@ -27,13 +26,13 @@ def _detect_code_blocks(text: str) -> tuple[str, list[tuple[str, str]]]:
     """
     pattern = r'```(\w*)\n(.*?)```'
     matches = list(re.finditer(pattern, text, re.DOTALL))
-    
+
     code_blocks = []
     for match in matches:
         lang = match.group(1) or "text"
         code = match.group(2)
         code_blocks.append((lang, code))
-    
+
     return text, code_blocks
 
 
@@ -72,17 +71,17 @@ def _get_incomplete_code_block(text: str) -> str | None:
     """
     if not _has_incomplete_code_block(text):
         return None
-    
+
     last_fence = text.rfind("```")
     if last_fence == -1:
         return None
-    
+
     after_fence = text[last_fence + 3:]
     lines = after_fence.split("\n", 1)
-    
+
     if len(lines) == 1:
         return lines[0] if lines[0] else ""
-    
+
     return lines[1] if len(lines) > 1 else None
 
 
@@ -109,10 +108,10 @@ async def stream_as_markdown_live(
         Tuple of (full_response_text, final_chunk)
     """
     from miru.output.renderer import render_metrics
-    
+
     text_buffer = ""
     final_chunk = None
-    
+
     if quiet:
         async for chunk in chunks:
             content = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
@@ -140,13 +139,16 @@ async def stream_as_markdown_live(
         return text_buffer, final_chunk
 
     with Live(console=console, refresh_per_second=10, vertical_overflow="visible") as live:
+        converted_buffer = ""
+
         async for chunk in chunks:
             content = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
 
             if content:
                 text_buffer += content
+                converted_buffer += latex_to_unicode(content)
 
-                md = _render_with_syntax_highlight(latex_to_unicode(text_buffer))
+                md = _render_with_syntax_highlight(converted_buffer)
                 live.update(md)
 
             if chunk.get("done"):
@@ -156,6 +158,4 @@ async def stream_as_markdown_live(
         print()
         render_metrics(final_chunk)
 
-    text_buffer = latex_to_unicode(text_buffer)
-
-    return text_buffer, final_chunk
+    return latex_to_unicode(text_buffer), final_chunk
