@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import sys
+import asyncio as _asyncio
+import sys as _sys
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,6 @@ from miru.output.renderer import render_markdown
 from miru.tools import ToolExecutionManager, ToolExecutionMode
 from miru.tools.utils import (
     create_tool_result_message,
-    create_tool_call_message,
     extract_tool_calls,
     has_tool_calls,
 )
@@ -120,8 +120,6 @@ async def generate_query_variations(
     Returns:
         List of query variations (including original)
     """
-    from miru.tools.utils import create_tool_call_message
-
     prompt = f"""Generate {max_variations} different search queries to find comprehensive information about: "{original_query}"
 
 Rules:
@@ -242,144 +240,113 @@ async def execute_tool_loop(
     """
     tools = tool_manager.get_tool_definitions()
 
-    # Show progress indicator during tool execution
     if not quiet:
-        import asyncio
-        import sys
-
-        async def show_progress():
-            chars = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-            idx = 0
-            while True:
-                sys.stdout.write(f"\r{chars[idx % len(chars)]} Processando...")
-                sys.stdout.flush()
-                await asyncio.sleep(0.1)
-                idx += 1
-
-        progress_task = asyncio.create_task(show_progress())
+        progress_task = _asyncio.create_task(_show_progress())
 
         def _clear_progress_line() -> None:
-            sys.stdout.write("\r\033[K")
-            sys.stdout.flush()
-
-        def _append_tool_call(messages: list, tool_name: str, arguments: dict) -> None:
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": "",
-                    "tool_calls": [{"function": {"name": tool_name, "arguments": arguments}}],
-                }
-            )
+            _sys.stdout.write("\r\033[K")
+            _sys.stdout.flush()
 
         try:
-            for iteration in range(max_iterations):
-                chunks = client.chat_with_tools(
-                    model, messages, tools=tools, options=options, stream=True
-                )
-
-                response_parts = []
-                current_tool_calls = []
-
-                async for chunk in chunks:
-                    if has_tool_calls(chunk):
-                        calls = extract_tool_calls(chunk)
-                        current_tool_calls.extend(calls)
-                    else:
-                        content = chunk.get("message", {}).get("content", "")
-                        if content:
-                            response_parts.append(content)
-
-                if current_tool_calls:
-                    for call in current_tool_calls:
-                        tool_name = call.get("name", "")
-                        arguments = call.get("arguments", {})
-
-                        try:
-                            if tool_name == "tavily_search" and "query" in arguments:
-                                enhanced_result, error = await enhance_tavily_search(
-                                    client, model, arguments["query"], tool_manager, max_results=5
-                                )
-                                if error:
-                                    result, error = tool_manager.execute_tool(tool_name, arguments)
-                                else:
-                                    result = enhanced_result
-                            else:
-                                result, error = tool_manager.execute_tool(tool_name, arguments)
-                        except Exception as exc:
-                            result = None
-                            error = str(exc)
-                            if not quiet:
-                                console.print(f"\n[red]✗ Erro na ferramenta '{tool_name}': {exc}[/]\n")
-
-                        _append_tool_call(messages, tool_name, arguments)
-                        tool_result_msg = create_tool_result_message(tool_name, result, error)
-                        messages.append(tool_result_msg)
-                else:
-                    _clear_progress_line()
-                    final_response = "".join(response_parts)
-                    render_markdown(final_response)
-                    return final_response
+            return await _execute_tool_loop_inner(
+                client, model, messages, tools, tool_manager, options,
+                max_iterations, quiet, _clear_progress_line
+            )
         finally:
             progress_task.cancel()
             try:
                 await progress_task
-            except asyncio.CancelledError:
+            except _asyncio.CancelledError:
                 pass
 
         _clear_progress_line()
-        console.print("\n[yellow]⚠ Limite de iterações de tools atingido[/]\n")
-        return "".join(response_parts)
+        console.print(f"\n[yellow]{t('tools.iteration_limit')}[/]\n")
+        return ""
     else:
-        # Quiet mode - no progress indicator
-        for iteration in range(max_iterations):
-            chunks = client.chat_with_tools(
-                model, messages, tools=tools, options=options, stream=True
-            )
+        return await _execute_tool_loop_inner(
+            client, model, messages, tools, tool_manager, options,
+            max_iterations, quiet
+        )
 
-            response_parts = []
-            current_tool_calls = []
 
-            async for chunk in chunks:
-                if has_tool_calls(chunk):
-                    calls = extract_tool_calls(chunk)
-                    current_tool_calls.extend(calls)
-                else:
-                    content = chunk.get("message", {}).get("content", "")
-                    if content:
-                        response_parts.append(content)
+async def _show_progress() -> None:
+    chars = "\u280b\u2819\u2818\u281a\u281c\u2834\u2826\u2827\u2807\u280f"
+    idx = 0
+    while True:
+        _sys.stdout.write(f"\r{chars[idx % len(chars)]} {t('tools.processing')}")
+        _sys.stdout.flush()
+        await _asyncio.sleep(0.1)
+        idx += 1
 
-            if current_tool_calls:
-                for call in current_tool_calls:
-                    tool_name = call.get("name", "")
-                    arguments = call.get("arguments", {})
 
-                    try:
-                        if tool_name == "tavily_search" and "query" in arguments:
-                            enhanced_result, error = await enhance_tavily_search(
-                                client, model, arguments["query"], tool_manager, max_results=5
-                            )
-                            if error:
-                                result, error = tool_manager.execute_tool(tool_name, arguments)
-                            else:
-                                result = enhanced_result
-                        else:
-                            result, error = tool_manager.execute_tool(tool_name, arguments)
-                    except Exception as exc:
-                        result = None
-                        error = str(exc)
+async def _execute_tool_loop_inner(
+    client: OllamaClient,
+    model: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    tool_manager: ToolExecutionManager,
+    options: dict[str, Any],
+    max_iterations: int,
+    quiet: bool,
+    clear_progress: callable | None = None,
+) -> str:
+    """Core tool loop logic shared across quiet and verbose modes."""
+    for _iteration in range(max_iterations):
+        chunks = client.chat_with_tools(
+            model, messages, tools=tools, options=options, stream=True
+        )
 
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "content": "",
-                            "tool_calls": [{"function": {"name": tool_name, "arguments": arguments}}],
-                        }
-                    )
-                    tool_result_msg = create_tool_result_message(tool_name, result, error)
-                    messages.append(tool_result_msg)
+        response_parts = []
+        current_tool_calls = []
+
+        async for chunk in chunks:
+            if has_tool_calls(chunk):
+                calls = extract_tool_calls(chunk)
+                current_tool_calls.extend(calls)
             else:
-                final_response = "".join(response_parts)
-                return final_response
+                content = chunk.get("message", {}).get("content", "")
+                if content:
+                    response_parts.append(content)
+
+        if current_tool_calls:
+            for call in current_tool_calls:
+                tool_name = call.get("name", "")
+                arguments = call.get("arguments", {})
+
+                try:
+                    if tool_name == "tavily_search" and "query" in arguments:
+                        enhanced_result, error = await enhance_tavily_search(
+                            client, model, arguments["query"], tool_manager, max_results=5
+                        )
+                        if error:
+                            result, error = tool_manager.execute_tool(tool_name, arguments)
+                        else:
+                            result = enhanced_result
+                    else:
+                        result, error = tool_manager.execute_tool(tool_name, arguments)
+                except Exception as exc:
+                    result = None
+                    error = str(exc)
+                    if not quiet:
+                        console.print(f"\n[red]{t('error.prefix')} {tool_name}: {exc}[/]\n")
+
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [{"function": {"name": tool_name, "arguments": arguments}}],
+                    }
+                )
+                tool_result_msg = create_tool_result_message(tool_name, result, error)
+                messages.append(tool_result_msg)
+        else:
+            if clear_progress:
+                clear_progress()
+            final_response = "".join(response_parts)
+            render_markdown(final_response)
+            return final_response
+
+    return "".join(response_parts)
 
 
 def validate_tools_config(enable_tavily: bool, enable_tools: bool) -> None:

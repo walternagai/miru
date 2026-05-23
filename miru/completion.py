@@ -17,10 +17,11 @@ _miru_completion() {
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
         words=(
-            'list' 'info' 'pull' 'run' 'chat' 'compare'
+            'list' 'info' 'pull' 'run' 'chat' 'tui' 'compare'
             'delete' 'copy' 'embed' 'batch' 'status'
             'ps' 'stop' 'search' 'config' 'history'
-            'template' 'alias' 'logs' 'completion' 'version'
+            'template' 'alias' 'session' 'logs' 'completion'
+            'setup' 'quick' 'examples' 'version'
         )
     else
         case ${COMP_WORDS[1]} in
@@ -35,7 +36,9 @@ _miru_completion() {
                 else
                     words=(--system --system-file --temperature --top-p --top-k
                            --max-tokens --seed --repeat-penalty --ctx --no-stream
-                           --host --format --quiet --verbose)
+                           --host --format --quiet --verbose
+                           --image --file --audio --auto-pull
+                           --enable-tools --tavily --sandbox-dir --tool-mode)
                 fi
                 ;;
             info|pull|delete)
@@ -54,8 +57,11 @@ _miru_completion() {
             alias)
                 words=(add list delete show)
                 ;;
-            history)
-                words=(--limit --command --search --clear --format)
+            session)
+                words=(list show delete export rename)
+                ;;
+            logs)
+                words=(--follow --lines --latest --list clear)
                 ;;
         esac
     fi
@@ -75,6 +81,7 @@ commands=(
     'pull:Download a model'
     'run:Generate text with a single prompt'
     'chat:Start interactive chat session'
+    'tui:Open full-screen TUI interface'
     'compare:Compare responses from multiple models'
     'delete:Delete a model'
     'copy:Copy a model'
@@ -88,7 +95,11 @@ commands=(
     'history:View prompt history'
     'template:Manage prompt templates'
     'alias:Manage model aliases'
+    'session:Manage chat sessions'
     'logs:View logs'
+    'setup:Run setup wizard'
+    'quick:Run quick commands'
+    'examples:Browse usage examples'
     'completion:Generate shell completion'
     'version:Show version'
 )
@@ -143,11 +154,14 @@ case $state in
             config)
                 _values 'action' set get list profile path reset
                 ;;
-            template)
-                _values 'action' list save show delete run export import
+            session)
+                _values 'action' list show delete export rename
                 ;;
-            alias)
-                _values 'action' add list delete show
+            logs)
+                _values 'action' '--follow' '--lines' '--latest' '--list' clear
+                ;;
+            history)
+                _values 'action' list show
                 ;;
         esac
         ;;
@@ -164,6 +178,7 @@ complete -c miru -n __fish_use_subcommand -a info -d 'Show model information'
 complete -c miru -n __fish_use_subcommand -a pull -d 'Download a model'
 complete -c miru -n __fish_use_subcommand -a run -d 'Generate text with a single prompt'
 complete -c miru -n __fish_use_subcommand -a chat -d 'Start interactive chat session'
+complete -c miru -n __fish_use_subcommand -a tui -d 'Open full-screen TUI interface'
 complete -c miru -n __fish_use_subcommand -a compare -d 'Compare responses from multiple models'
 complete -c miru -n __fish_use_subcommand -a delete -d 'Delete a model'
 complete -c miru -n __fish_use_subcommand -a copy -d 'Copy a model'
@@ -177,7 +192,11 @@ complete -c miru -n __fish_use_subcommand -a config -d 'Manage configuration'
 complete -c miru -n __fish_use_subcommand -a history -d 'View prompt history'
 complete -c miru -n __fish_use_subcommand -a template -d 'Manage prompt templates'
 complete -c miru -n __fish_use_subcommand -a alias -d 'Manage model aliases'
+complete -c miru -n __fish_use_subcommand -a session -d 'Manage chat sessions'
 complete -c miru -n __fish_use_subcommand -a logs -d 'View logs'
+complete -c miru -n __fish_use_subcommand -a setup -d 'Run setup wizard'
+complete -c miru -n __fish_use_subcommand -a quick -d 'Run quick commands'
+complete -c miru -n __fish_use_subcommand -a examples -d 'Browse usage examples'
 complete -c miru -n __fish_use_subcommand -a completion -d 'Generate shell completion'
 complete -c miru -n __fish_use_subcommand -a version -d 'Show version'
 

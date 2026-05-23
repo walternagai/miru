@@ -216,16 +216,16 @@ def get_model_with_fallback(model: str | None) -> str:
     """
     if model:
         return model
-    
+
     from miru.core.config import resolve_model
     
     default_model = resolve_model()
     if default_model:
         return default_model
-    
+
     from miru.ui.render import render_error
     import sys
-    
+
     render_error(
         t("prompt.model_required"),
         f"{t('prompt.use_specify', command='chat')}\n{t('prompt.or_configure')}",

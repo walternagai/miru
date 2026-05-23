@@ -63,7 +63,7 @@ def encode_image(path: str | Path) -> str:
     suffix = path_obj.suffix.lower()
 
     try:
-        from PIL import Image  # type: ignore
+        from PIL import Image
 
         with Image.open(path_obj) as img:
             img_format = img.format
@@ -72,10 +72,8 @@ def encode_image(path: str | Path) -> str:
     except ImportError:
         if suffix not in valid_extensions:
             raise ImageFormatError(str(path), None)
-    except ImageFormatError:
-        raise
-    except Exception as e:
-        raise ImageFormatError(str(path), None) from e
+    except Exception:
+        raise ImageFormatError(str(path), None)
 
     with open(path_obj, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")

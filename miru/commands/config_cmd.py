@@ -1,7 +1,8 @@
 """Config command for managing CLI configuration."""
 
 import sys
-from typing import Annotated
+from dataclasses import MISSING, fields
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -10,6 +11,7 @@ from rich.table import Table
 from miru.config_manager import (
     CONFIG_DIR,
     CONFIG_FILE,
+    Config,
     load_config,
     save_config,
 )
@@ -118,24 +120,18 @@ def config_list() -> None:
     table.add_column(t("config.value_header"))
     table.add_column(t("config.source_header"), style="dim")
 
-    defaults = {
-        "default_host": "http://localhost:11434",
-        "default_model": None,
-        "default_timeout": 30.0,
-        "default_temperature": None,
-        "default_max_tokens": None,
-        "default_top_p": None,
-        "default_top_k": None,
-        "default_seed": None,
-        "history_enabled": True,
-        "history_max_entries": 1000,
-        "verbose": False,
-        "tavily_api_key": None,
-        "enable_tools": False,
-        "enable_tavily": False,
-        "tool_mode": "auto_safe",
-        "sandbox_dir": None,
-    }
+    defaults: dict[str, Any] = {}
+    for field in fields(Config):
+        defaults[field.name] = field.default if field.default is not MISSING else None
+    defaults["default_host"] = "http://localhost:11434"
+    defaults["default_timeout"] = 30.0
+    defaults["language"] = "en_US"
+    defaults["history_enabled"] = True
+    defaults["history_max_entries"] = 1000
+    defaults["verbose"] = False
+    defaults["enable_tools"] = False
+    defaults["enable_tavily"] = False
+    defaults["tool_mode"] = "auto_safe"
 
     for key, default_value in defaults.items():
         current_value = getattr(config, key)

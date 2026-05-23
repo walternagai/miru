@@ -17,6 +17,7 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from miru.core.i18n import t
 from miru.latex_unicode import latex_to_unicode
 
 if TYPE_CHECKING:
@@ -27,15 +28,7 @@ console_stderr = Console(stderr=True)
 
 
 def format_size(size_bytes: int) -> str:
-    """
-    Format byte size to human-readable format (GB/MB/KB).
-
-    Args:
-        size_bytes: Size in bytes
-
-    Returns:
-        Human-readable string (e.g., "5.0 GB", "500 MB")
-    """
+    """Format byte size to human-readable format (GB/MB/KB)."""
     if size_bytes >= 1_073_741_824:
         return f"{size_bytes / 1_073_741_824:.1f} GB"
     if size_bytes >= 1_048_576:
@@ -46,15 +39,7 @@ def format_size(size_bytes: int) -> str:
 
 
 def format_date(date_str: str) -> str:
-    """
-    Format ISO date string to local date.
-
-    Args:
-        date_str: ISO date string (e.g., "2026-04-01T12:00:00Z")
-
-    Returns:
-        Local date string (e.g., "2026-04-01")
-    """
+    """Format ISO date string to local date."""
     if not date_str:
         return "-"
     try:
@@ -69,17 +54,7 @@ async def stream_tokens(
     chunks: AsyncIterator[dict],
     quiet: bool = False,
 ) -> AsyncIterator[dict]:
-    """
-    Consume chunks from Ollama client generator, display tokens progressively,
-    and re-yield each chunk for caller to collect metrics.
-
-    Args:
-        chunks: Async iterator of response chunks
-        quiet: If True, suppress all token output
-
-    Yields:
-        Each chunk from the iterator, including final done chunk
-    """
+    """Consume chunks from Ollama client generator and display tokens progressively."""
     async for chunk in chunks:
         if not quiet:
             text = chunk.get("response", "") or chunk.get("message", {}).get("content", "")
@@ -93,13 +68,7 @@ async def stream_tokens(
 
 
 def render_metrics(chunk: dict, quiet: bool = False) -> None:
-    """
-    Display metrics line at end of generation.
-
-    Args:
-        chunk: Final done chunk with metrics
-        quiet: If True, suppress output
-    """
+    """Display metrics line at end of generation."""
     if quiet:
         return
 
@@ -109,15 +78,7 @@ def render_metrics(chunk: dict, quiet: bool = False) -> None:
 
 
 def format_metrics(chunk: dict) -> str:
-    """
-    Format metrics from generation chunk into a string.
-
-    Args:
-        chunk: Final done chunk with metrics
-
-    Returns:
-        Formatted metrics string (e.g., "150 tokens · 1.2s · 125.0 tok/s")
-    """
+    """Format metrics from generation chunk into a string."""
     eval_count = chunk.get("eval_count", 0)
     total_duration_ns = chunk.get("total_duration", 0)
     eval_duration_ns = chunk.get("eval_duration", 0)
@@ -133,48 +94,27 @@ def format_metrics(chunk: dict) -> str:
         tokens_per_second = 0.0
 
     if tokens_per_second > 0:
-        return f"{eval_count} tokens · {total_seconds:.1f}s · {tokens_per_second:.1f} tok/s"
-    else:
-        return f"{eval_count} tokens · {total_seconds:.1f}s"
+        return (
+            f"{eval_count} {t('renderer.tokens_metric')} · "
+            f"{total_seconds:.1f}s · {tokens_per_second:.1f} {t('renderer.speed_metric')}"
+        )
+    return f"{eval_count} {t('renderer.tokens_metric')} · {total_seconds:.1f}s"
 
 
 def render_error(message: str, hint: str | None = None) -> None:
-    """
-    Display error message in stderr.
-
-    Format: ✗ {message}\n  {hint}
-
-    Args:
-        message: Error message
-        hint: Optional action hint
-    """
-    console_stderr.print(f"[red bold]✗[/] {message}")
+    """Display error message in stderr."""
+    console_stderr.print(f"[red bold]\u2717[/] {message}")
     if hint:
         console_stderr.print(f"  {hint}")
 
 
 def render_warning(message: str) -> None:
-    """
-    Display warning message in stderr.
-
-    Format: ⚠ {message}
-
-    Args:
-        message: Warning message
-    """
-    console_stderr.print(f"[yellow]⚠[/] {message}")
+    """Display warning message in stderr."""
+    console_stderr.print(f"[yellow]\u26a0[/] {message}")
 
 
 def render_markdown(text: str) -> None:
-    """
-    Render Markdown text with Rich formatting.
-
-    Displays headers, bold, italic, code blocks, tables, lists
-    with syntax highlighting and colors.
-
-    Args:
-        text: Markdown text to render
-    """
+    """Render Markdown text with Rich formatting."""
     console.print(Markdown(text))
 
 
@@ -183,20 +123,7 @@ async def render_stream_as_markdown(
     quiet: bool = False,
     show_metrics: bool = True,
 ) -> tuple[str, dict | None]:
-    """
-    Consume stream with animated dots, render formatted Markdown at end.
-
-    During streaming: shows "Gerando resposta.", "..", "..." (animated)
-    After completion: renders formatted Markdown with colors/tables/code
-
-    Args:
-        chunks: Async iterator of response chunks
-        quiet: If True, suppress all output (only return text)
-        show_metrics: If True, show metrics after rendering
-
-    Returns:
-        Tuple of (full_response_text, final_chunk)
-    """
+    """Consume stream with animated dots, render formatted Markdown at end."""
     import asyncio
     import sys
 
@@ -209,7 +136,7 @@ async def render_stream_as_markdown(
             dots = [".", "..", "..."]
             idx = 0
             while True:
-                sys.stdout.write(f"\rGerando resposta{dots[idx]}")
+                sys.stdout.write(f"\r{t('renderer.generating')}{dots[idx]}")
                 sys.stdout.flush()
                 await asyncio.sleep(0.3)
                 idx = (idx + 1) % 3
@@ -259,33 +186,12 @@ async def render_stream_as_markdown(
     return full_response, final_chunk
 
 
-def render_model_table(models: list[dict], quiet: bool = False) -> None:
-    """
-    Display Rich table with available models.
-
-    Alias for render_models_table for backward compatibility.
-
-    Args:
-        models: List of model dicts from /api/tags
-        quiet: If True, output only names (one per line)
-    """
-    _render_models_table_internal(models, quiet)
-
-
-def render_models_table(models: list[dict], quiet: bool = False) -> None:
-    """
-    Display Rich table with available models.
-
-    Args:
-        models: List of model dicts from /api/tags
-        quiet: If True, output only names (one per line)
-    """
-    _render_models_table_internal(models, quiet)
-
-
 def _render_models_table_internal(models: list[dict], quiet: bool = False) -> None:
     if not models:
-        console.print("[yellow]Nenhum modelo instalado.[/] Use: [bold]miru pull <model>[/]")
+        console.print(
+            f"[yellow]{t('renderer.no_models')}[/] "
+            f"Use: [bold]{t('renderer.no_models_hint')}[/]"
+        )
         return
 
     if quiet:
@@ -293,10 +199,14 @@ def _render_models_table_internal(models: list[dict], quiet: bool = False) -> No
             print(model.get("name", ""))
         return
 
-    table = Table(title="Modelos disponíveis", show_header=True, header_style="bold cyan")
-    table.add_column("Modelo", style="green")
-    table.add_column("Tamanho", justify="right")
-    table.add_column("Modificado", justify="center")
+    table = Table(
+        title=t("renderer.available_models"),
+        show_header=True,
+        header_style="bold cyan",
+    )
+    table.add_column(t("renderer.model_column"), style="green")
+    table.add_column(t("renderer.size_column"), justify="right")
+    table.add_column(t("renderer.modified_column"), justify="center")
 
     for model in models:
         name = model.get("name", "-")
@@ -310,13 +220,25 @@ def _render_models_table_internal(models: list[dict], quiet: bool = False) -> No
         )
 
     console.print(table)
-    count = len(models)
-    console.print(f"\n{count} modelo(s) disponível(is)")
+    console.print(f"\n{t('renderer.models_count', count=len(models))}")
+
+
+def render_model_table(models: list[dict], quiet: bool = False) -> None:
+    """Display Rich table with available models."""
+    _render_models_table_internal(models, quiet)
+
+
+def render_models_table(models: list[dict], quiet: bool = False) -> None:
+    """Display Rich table with available models."""
+    _render_models_table_internal(models, quiet)
 
 
 def render_empty_models() -> None:
     """Display empty models list message."""
-    console.print("[yellow]Nenhum modelo instalado.[/] Use: [bold]miru pull <model>[/]")
+    console.print(
+        f"[yellow]{t('renderer.no_models')}[/] "
+        f"Use: [bold]{t('renderer.no_models_hint')}[/]"
+    )
 
 
 def render_model_info(
@@ -325,15 +247,7 @@ def render_model_info(
     capabilities: dict,
     quiet: bool = False,
 ) -> None:
-    """
-    Display model information as Rich panel.
-
-    Args:
-        model_name: Model name
-        data: Full model data from /api/show
-        capabilities: Capabilities dict from get_capabilities
-        quiet: If True, output minimal format
-    """
+    """Display model information as Rich panel."""
     if quiet:
         print(f"{model_name}")
         return
@@ -345,29 +259,27 @@ def render_model_info(
 
     content_lines = []
 
-    content_lines.append("[bold]Identificação[/]")
-    content_lines.append(f"  Família(s)      {', '.join(families) if families else '-'}")
-    content_lines.append(f"  Parâmetros      {parameter_size}")
-    content_lines.append(f"  Quantização     {quantization}")
+    content_lines.append(f"[bold]{t('renderer.identification')}[/]")
+    content_lines.append(
+        f"  {t('renderer.families')}      {', '.join(families) if families else '-'}"
+    )
+    content_lines.append(f"  {t('renderer.parameters')}      {parameter_size}")
+    content_lines.append(f"  {t('renderer.quantization')}     {quantization}")
     content_lines.append("")
 
-    content_lines.append("[bold]Capacidades[/]")
+    content_lines.append(f"[bold]{t('renderer.capabilities')}[/]")
 
-    # Visão (mantém verificação separada por families + capabilities)
     supports_vision = capabilities.get("supports_vision", False)
-    vision_emoji = "🖼" if supports_vision else "○"
-    vision_text = "sim" if supports_vision else "não"
-    content_lines.append(f"  {vision_emoji} Visão                {vision_text}")
+    vision_emoji = "\U0001f5bc" if supports_vision else "\u25cb"
+    vision_text = t("renderer.yes") if supports_vision else t("renderer.no")
+    content_lines.append(f"  {vision_emoji} {t('renderer.vision')}                {vision_text}")
 
-    # Lista de capabilities ordenadas por importância
     capabilities_list = capabilities.get("capabilities", [])
 
     if capabilities_list:
-        # Remover "vision" da lista se supports_vision=True (evitar duplicação)
         if supports_vision and "vision" in capabilities_list:
             capabilities_list = [c for c in capabilities_list if c != "vision"]
 
-        # Ordem de importância (capabilities mais relevantes primeiro)
         importance_order = [
             "tools",
             "thinking",
@@ -375,15 +287,13 @@ def render_model_info(
             "completion",
         ]
 
-        # Mapear capabilities para nomes amigáveis em português
         capability_names = {
             "tools": "Tools/Function Calling",
             "thinking": "Thinking",
-            "audio": "Áudio",
+            "audio": "\u00c1udio",
             "completion": "Completion",
         }
 
-        # Ordenar capabilities por importância
         sorted_capabilities = sorted(
             capabilities_list,
             key=lambda x: (
@@ -391,21 +301,19 @@ def render_model_info(
             ),
         )
 
-        # Exibir cada capability
         for cap in sorted_capabilities:
             cap_name = capability_names.get(cap, cap.capitalize())
-            content_lines.append(f"  ✓ {cap_name}")
+            content_lines.append(f"  \u2713 {cap_name}")
 
-    # Contexto máximo
     max_context = capabilities.get("max_context", 2048)
-    content_lines.append(f"  📐 Contexto máximo     {max_context:,} tokens")
+    content_lines.append(f"  \U0001f4d0 {t('renderer.max_context')}     {max_context:,} tokens")
     content_lines.append("")
 
     parameters_str = data.get("parameters", "")
     if parameters_str:
         params = _parse_parameters(parameters_str)
         if params:
-            content_lines.append("[bold]Parâmetros padrão[/]")
+            content_lines.append(f"[bold]{t('renderer.default_params')}[/]")
             for key, value in params.items():
                 content_lines.append(f"  {key}    {value}")
 
@@ -415,15 +323,7 @@ def render_model_info(
 
 
 def _parse_parameters(params_str: str) -> dict[str, str]:
-    """
-    Parse parameters string into dict.
-
-    Args:
-        params_str: Parameters string (e.g., "num_ctx\\t4096\\nnum_batch\\t512")
-
-    Returns:
-        Dict of parameter name -> value
-    """
+    """Parse parameters string into dict."""
     params = {}
     for line in params_str.split("\n"):
         if "\t" in line:
@@ -438,18 +338,7 @@ async def render_pull_progress(
     model: str,
     quiet: bool = False,
 ) -> AsyncIterator[dict]:
-    """
-    Consume pull chunks and display visual progress.
-    Re-yields each chunk.
-
-    Args:
-        chunks: Async iterator of progress chunks
-        model: Model name being pulled
-        quiet: If True, minimal output
-
-    Yields:
-        Each progress chunk
-    """
+    """Consume pull chunks and display visual progress. Re-yields each chunk."""
     progress: Progress | None = None
     task_id: TaskID | None = None
 
@@ -459,15 +348,17 @@ async def render_pull_progress(
 
             if quiet:
                 if status == "success":
-                    print("✓ Concluído.")
+                    print(f"\u2713 {t('renderer.download_complete')}")
             else:
                 if status == "pulling manifest":
-                    console.print("Obtendo manifesto...")
+                    console.print(t("renderer.pulling_manifest"))
                 elif status == "downloading":
                     if progress is None:
                         progress = create_progress_bar()
                         progress.start()
-                        task_id = progress.add_task("Baixando", total=None)
+                        task_id = progress.add_task(
+                            t("renderer.downloading"), total=None
+                        )
 
                     completed = chunk.get("completed", 0)
                     total = chunk.get("total", 0)
@@ -480,9 +371,12 @@ async def render_pull_progress(
                             progress.update(task_id, completed=completed)
 
                 elif status == "verifying sha256 digest":
-                    console.print("Verificando integridade...")
+                    console.print(t("renderer.verifying"))
                 elif status == "success":
-                    console.print(f"[green bold]✓[/] {model} baixado com sucesso.")
+                    console.print(
+                        f"[green bold]\u2713[/] "
+                        f"{t('renderer.downloaded_success', model=model)}"
+                    )
 
             yield chunk
     finally:
@@ -491,12 +385,7 @@ async def render_pull_progress(
 
 
 def create_progress_bar() -> Progress:
-    """
-    Create a progress bar for downloads.
-
-    Returns:
-        Rich Progress instance
-    """
+    """Create a progress bar for downloads."""
     return Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -508,18 +397,9 @@ def create_progress_bar() -> Progress:
 
 
 def render_compare_header(model: str, index: int, total: int) -> None:
-    """
-    Display compare model header.
-
-    Format: ── [N/TOTAL] {model} ────────────────────
-
-    Args:
-        model: Model name
-        index: Current model index (1-based)
-        total: Total number of models
-    """
+    """Display compare model header."""
     console.print()
-    console.print(f"[bold]── [{index}/{total}] {model}[/] {'─' * 40}")
+    console.print(f"[bold]\u2500\u2500 [{index}/{total}] {model}[/] {'\u2500' * 40}")
 
 
 def render_compare_table(
@@ -527,22 +407,19 @@ def render_compare_table(
     quiet: bool = False,
     seed_provided: bool = False,
 ) -> None:
-    """
-    Display comparison table with highlights and warnings.
-
-    Args:
-        results: List of ModelResult objects
-        quiet: If True, suppress output
-        seed_provided: If True, don't show seed warning
-    """
+    """Display comparison table with highlights and warnings."""
     if quiet:
         return
 
-    table = Table(title="Comparação de Modelos", show_header=True, header_style="bold cyan")
-    table.add_column("Modelo", style="green")
-    table.add_column("Tokens", justify="right")
-    table.add_column("Tempo", justify="right")
-    table.add_column("Velocidade", justify="right")
+    table = Table(
+        title=t("renderer.compare_title"),
+        show_header=True,
+        header_style="bold cyan",
+    )
+    table.add_column(t("renderer.compare_model_column"), style="green")
+    table.add_column(t("renderer.compare_tokens_column"), justify="right")
+    table.add_column(t("renderer.compare_time_column"), justify="right")
+    table.add_column(t("renderer.compare_speed_column"), justify="right")
 
     valid_results = [r for r in results if r.error is None]
 
@@ -557,21 +434,23 @@ def render_compare_table(
         if result.error:
             table.add_row(
                 result.model,
-                "— ✗",
-                "—",
-                "—",
+                "\u2014 \u2717",
+                "\u2014",
+                "\u2014",
                 style="red dim",
             )
         else:
             tokens_str = f"{result.eval_count}"
             if result.eval_count == min_tokens and len(valid_results) > 1:
-                tokens_str = f"{result.eval_count} ✓"
+                tokens_str = f"{result.eval_count} \u2713"
 
             tempo_str = f"{result.total_duration_ns / 1e9:.1f}s"
 
-            speed_str = f"{result.tokens_per_second:.1f} tok/s"
+            speed_str = (
+                f"{result.tokens_per_second:.1f} {t('renderer.speed_metric')}"
+            )
             if result.tokens_per_second == max_tps and len(valid_results) > 1:
-                speed_str = f"{result.tokens_per_second:.1f} tok/s ✓"
+                speed_str += " \u2713"
                 table.add_row(
                     result.model,
                     tokens_str,
@@ -593,5 +472,5 @@ def render_compare_table(
 
     if not seed_provided:
         console.print()
-        console.print("[yellow]⚠ Sem --seed: resultados podem variar entre execuções.[/]")
-        console.print("  Para comparação reproduzível: miru compare ... --seed 42")
+        console.print(f"[yellow]\u26a0 {t('renderer.compare_no_seed_warning')}[/]")
+        console.print(f"  {t('renderer.compare_no_seed_hint')}")
