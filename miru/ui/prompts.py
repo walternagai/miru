@@ -57,7 +57,7 @@ def prompt_input(
     """
     return Prompt.ask(
         f"[bold]{message}[/]",
-        default=default,
+        default=default or "",
         password=password,
     )
 
@@ -87,7 +87,7 @@ def prompt_choice(
     return Prompt.ask(
         f"[bold]{message}[/]",
         choices=choices,
-        default=default,
+        default=default or "",
     )
 
 

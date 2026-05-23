@@ -12,6 +12,7 @@ from miru.output.renderer import (
     console,
     create_progress_bar,
     format_date,
+    format_metrics,
     format_size,
     render_compare_header,
     render_compare_table,
@@ -32,23 +33,18 @@ from miru.output.streaming import (
     render_json_output,
     render_stream,
 )
-from miru.output.streaming import (
-    render_metrics as streaming_render_metrics,
-)
 
 __all__ = [
-    # Formatter
     "models_to_json",
     "print_json",
     "print_plain",
     "result_to_json",
     "to_json",
-    # Live stream (new)
     "stream_as_markdown_live",
-    # Renderer
     "console",
     "create_progress_bar",
     "format_date",
+    "format_metrics",
     "format_size",
     "render_compare_header",
     "render_compare_table",
@@ -63,9 +59,7 @@ __all__ = [
     "render_stream_as_markdown",
     "render_warning",
     "stream_tokens",
-    # Streaming (backward compatible)
     "collect_stream",
     "render_json_output",
     "render_stream",
-    "streaming_render_metrics",
 ]

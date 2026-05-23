@@ -75,10 +75,7 @@ class ProgressReporter:
             description: New description (optional)
         """
         if self._progress and self._task_id is not None:
-            kwargs = {"advance": advance}
-            if description:
-                kwargs["description"] = description
-            self._progress.update(self._task_id, **kwargs)
+            self._progress.update(self._task_id, advance=advance, description=description or "")
     
     def stop(self) -> None:
         """Stop progress reporting."""

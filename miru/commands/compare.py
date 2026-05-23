@@ -33,11 +33,11 @@ from miru.cli_options import (
 )
 from miru.core.config import resolve_host
 from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
-from miru.core.i18n import t
+from miru.core.i18n import set_language, t
 from miru.inference_params import build_options
 from miru.input import encode_images
 from miru.model.capabilities import get_capabilities
-from miru.ollama.client import OllamaClient
+from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
 from miru.ui.render import render_error, render_success
 
 console = Console()

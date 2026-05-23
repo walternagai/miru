@@ -229,11 +229,11 @@ async def _run_async(
             )
 
     except OllamaModelNotFound:
-        all_models = []
+        all_models: list[str] = []
         try:
             async with OllamaClient(host) as client:
                 models = await client.list_models()
-                all_models = [m.get("name", "") for m in models[:5]]
+                all_models = [str(m.get("name", "")) for m in models[:5]]
         except Exception:
             pass
 
@@ -241,8 +241,8 @@ async def _run_async(
         render_error(error.message, error.suggestion)
         sys.exit(1)
     except OllamaConnectionError:
-        error = MiruConnectionError(host)
-        render_error(error.message, error.suggestion)
+        conn_error = MiruConnectionError(host)
+        render_error(conn_error.message, conn_error.suggestion)
         sys.exit(1)
     except Exception as e:
         render_error(str(e))
