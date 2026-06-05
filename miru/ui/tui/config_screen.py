@@ -4,6 +4,7 @@ from typing import Any
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label, Select
 from textual.widgets._select import NoSelection
@@ -223,6 +224,10 @@ class ConfigScreen(ModalScreen[None]):
                 yield Button("Salvar", id="save_btn", variant="primary")
                 yield Button("Cancelar", id="cancel_btn", variant="default")
                 yield Button("Restaurar Padrões", id="reset_btn")
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "escape":
+            self.dismiss()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "save_btn":

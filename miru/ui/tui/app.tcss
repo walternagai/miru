@@ -37,14 +37,45 @@ Footer {
     display: block;
 }
 
-#sidebar_title {
+#sidebar_header {
     height: 3;
     background: #1f2335;
+    border-bottom: solid #2d3149;
+    width: 100%;
+}
+
+#sidebar_title {
+    height: 3;
     color: #7aa2f7;
     text-style: bold;
     padding: 1 2;
-    border-bottom: solid #2d3149;
-    width: 100%;
+    width: 1fr;
+    content-align: left middle;
+}
+
+#sort_btn {
+    width: 5;
+    height: 3;
+    background: #2d3149;
+    color: #565f89;
+    border: none;
+    min-width: 5;
+}
+
+#sort_btn:hover {
+    background: #3b4261;
+    color: #7aa2f7;
+}
+
+.session-name {
+    color: #a9b1d6;
+    height: 1;
+}
+
+.session-meta {
+    color: #565f89;
+    text-style: italic;
+    height: 1;
 }
 
 #session_filter {
@@ -88,6 +119,10 @@ Footer {
     border-left: thick #9d7cd8;
 }
 
+#session_list > ListItem.hidden {
+    display: none;
+}
+
 /* ── Chat Area ── */
 #chat_area {
     width: 1fr;
@@ -108,9 +143,53 @@ Footer {
     text-style: bold;
 }
 
+/* ── Search Bar ── */
+#search_container {
+    height: 3;
+    background: #1f2335;
+    border-bottom: solid #2d3149;
+    padding: 0 1;
+    display: none;
+}
+
+#search_container.visible {
+    display: block;
+}
+
+#search_input {
+    width: 1fr;
+    height: 3;
+    background: #1a1b26;
+    color: #c0caf5;
+    border: solid #2d3149;
+}
+
+#search_input:focus {
+    border: solid #7aa2f7;
+}
+
+#search_count {
+    width: 8;
+    height: 3;
+    content-align: center middle;
+    color: #565f89;
+}
+
+#search_close_btn {
+    width: 5;
+    height: 3;
+    background: transparent;
+    color: #565f89;
+    border: none;
+    min-width: 5;
+}
+
+#search_close_btn:hover {
+    color: #f7768e;
+}
+
 #chat_window {
     height: 1fr;
-    overflow-y: scroll;
 }
 
 /* ── Context Panel ── */
@@ -138,6 +217,63 @@ Footer {
     margin-bottom: 1;
 }
 
+/* ── Turn Separator ── */
+.turn-separator {
+    color: #3b4261;
+    text-style: italic;
+    height: 1;
+    padding: 0 2;
+    margin-top: 1;
+}
+
+/* ── User Message Widget ── */
+.user-message-widget {
+    background: #1f2335;
+    border-left: thick #9d7cd8;
+    margin: 0 2 0 6;
+    padding: 0 1;
+    height: auto;
+}
+
+.user-msg-header {
+    color: #9d7cd8;
+    text-style: bold;
+    height: 1;
+    margin-bottom: 0;
+}
+
+.user-msg-text {
+    color: #c0caf5;
+    height: auto;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.user-actions {
+    height: auto;
+    display: none;
+    margin-top: 0;
+}
+
+.user-message-widget:hover .user-actions,
+.user-message-widget:focus-within .user-actions {
+    display: block;
+}
+
+.user-message-widget Button {
+    min-width: 8;
+    margin-right: 1;
+    background: #2d3149;
+    color: #a9b1d6;
+    border: none;
+    height: 1;
+}
+
+.user-message-widget Button:hover {
+    background: #3b4261;
+    color: #c0caf5;
+}
+
 /* ── Messages ── */
 .message {
     margin: 0 2 1 2;
@@ -162,6 +298,23 @@ Footer {
     margin-bottom: 1;
     margin-top: 1;
     padding: 1;
+}
+
+/* ── Search Highlights ── */
+.search-match {
+    background: #2d3149;
+    border-left: thick #e0af68;
+}
+
+.search-current {
+    background: #1f2335;
+    border-left: thick #f7768e;
+}
+
+/* ── Message Navigation Highlight ── */
+.msg-nav-focus {
+    border-left: thick #7dcfff;
+    background: #1f2335;
 }
 
 /* ── Input Container ── */
@@ -203,31 +356,6 @@ Footer {
 
 #send_button:hover {
     background: #89b4fa;
-}
-
-/* ── Scroll to Bottom Button ── */
-#scroll_bottom_btn {
-    dock: bottom;
-    height: 1;
-    width: auto;
-    background: #3b4261;
-    color: #c0caf5;
-    margin: 1;
-    padding: 0 2;
-    display: none;
-}
-
-#scroll_bottom_btn.visible {
-    display: block;
-}
-
-#scroll_bottom_btn:hover {
-    background: #565f89;
-}
-
-#scroll_bottom_btn:focus {
-    background: #7aa2f7;
-    color: #16161e;
 }
 
 /* ── Param Panel ── */

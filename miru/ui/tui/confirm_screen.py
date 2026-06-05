@@ -4,6 +4,7 @@ from typing import Any
 
 from textual.app import ComposeResult
 from textual.containers import Center, Vertical
+from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label
 
@@ -73,6 +74,6 @@ class ConfirmScreen(ModalScreen[bool]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.dismiss(event.button.id == "confirm_btn")
 
-    def on_key(self, event: Any) -> None:
+    def on_key(self, event: Key) -> None:
         if event.key == "escape":
             self.dismiss(False)
