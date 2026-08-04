@@ -37,7 +37,7 @@ class TestEmbedCommand:
 
             assert result.exit_code == 0
             assert "nomic-embed-text" in result.output
-            assert "Dimensions: 3" in result.output
+            assert "Dimensões: 3" in result.output
             client.embed.assert_called_once_with("nomic-embed-text", "Hello world")
 
     def test_embed_text_json_format(self) -> None:
@@ -268,7 +268,7 @@ class TestEmbedCommand:
         result = runner.invoke(app, ["embed", "nomic-embed-text"])
 
         assert result.exit_code == 1
-        assert "Forneça um texto" in result.output
+        assert "Forneça texto" in result.output
 
     def test_embed_multiple_inputs(self) -> None:
         """Should error when multiple inputs provided."""
@@ -282,7 +282,7 @@ class TestEmbedCommand:
         result = runner.invoke(app, ["embed", "nomic-embed-text", "test", "--format", "xml"])
 
         assert result.exit_code == 1
-        assert "Invalid format" in result.output
+        assert "Formato inválido" in result.output
 
     def test_embed_batch_jsonl_incompatible_with_file(self) -> None:
         """Should error when using --format jsonl with --file."""
@@ -344,6 +344,7 @@ class TestEmbedClient:
                     "POST",
                     "http://localhost:11434/api/embeddings",
                     json={"model": "nomic-embed-text", "prompt": "Hello"},
+                    timeout=httpx.Timeout(30.0),
                 )
 
     @pytest.mark.asyncio

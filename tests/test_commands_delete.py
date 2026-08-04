@@ -56,7 +56,8 @@ class TestDeleteCommand:
             result = runner.invoke(app, ["delete", "gemma3:latest", "--force"])
 
             assert result.exit_code == 1
-            assert "Cannot connect" in result.output
+            assert "Falha ao conectar em" in result.output
+            assert "ollama serve" in result.output
 
     def test_delete_cancel_confirmation(self) -> None:
         """Should cancel when user declines confirmation."""

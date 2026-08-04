@@ -43,7 +43,7 @@ class TestPullCommand:
             result = runner.invoke(app, ["pull", "gemma3"])
 
             assert result.exit_code == 1
-            assert "Não foi possível conectar" in result.output
+            assert "Falha ao conectar em" in result.output
             assert "ollama serve" in result.output
 
     def test_pull_model_not_found_error(self) -> None:

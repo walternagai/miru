@@ -190,9 +190,12 @@ class TestStreamAsMarkdownLive:
             {"response": "Line 2\n", "done": True, "eval_count": 20, "total_duration": 500_000_000},
         ]
 
-        await stream_as_markdown_live(
-            self._async_iter(chunks), quiet=False, show_metrics=False
-        )
+        import sys
+
+        with patch.object(sys.stdout, "isatty", return_value=True):
+            await stream_as_markdown_live(
+                self._async_iter(chunks), quiet=False, show_metrics=False
+            )
 
         assert mock_live_instance.update.call_count == 2
         mock_markdown.assert_called()
@@ -213,9 +216,12 @@ class TestStreamAsMarkdownLive:
             {"response": "Test", "done": True, "eval_count": 5, "total_duration": 100_000_000},
         ]
 
-        await stream_as_markdown_live(
-            self._async_iter(chunks), quiet=False, show_metrics=True
-        )
+        import sys
+
+        with patch.object(sys.stdout, "isatty", return_value=True):
+            await stream_as_markdown_live(
+                self._async_iter(chunks), quiet=False, show_metrics=True
+            )
 
         mock_render_metrics.assert_called_once()
 
@@ -259,9 +265,12 @@ class TestStreamAsMarkdownLive:
             {"response": "```\n", "done": True, "eval_count": 10},
         ]
 
-        await stream_as_markdown_live(
-            self._async_iter(chunks), quiet=False, show_metrics=False
-        )
+        import sys
+
+        with patch.object(sys.stdout, "isatty", return_value=True):
+            await stream_as_markdown_live(
+                self._async_iter(chunks), quiet=False, show_metrics=False
+            )
 
         # Should update for each chunk
         assert mock_live_instance.update.call_count == 3

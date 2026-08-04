@@ -31,7 +31,7 @@ class TestCopyCommand:
             result = runner.invoke(app, ["copy", "gemma3:latest", "gemma3-backup"])
 
             assert result.exit_code == 0
-            assert "Copiado" in result.output
+            assert "copiado" in result.output
             client.copy_model.assert_called_once_with("gemma3:latest", "gemma3-backup")
 
     def test_copy_nonexistent_source_model(self) -> None:
@@ -85,7 +85,7 @@ class TestCopyCommand:
             result = runner.invoke(app, ["copy", "gemma3:latest", "backup", "--force"])
 
             assert result.exit_code == 0
-            assert "Copiado" in result.output
+            assert "copiado" in result.output
 
     def test_copy_connection_error(self) -> None:
         """Should show friendly error when Ollama offline."""
@@ -97,7 +97,8 @@ class TestCopyCommand:
             result = runner.invoke(app, ["copy", "source", "dest"])
 
             assert result.exit_code == 1
-            assert "Cannot connect" in result.output
+            assert "Falha ao conectar em" in result.output
+            assert "ollama serve" in result.output
 
     def test_copy_shows_model_size(self) -> None:
         """Should show model size after successful copy."""

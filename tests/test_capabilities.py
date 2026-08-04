@@ -292,6 +292,7 @@ class TestModelCapabilities:
         """Should create ModelCapabilities instance."""
         caps = ModelCapabilities(
             supports_vision=True,
+            capabilities=[],
             max_context=4096,
             families=["llama", "clip"],
             parameter_size="7B",
@@ -308,6 +309,7 @@ class TestModelCapabilities:
         """Should have proper repr."""
         caps = ModelCapabilities(
             supports_vision=False,
+            capabilities=[],
             max_context=2048,
             families=["llama"],
             parameter_size="13B",

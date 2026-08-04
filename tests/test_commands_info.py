@@ -42,7 +42,8 @@ class TestInfoCommand:
             assert result.exit_code == 0
             assert "llava:latest" in result.output
             assert "llama, clip" in result.output
-            assert "Suporte a imagens" in result.output
+            assert "Visão" in result.output
+            assert "sim" in result.output.lower()
 
     def test_info_vision_capability_true(self) -> None:
         """Should show vision support as 'sim' for models with clip."""
@@ -155,7 +156,7 @@ class TestInfoCommand:
 
             assert result.exit_code == 1
             assert "não encontrado" in result.output
-            assert "miru list" in result.output
+            assert "miru pull" in result.output
 
     def test_info_connection_error(self) -> None:
         """Should show friendly error when Ollama offline."""
@@ -165,7 +166,7 @@ class TestInfoCommand:
             result = runner.invoke(app, ["info", "gemma3"])
 
             assert result.exit_code == 1
-            assert "Não foi possível conectar" in result.output
+            assert "Falha ao conectar em" in result.output
             assert "ollama serve" in result.output
 
     def test_info_with_parameters(self) -> None:
