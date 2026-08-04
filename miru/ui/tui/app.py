@@ -6,40 +6,6 @@ from collections import deque
 from datetime import datetime
 from typing import Any
 
-
-def _session_id(session_name: str) -> str:
-    normalized = (
-        unicodedata.normalize("NFKD", session_name).encode("ascii", "ignore").decode("ascii")
-    )
-    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in normalized)
-    return f"session_{safe}"
-
-
-def _extract_code_blocks(text: str) -> str:
-    pattern = r"```(?:\w*)\n(.*?)```"
-    matches = re.findall(pattern, text, re.DOTALL)
-    return "\n\n".join(matches) if matches else ""
-
-
-def _make_session_slug(text: str) -> str:
-    normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    words = [w for w in re.split(r"\W+", normalized) if w and w.isalpha()][:3]
-    return "_".join(w.lower() for w in words)[:24] if words else "chat"
-
-
-def _format_updated(iso: str) -> str:
-    """Format ISO timestamp as DD/MM HH:MM for sidebar display."""
-    if not iso:
-        return ""
-    try:
-        dt = datetime.fromisoformat(iso[:19])
-        return dt.strftime("%d/%m %H:%M")
-    except Exception:
-        return iso[:10]
-
-
-SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
 from rich.markdown import Markdown
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -82,6 +48,40 @@ from miru.ui.tui.help_screen import HelpScreen
 from miru.ui.tui.image_screen import ImageScreen
 from miru.ui.tui.preset_screen import PRESETS, PresetScreen
 from miru.ui.tui.rename_screen import RenameScreen
+
+
+def _session_id(session_name: str) -> str:
+    normalized = (
+        unicodedata.normalize("NFKD", session_name).encode("ascii", "ignore").decode("ascii")
+    )
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in normalized)
+    return f"session_{safe}"
+
+
+def _extract_code_blocks(text: str) -> str:
+    pattern = r"```(?:\w*)\n(.*?)```"
+    matches = re.findall(pattern, text, re.DOTALL)
+    return "\n\n".join(matches) if matches else ""
+
+
+def _make_session_slug(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    words = [w for w in re.split(r"\W+", normalized) if w and w.isalpha()][:3]
+    return "_".join(w.lower() for w in words)[:24] if words else "chat"
+
+
+def _format_updated(iso: str) -> str:
+    """Format ISO timestamp as DD/MM HH:MM for sidebar display."""
+    if not iso:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso[:19])
+        return dt.strftime("%d/%m %H:%M")
+    except Exception:
+        return iso[:10]
+
+
+SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 
 # ── Widgets ──────────────────────────────────────────────────────────────────

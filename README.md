@@ -189,22 +189,31 @@ A TUI oferece um layout em três painéis:
 
 **Atalhos de teclado:**
 
-| Atalho          | Ação                                 |
-|-----------------|--------------------------------------|
-| `Enter`         | Enviar mensagem                      |
-| `Ctrl+N`        | Nova conversa                        |
-| `Ctrl+S`        | Salvar sessão                        |
-| `Ctrl+K`        | Abrir configurações globais          |
-| `Ctrl+O`        | Selecionar personalidade (preset)    |
-| `Ctrl+Z`        | Ativar/desativar modo Zen            |
-| `Ctrl+P`        | Mostrar/ocultar painel de parâmetros |
-| `Ctrl+F`        | Favoritar/desfavoritar sessão        |
-| `Ctrl+L`        | Limpar campo de input                |
-| `Ctrl+Shift+L`  | Limpar conversa (pede confirmação)   |
-| `Ctrl+R`        | Recarregar lista de sessões          |
-| `F2`            | Renomear sessão                      |
-| `Delete`        | Deletar sessão (pede confirmação)    |
-| `Ctrl+Q`        | Sair                                 |
+| Atalho           | Ação                                 |
+|------------------|--------------------------------------|
+| `Enter`          | Enviar mensagem                      |
+| `Ctrl+J`         | Enviar mensagem                      |
+| `Ctrl+N`         | Nova conversa                        |
+| `Ctrl+S`         | Salvar sessão                        |
+| `Ctrl+K`         | Abrir configurações globais          |
+| `Ctrl+O`         | Selecionar personalidade (preset)    |
+| `Ctrl+Z`         | Ativar/desativar modo Zen            |
+| `Ctrl+P`         | Mostrar/ocultar painel de parâmetros |
+| `Ctrl+F`         | Buscar no chat                       |
+| `Ctrl+E`         | Exportar conversa                    |
+| `Ctrl+X`         | Cancelar geração em curso            |
+| `Ctrl+Shift+F`   | Favoritar/desfavoritar sessão        |
+| `Ctrl+L`         | Limpar campo de input                |
+| `Ctrl+Shift+L`   | Limpar conversa (pede confirmação)   |
+| `Ctrl+R`         | Recarregar lista de sessões          |
+| `Ctrl+Shift+S`   | Mostrar/ocultar painel de sessões    |
+| `Ctrl+Shift+R`   | Regenerar última resposta            |
+| `Ctrl+Y`         | Copiar última resposta               |
+| `Ctrl+Shift+Y`   | Copiar código da última resposta     |
+| `F1`             | Ajuda com atalhos de teclado         |
+| `F2`             | Renomear sessão                      |
+| `Delete`         | Deletar sessão (pede confirmação)    |
+| `Ctrl+Q`         | Sair                                 |
 
 **Personalidades (presets)** — `Ctrl+O` abre um menu com perfis pré-configurados:
 
