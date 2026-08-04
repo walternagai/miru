@@ -33,7 +33,7 @@ from miru.cli_options import (
 )
 from miru.core.config import resolve_host
 from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
-from miru.core.i18n import set_language, t
+from miru.core.i18n import t
 from miru.inference_params import build_options
 from miru.input import encode_images
 from miru.model.capabilities import get_capabilities
@@ -166,7 +166,6 @@ async def _execute_model(
     except Exception:
         if not quiet and stream:
             print()
-        set_language("en_US")
         return ModelResult(
             model=model,
             prompt=prompt,
@@ -516,7 +515,7 @@ def compare(
         final_prompt = prompt or ""
 
     if file or audio:
-        render_error("--file and --audio are not supported in compare command")
+        render_error(t("error.compare_file_audio"))
         sys.exit(1)
 
     resolved_host = resolve_host(host)

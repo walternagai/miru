@@ -13,4 +13,4 @@ verify:
   test: pytest tests/ -q --tb=short
   coverage: pytest tests/ --cov=miru --cov-report=term-missing -q
   gate: 42
-  coverage_pattern: "TOTAL\\s+\\d+\\s+\\d+\\s+(\\d+)%"
+  coverage_pattern: "TOTAL\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+(\\d+)%"

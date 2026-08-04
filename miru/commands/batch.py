@@ -82,7 +82,7 @@ def _read_prompts_file(prompt_file: str) -> list[str]:
     lines = [line.strip() for line in content.split("\n") if line.strip()]
 
     if not lines:
-        render_error("File is empty or contains no valid prompts")
+        render_error(t("error.file_empty"))
         sys.exit(1)
 
     # Parse JSONL if lines start with {
@@ -404,7 +404,7 @@ def batch(
     # Handle system prompt
     final_system_prompt: str | None = None
     if system is not None and system_file is not None:
-        render_error("Use --system OR --system-file, not both.")
+        render_error(t("error.system_both"))
         sys.exit(1)
 
     if system_file is not None:

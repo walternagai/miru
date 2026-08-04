@@ -485,7 +485,7 @@ def chat(
     final_sandbox_dir = sandbox_dir if sandbox_dir else _resolve_sandbox()
 
     if system is not None and system_file is not None:
-        render_error("Use --system OR --system-file, not both.")
+        render_error(t("error.system_both"))
         sys.exit(1)
 
     final_system_prompt: str | None = None

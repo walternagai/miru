@@ -14,7 +14,7 @@ from miru.core.config import resolve_host
 from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
 from miru.core.i18n import t
 from miru.model.capabilities import get_capabilities
-from miru.ollama.client import OllamaClient
+from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.renderer import render_error, render_model_info, render_model_info_json
 
 
@@ -43,6 +43,11 @@ def info(
             render_model_info_json(model_data, capabilities_data, quiet=quiet)
         else:
             render_model_info(model, model_data, capabilities_data, quiet=quiet)
+
+    except OllamaConnectionError:
+        error = MiruConnectionError(ollama_host)
+        render_error(error.message, error.suggestion)
+        raise typer.Exit(code=1)
 
     except Exception:
         # Try to get available models for suggestion

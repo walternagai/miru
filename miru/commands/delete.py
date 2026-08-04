@@ -11,45 +11,48 @@ from miru.alias import resolve_alias
 from miru.cli_options import Force, Host
 from miru.core.config import resolve_host
 from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
-from miru.core.i18n import t, set_language
-from miru.ollama.client import OllamaClient
+from miru.core.i18n import t
+from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.ui.render import render_error, render_success
 
 
 async def _delete_async(host: str, model: str, force: bool) -> None:
     """Async implementation of delete command."""
-    set_language("en_US")
-    
-    async with OllamaClient(host) as client:
-        try:
-            models = await client.list_models()
-            model_names = [m.get("name", "") for m in models]
+    try:
+        async with OllamaClient(host) as client:
+            try:
+                models = await client.list_models()
+                model_names = [m.get("name", "") for m in models]
 
-            if model not in model_names:
-                error = ModelNotFoundError(model, model_names[:5])
+                if model not in model_names:
+                    error = ModelNotFoundError(model, model_names[:5])
+                    render_error(error.message, error.suggestion)
+                    raise typer.Exit(code=1)
+            except Exception as e:
+                if "connection" in str(e).lower():
+                    error = MiruConnectionError(host)
+                    render_error(error.message, error.suggestion)
+                else:
+                    render_error(str(e))
+                raise typer.Exit(code=1)
+
+            if not force:
+                confirm = typer.confirm(t("confirm.delete", model=model))
+                if not confirm:
+                    typer.echo(t("confirm.cancelled"))
+                    raise typer.Exit(code=0)
+
+            try:
+                await client.delete_model(model)
+                render_success(t("success.model_deleted", model=model))
+            except Exception:
+                error = ModelNotFoundError(model)
                 render_error(error.message, error.suggestion)
                 raise typer.Exit(code=1)
-        except Exception as e:
-            if "connection" in str(e).lower():
-                error = MiruConnectionError(host)
-                render_error(error.message, error.suggestion)
-            else:
-                render_error(str(e))
-            raise typer.Exit(code=1)
-
-        if not force:
-            confirm = typer.confirm(f"Delete '{model}'?")
-            if not confirm:
-                typer.echo("Cancelled.")
-                raise typer.Exit(code=0)
-
-        try:
-            await client.delete_model(model)
-            render_success(t("success.model_deleted", model=model))
-        except Exception:
-            error = ModelNotFoundError(model)
-            render_error(error.message, error.suggestion)
-            raise typer.Exit(code=1)
+    except OllamaConnectionError:
+        error = MiruConnectionError(host)
+        render_error(error.message, error.suggestion)
+        raise typer.Exit(code=1)
 
 
 def delete(

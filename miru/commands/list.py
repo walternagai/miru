@@ -12,7 +12,7 @@ from miru.cli_options import Host, Format, Quiet
 from miru.core.config import resolve_host
 from miru.core.errors import ConnectionError as MiruConnectionError
 from miru.core.i18n import t
-from miru.ollama.client import OllamaClient
+from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.renderer import (
     render_empty_models,
     render_error,
@@ -51,7 +51,7 @@ def list_models(
         else:
             render_models_table(models, quiet=quiet)
 
-    except MiruConnectionError:
+    except OllamaConnectionError:
         error = MiruConnectionError(ollama_host)
         render_error(error.message, error.suggestion)
         raise typer.Exit(code=1)

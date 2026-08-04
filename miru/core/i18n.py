@@ -28,6 +28,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.model_no_vision": "Model '{model}' does not support images.",
         "error.available_models": "Available models:",
         "error.more_models": "... and {count} more",
+        "error.model_exists": "Model '{model}' already exists.",
+        "error.file_empty": "File is empty or contains no valid prompts.",
+        "error.system_both": "Use --system OR --system-file, not both.",
+        "error.compare_file_audio": "--file and --audio are not supported in compare command.",
+        "confirm.delete": "Delete '{model}'?",
+        "confirm.cancelled": "Cancelled.",
 
         "audio.transcription": "Audio transcription",
 
@@ -445,6 +451,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.model_no_vision": "Modelo '{model}' não suporta imagens.",
         "error.available_models": "Modelos disponíveis:",
         "error.more_models": "... e mais {count}",
+        "error.model_exists": "Modelo '{model}' já existe.",
+        "error.file_empty": "Arquivo vazio ou sem prompts válidos.",
+        "error.system_both": "Use --system OU --system-file, não ambos.",
+        "error.compare_file_audio": "--file e --audio não são suportados no comando compare.",
+        "confirm.delete": "Deletar '{model}'?",
+        "confirm.cancelled": "Cancelado.",
 
         "audio.transcription": "Transcrição de áudio",
 
@@ -862,6 +874,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "error.model_no_vision": "Modelo '{model}' no soporta imágenes.",
         "error.available_models": "Modelos disponibles:",
         "error.more_models": "... y {count} más",
+        "error.model_exists": "Modelo '{model}' ya existe.",
+        "error.file_empty": "Archivo vacío o sin prompts válidos.",
+        "error.system_both": "Use --system O --system-file, no ambos.",
+        "error.compare_file_audio": "--file y --audio no son compatibles con el comando compare.",
+        "confirm.delete": "¿Eliminar '{model}'?",
+        "confirm.cancelled": "Cancelado.",
 
         "audio.transcription": "Transcripción de audio",
 

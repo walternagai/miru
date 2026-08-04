@@ -359,7 +359,7 @@ def run(
 
     final_system_prompt: str | None = None
     if system is not None and system_file is not None:
-        render_error("Use --system OR --system-file, not both.")
+        render_error(t("error.system_both"))
         sys.exit(1)
 
     if system_file is not None:

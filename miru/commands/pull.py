@@ -11,8 +11,8 @@ from miru.alias import resolve_alias
 from miru.cli_options import Host, Quiet
 from miru.core.config import resolve_host
 from miru.core.errors import ConnectionError as MiruConnectionError
-from miru.core.i18n import t, set_language
-from miru.ollama.client import OllamaClient
+from miru.core.i18n import t, get_language
+from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.renderer import create_progress_bar, render_error, render_success
 
 
@@ -30,12 +30,10 @@ def pull(
     """
     model = resolve_alias(model)
     ollama_host = resolve_host(host)
-    
-    set_language("en_US")
 
     try:
         asyncio.run(_pull_model_async(ollama_host, model, quiet))
-    except ConnectionError:
+    except OllamaConnectionError:
         error = MiruConnectionError(ollama_host)
         render_error(error.message, error.suggestion)
         raise typer.Exit(code=1)
@@ -55,8 +53,8 @@ def pull(
 async def _pull_model_async(host: str, model: str, quiet: bool) -> None:
     """Download model from Ollama server with progress feedback."""
     async with OllamaClient(host=host) as client:
+        lang = get_language()
         if quiet:
-            lang = "en_US"
             if lang == "pt_BR":
                 print(f"Baixando {model}...")
             elif lang == "es_ES":
@@ -67,8 +65,6 @@ async def _pull_model_async(host: str, model: str, quiet: bool) -> None:
         progress = None
         task_id = None
         current_phase = ""
-        
-        set_language("en_US")
 
         try:
             async for chunk in client.pull(model):
@@ -85,7 +81,6 @@ async def _pull_model_async(host: str, model: str, quiet: bool) -> None:
                             print("✓ Complete.")
                     continue
 
-                lang = "en_US"
                 # Handle different phases with visual feedback
                 if status == "pulling manifest":
                     if current_phase != "manifest":
