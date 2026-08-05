@@ -156,6 +156,9 @@ async def render_stream_as_markdown(
             try:
                 await progress_task
             except asyncio.CancelledError:
+                # Legitimate asyncio pattern: the progress task is cancelled
+                # on purpose when streaming completes — its cancellation is
+                # expected, not an error worth logging.
                 pass
 
         sys.stdout.write("\r\033[K")

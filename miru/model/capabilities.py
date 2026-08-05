@@ -1,8 +1,11 @@
 """Model capability detection module."""
 
+import logging
 from dataclasses import dataclass
 
 from miru.ollama.client import OllamaClient
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -36,8 +39,8 @@ def _extract_num_ctx(parameters: str) -> int | None:
             if len(parts) >= 2:
                 try:
                     return int(parts[1])
-                except ValueError:
-                    pass
+                except ValueError as exc:
+                    logger.debug("Failed to parse num_ctx from %r: %s", parts[1], exc)
     return None
 
 
@@ -86,8 +89,8 @@ async def get_capabilities(client: OllamaClient, model: str) -> ModelCapabilitie
             try:
                 max_context = int(value)
                 break
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as exc:
+                logger.debug("Failed to parse context_length value %r: %s", value, exc)
 
     # Fallback to parameters string
     if max_context is None and parameters:

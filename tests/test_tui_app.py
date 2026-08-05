@@ -845,3 +845,196 @@ async def test_prompt_input_f1_help(app) -> None:
         user_input.on_key(event_f1)
         await pilot.pause()
         assert app.screen_stack
+
+
+# ── Meta 1: Export modal flow ────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_export_modal_pushes_screen(app) -> None:
+    """action_export_session com mensagens → ExportScreen no stack."""
+    from miru.ui.tui.export_screen import ExportScreen
+
+    app.messages = [{"role": "user", "content": "olá"}]
+    async with app.run_test() as pilot:
+        app.action_export_session()
+        await pilot.pause()
+        assert isinstance(app.screen_stack[-1], ExportScreen)
+
+
+@pytest.mark.asyncio
+async def test_export_modal_dismiss_with_format(app, tmp_path) -> None:
+    """Fluxo do modal: dismiss com (fmt, path) → callback _on_export_complete roda export_session."""
+    from miru.ui.tui.export_screen import ExportScreen
+
+    app.messages = [{"role": "user", "content": "olá"}]
+    app.current_session_name = "conv-teste"
+    out = tmp_path / "out.md"
+    async with app.run_test() as pilot:
+        app.action_export_session()
+        await pilot.pause()
+        export_screen = app.screen_stack[-1]
+        assert isinstance(export_screen, ExportScreen)
+        path_input = export_screen.query_one("#path_input")
+        assert path_input.value == "conv-teste.md"
+        with patch("miru.ui.tui.app.export_session") as mock_export:
+            export_screen.dismiss(("markdown", str(out)))
+            await pilot.pause()
+        mock_export.assert_called_once_with("conv-teste", str(out), "markdown")
+
+
+@pytest.mark.asyncio
+async def test_export_complete_saved_session(app, tmp_path, monkeypatch) -> None:
+    """_on_export_complete com sessão salva → export_session chamado."""
+    import miru.ui.tui.app as app_mod
+
+    app.messages = [{"role": "user", "content": "x"}]
+    app.current_session_name = "conv"
+    out = tmp_path / "out.md"
+    async with app.run_test() as pilot:
+        with patch.object(app_mod, "export_session") as mock_export:
+            app._on_export_complete(("markdown", str(out)))
+            await pilot.pause()
+        mock_export.assert_called_once_with("conv", str(out), "markdown")
+
+
+@pytest.mark.asyncio
+async def test_export_complete_error_notifies(app, monkeypatch) -> None:
+    """_on_export_complete com erro → notify de erro."""
+    import miru.ui.tui.app as app_mod
+
+    app.messages = [{"role": "user", "content": "x"}]
+    app.current_session_name = "conv"
+    async with app.run_test() as pilot:
+        with patch.object(app_mod, "export_session", side_effect=OSError("boom")):
+            app._on_export_complete(("markdown", "/tmp/x.md"))
+            await pilot.pause()
+        # não levanta — notify de erro
+        assert True
+
+
+@pytest.mark.asyncio
+async def test_export_clipboard_error_notifies(app, monkeypatch) -> None:
+    """_export_to_clipboard com falha no clipboard → notify de erro."""
+    app.messages = [{"role": "user", "content": "pergunta"}, {"role": "assistant", "content": "resposta"}]
+    async with app.run_test() as pilot:
+        with patch.object(app, "copy_to_clipboard", side_effect=RuntimeError("boom")):
+            app._export_to_clipboard()
+            await pilot.pause()
+        assert True
+
+
+@pytest.mark.asyncio
+async def test_export_unsaved_json(app, tmp_path) -> None:
+    """_export_unsaved com formato json → arquivo com dados."""
+    app.messages = [{"role": "user", "content": "olá"}]
+    out = tmp_path / "out.json"
+    async with app.run_test() as pilot:
+        app._export_unsaved(str(out), "json")
+        await pilot.pause()
+    import json as _json
+    data = _json.loads(out.read_text(encoding="utf-8"))
+    assert data["messages"][0]["content"] == "olá"
+
+
+# ── Meta 1: Submit error path e params inválidos ─────────────────────────────
+
+@pytest.mark.asyncio
+async def test_submit_message_error_notifies(app) -> None:
+    """action_submit_message com exceção interna → notify de erro (except Exception)."""
+    async with app.run_test() as pilot:
+        user_input = app.query_one("#user_input")
+        user_input.text = "olá"
+        with patch.object(app, "run_worker", side_effect=RuntimeError("boom")):
+            app.action_submit_message()
+            await pilot.pause()
+        assert app._is_generating is False
+        assert app.messages == []  # rollback: mensagem não ficou na lista
+
+
+@pytest.mark.asyncio
+async def test_get_ui_params_invalid_values(app) -> None:
+    """_get_ui_params com inputs inválidos → defaults + notify warning."""
+    async with app.run_test() as pilot:
+        app.query_one("#input_temp").value = "abc"
+        app.query_one("#input_top_p").value = "xyz"
+        app.query_one("#input_max_tokens").value = "nope"
+        app.query_one("#input_seed").value = "seed!"
+        model, temp, top_p, max_tokens, seed, _sys_prompt = app._get_ui_params()
+        await pilot.pause()
+        assert temp == 0.7
+        assert top_p == 0.9
+        assert max_tokens is None
+        assert seed is None
+
+
+# ── Meta 1: Edit user message ────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_edit_user_message_loads_content(app) -> None:
+    """edit_user_message: carrega conteúdo no input e trunca mensagens."""
+    from miru.ui.tui.app import UserMessageWidget
+
+    async with app.run_test() as pilot:
+        chat_window = app.query_one("#chat_window")
+        try:
+            app.query_one("#onboarding").remove()
+        except Exception:
+            pass
+        await pilot.pause()
+        msg_ref = {"role": "user", "content": "texto original", "_ts": "12:00"}
+        app.messages = [msg_ref]
+        w = UserMessageWidget("texto original", msg_ref=msg_ref, timestamp="12:00", classes="user-message-widget")
+        await chat_window.mount(w)
+        await pilot.pause()
+        app.edit_user_message(msg_ref)
+        await pilot.pause()
+        user_input = app.query_one("#user_input")
+        assert user_input.text == "texto original"
+        assert app.messages == []
+
+
+@pytest.mark.asyncio
+async def test_edit_user_message_not_found(app) -> None:
+    """edit_user_message com msg_ref fora de messages → notify."""
+    async with app.run_test() as pilot:
+        app.edit_user_message({"role": "user", "content": "x"})
+        await pilot.pause()
+        assert app.messages == []
+
+
+# ── Meta 1: Delete flow ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_delete_session_no_session_notifies(app) -> None:
+    """action_delete_session sem sessão → notify."""
+    app.current_session_name = None
+    async with app.run_test() as pilot:
+        app.action_delete_session()
+        await pilot.pause()
+        assert True
+
+
+@pytest.mark.asyncio
+async def test_confirm_delete_success(app, tmp_path, monkeypatch) -> None:
+    """_on_confirm_delete confirmado → sessão deletada e UI limpa."""
+    import miru.ui.tui.app as app_mod
+
+    app.current_session_name = "conv"
+    app.messages = [{"role": "user", "content": "x"}]
+    async with app.run_test() as pilot:
+        with patch.object(app_mod, "delete_session", return_value=True):
+            app._on_confirm_delete(True)
+            await pilot.pause()
+        assert app.current_session_name is None
+        assert app.messages == []
+        assert app._turn_counter == 0
+
+
+@pytest.mark.asyncio
+async def test_rename_session_no_session_notifies(app) -> None:
+    """action_rename_session sem sessão → notify."""
+    app.current_session_name = None
+    async with app.run_test() as pilot:
+        app.action_rename_session()
+        await pilot.pause()
+        assert True

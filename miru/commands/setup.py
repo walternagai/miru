@@ -1,6 +1,7 @@
 """Setup wizard for first-time users."""
 
 import asyncio
+import logging
 import sys
 from typing import Annotated
 
@@ -11,6 +12,8 @@ from rich.prompt import Confirm, Prompt
 from miru.config_manager import CONFIG_FILE, load_config, save_config
 from miru.core.i18n import t
 from miru.ollama.client import OllamaClient
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
@@ -172,8 +175,8 @@ async def setup_async(host: str, non_interactive: bool) -> None:
             )
             try:
                 config.history_max_entries = int(max_entries)
-            except ValueError:
-                pass
+            except ValueError as exc:
+                logger.debug("Invalid history_max_entries %r, keeping default: %s", max_entries, exc)
 
         verbose_mode = Confirm.ask(t('setup.enable_verbose'), default=False)
         config.verbose = verbose_mode

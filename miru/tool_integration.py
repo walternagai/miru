@@ -260,6 +260,9 @@ async def execute_tool_loop(
             try:
                 await progress_task
             except _asyncio.CancelledError:
+                # Legitimate asyncio pattern: the progress task is cancelled
+                # on purpose when iteration completes — its cancellation is
+                # expected, not an error worth logging.
                 pass
 
         _clear_progress_line()
