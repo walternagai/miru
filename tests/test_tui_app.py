@@ -981,10 +981,6 @@ async def test_edit_user_message_loads_content(app) -> None:
 
     async with app.run_test() as pilot:
         chat_window = app.query_one("#chat_window")
-        try:
-            app.query_one("#onboarding").remove()
-        except Exception:
-            pass
         await pilot.pause()
         msg_ref = {"role": "user", "content": "texto original", "_ts": "12:00"}
         app.messages = [msg_ref]
