@@ -5,11 +5,13 @@ from miru.ollama.client import (
     OllamaClient,
     OllamaConnectionError,
     OllamaModelNotFound,
+    OllamaModelNotFoundError,
 )
 
 __all__ = [
     "OllamaClient",
     "OllamaConnectionError",
     "OllamaModelNotFound",
+    "OllamaModelNotFoundError",
     "OllamaAPIError",
 ]

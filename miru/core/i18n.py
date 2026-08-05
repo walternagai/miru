@@ -1297,7 +1297,7 @@ def detect_language() -> str:
         return "es_ES"
 
     try:
-        sys_lang = locale.getdefaultlocale()[0]
+        sys_lang = locale.getlocale()[0]
         if sys_lang:
             if sys_lang.startswith("pt_BR"):
                 return "pt_BR"

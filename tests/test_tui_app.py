@@ -638,3 +638,210 @@ async def test_submit_message_while_generating(app) -> None:
         app.action_submit_message()
         await pilot.pause()
         assert app.messages == []  # bloqueado
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_streaming_progress(app) -> None:
+    """Streaming com múltiplos chunks → progress no status e metrics montado."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        yield {"message": {"content": "primeira parte"}, "done": False}
+        await asyncio.sleep(0)
+        yield {"message": {"content": "segunda parte"}, "done": True,
+               "eval_count": 8, "eval_duration": 2_000_000_000,
+               "total_duration": 2_500_000_000}
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.ui.tui.app.save_session", new_callable=AsyncMock):
+            await app.run_llm_response("pergunta", user_msg_dict={"role": "user", "content": "pergunta"})
+            await pilot.pause()
+    assert app._is_generating is False
+    assert app._session_tokens == 8
+    # mensagens salvas
+    assert any(m.get("role") == "assistant" for m in app.messages)
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_save_error(app) -> None:
+    """Erro ao salvar sessão → notify de erro."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        yield {"message": {"content": "resp"}, "done": True,
+               "eval_count": 1, "eval_duration": 1_000_000_000,
+               "total_duration": 1_000_000_000}
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.ui.tui.app.save_session", new_callable=AsyncMock,
+                   side_effect=RuntimeError("disco cheio")):
+            await app.run_llm_response("pergunta")
+            await pilot.pause()
+    assert app._is_generating is False
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_tps_from_total(app) -> None:
+    """eval_duration=0 mas total_duration>0 → tps calculado via total."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        yield {"message": {"content": "resp"}, "done": True,
+               "eval_count": 10, "eval_duration": 0,
+               "total_duration": 2_000_000_000}
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.ui.tui.app.save_session", new_callable=AsyncMock):
+            await app.run_llm_response("pergunta", user_msg_dict={"role": "user", "content": "pergunta"})
+            await pilot.pause()
+    assert app._is_generating is False
+    assert app._session_tokens == 10
+    assert app._session_tps > 0  # calculado via total_duration
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_without_user_msg_dict(app) -> None:
+    """user_msg_dict=None → mensagem criada de prompt (branch msg)."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        yield {"message": {"content": "resp"}, "done": True,
+               "eval_count": 1, "eval_duration": 1_000_000_000,
+               "total_duration": 1_000_000_000}
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.ui.tui.app.save_session", new_callable=AsyncMock):
+            await app.run_llm_response("pergunta")  # sem user_msg_dict
+            await pilot.pause()
+    assert app._is_generating is False
+    user_msgs = [m for m in app.messages if m.get("role") == "user"]
+    assert len(user_msgs) == 1
+    assert user_msgs[0]["content"] == "pergunta"
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_generic_error(app) -> None:
+    """Erro genérico → friendly 'Erro inesperado'."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        raise RuntimeError("weird internal failure")
+        yield  # pragma: no cover
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.ui.tui.app.MessageWidget.query_one", return_value=MagicMock()) as mock_q:
+            await app.run_llm_response("pergunta")
+            await pilot.pause()
+    assert app._is_generating is False
+    assert mock_q.called  # fluxo de erro atualizou o widget
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_timeout_error(app) -> None:
+    """Erro com 'timeout' → friendly de timeout."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        raise TimeoutError("request timed out")
+        yield  # pragma: no cover
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.ui.tui.app.MessageWidget.query_one", return_value=MagicMock()) as mock_q:
+            await app.run_llm_response("pergunta")
+            await pilot.pause()
+    assert app._is_generating is False
+    assert mock_q.called
+
+
+@pytest.mark.asyncio
+async def test_prompt_input_arrow_keys_history(app) -> None:
+    """Seta ↑/↓ no PromptInput navegam o histórico de inputs."""
+    from textual.events import Key
+
+    app._input_history = ["msg1", "msg2"]
+
+    async with app.run_test() as pilot:
+        user_input = app.query_one("#user_input")
+        # cursor na primeira linha → ↑ navega histórico
+        event_up = Key(key="up", character="")
+        user_input.on_key(event_up)
+        await pilot.pause()
+        event_down = Key(key="down", character="")
+        user_input.on_key(event_down)
+        await pilot.pause()
+
+
+@pytest.mark.asyncio
+async def test_prompt_input_alt_arrows(app) -> None:
+    """Alt+↑/↓ navegam entre mensagens."""
+    from textual.events import Key
+
+    async with app.run_test() as pilot:
+        user_input = app.query_one("#user_input")
+        event_alt_up = Key(key="alt+up", character="")
+        user_input.on_key(event_alt_up)
+        await pilot.pause()
+        event_alt_down = Key(key="alt+down", character="")
+        user_input.on_key(event_alt_down)
+        await pilot.pause()
+
+
+@pytest.mark.asyncio
+async def test_prompt_input_f1_help(app) -> None:
+    """F1 no PromptInput abre ajuda."""
+    from textual.events import Key
+
+    async with app.run_test() as pilot:
+        user_input = app.query_one("#user_input")
+        event_f1 = Key(key="f1", character="")
+        user_input.on_key(event_f1)
+        await pilot.pause()
+        assert app.screen_stack
