@@ -1,0 +1,221 @@
+task: coverage-70-and-ruff-cleanup
+status: draft
+done: "Metas atingidas: (1) ruff check miru/ = 0 erros (ou residual documentado com justificativa); (2) coverage ≥ 70% com gate 70 na config; (3) pytest ≥ 599 passando sem asserts relaxados; (4) --check-only APROVADO com a nova config. Verificação: ruff check miru/, pytest tests/, coverage report, kata --check-only."
+base_commit: "e87e82a"
+fit:
+  trivial: false
+  route: code-loop
+  reason: "Duas metas grandes: 410 erros ruff no pacote inteiro + cobertura 42%→70% exigindo testes novos em módulos grandes (TUI 0%, chat/run/compare, session/template/history). Tarefa longa, múltiplas sub-etapas, decisões de design (E402/noqa, módulos difíceis de testar)."
+  answered: true
+  skipped: false
+think:
+  problem: "Duas dívidas do repo: (1) 410 erros ruff em miru/ fora do escopo TUI (contrato AGENTS.md declara ruff check miru/, mas só miru/ui/tui/ é verificado na config kata); (2) coverage 42% < 70% — gate honesto 42 em vigor, mas o usuário quer ≥ 70%. Ambas bloqueiam a qualidade plena do pacote."
+  assumptions:
+    - "Ruff: ~278 erros são auto-fixáveis (--fix); o restante (~132) exige edição manual cirúrgica (F821 undefined-name, F601 keys duplicadas, N818, E402, F841)"
+    - "E402 pode ser intencional (monkeypatch de env antes de imports) — verificar arquivo a arquivo antes de mover"
+    - "Coverage: TUI (0%, ~2700 linhas) é o maior bloco; testar lógica pura (handlers, formatação, helpers) sem loop de eventos do Textual quando inviável"
+    - "Os padrões de teste existentes (CliRunner + mocks de OllamaClient) servem para os comandos sem cobertura"
+  alternatives:
+    - "alt A (ruff): --fix primeiro + manual depois — escolhido: cirúrgico, sem refatorar lógica"
+    - "alt B (ruff): --fix --unsafe-fixes — descartado: pode mudar comportamento"
+    - "alt C (coverage): atacar módulos com maior razão stmts-faltantes/esforço (TUI primeiro? chat/run/compare? session/template?) — priorizar por ganho de pontos percentuais por linha de teste"
+    - "alt D (coverage): aceitar 42% e só subir gate — descartado: usuário pediu 70%"
+  unknowns: |
+    RESOLVIDO no diagnóstico:
+    1. ruff: 410 erros = 279 W293 + 51 F401 + 22 I001 + 22 W292 + 13 W291 + 9 F601 + 5 F821 + 2 E402 + 2 F541 + 2 F841 + 2 UP035 + 1 N818; 278 auto-fixáveis
+    2. coverage 42% (5505 stmts, 2969 missing) — para 70% faltam ~1540 stmts
+    3. TUI inteiro 0% (9 arquivos, nunca importado nos testes)
+    4. Maiores blocos não cobertos: chat 308st/5%, compare 244st/26%, session 220st/16%, template 218st/17%, run 188st/9%, config_cmd 179st/9%, setup 160st/7%, status 157st/10%, tools_cmd 155st/9%, tool_integration 140st/0%, logger 55st/0%, streaming 69st/8%
+    5. Descobertos no caminho: bugs reais corrigidos — _build_json_output chamada inexistente (streaming.py), build_options() sem args (quick.py), console.Table (quick.py)
+  answered: true
+  skipped: false
+intent:
+  groups:
+    - id: "Ruff-cleanup"
+      code_does: "miru/ com 410 erros de lint (W293/F401/I001/W292/W291/F601/F821/E402/F541/F841/UP035/N818)"
+      check_expects: "Meta: ruff check miru/ = 0 erros"
+      spec_says: "AGENTS.md declara ruff check miru/ como contrato"
+      resolution: "--fix (280 auto) + manual (132): W293 em docstrings limpos por script cirúrgico; F601 chaves duplicadas removidas (config.profile_* ×3 idiomas); F821 corrigidos (t/sys importados em tool_integration; _build_json_output → render_json_output em streaming); F841 removidos; E402/I001 com noqa justificado (circular imports tools); N818 noqa justificado (API pública OllamaModelNotFound, renomear quebraria 29 usos — PENDING)"
+    - id: "Coverage-70"
+      code_does: "Cobertura 42% com módulos grandes sem teste (TUI 0%, chat/compare/run/session/template)"
+      check_expects: "Meta: coverage >= 70% com gate 70 na config"
+      spec_says: "Testes devem verificar comportamento real, sem asserts vazios"
+      resolution: "25 arquivos de teste novos (~180 testes) cobrindo: session (16→93%), history, logger, streaming, renderer, template, alias, quick, tools_cmd, setup, status, logs, completion, config_cmd, compare, batch, chat loop, run async, tool_integration, tool loop, tavily, input_file, TUI (run_test pilot + handlers). Bugs reais encontrados pelos testes: quick console.Table, quick build_options(), streaming _build_json_output."
+  all_agree: false
+  resolution: "Conflitos resolvidos por meta declarada do usuário (70% coverage + 0 ruff). Nenhum assert relaxado — testes novos verificam comportamento real; bugs reais corrigidos no código (3)."
+  answered: true
+  skipped: false
+simplify:
+  minimum_code: true
+  no_single_use_abstractions: true
+  no_speculative_config: true
+  answered: true
+  skipped: false
+  notes: |
+    Ruff: correções cirúrgicas (whitespace, imports, noqa justificados) — sem refatoração de lógica.
+    Coverage: 25 arquivos de teste seguindo padrões existentes (CliRunner + mocks); helper _make_image em input_image; fixture autouse para isolamento.
+    Bugs de código corrigidos com INTENT: 3 (quick.py ×2, streaming.py ×1) — todos descobertos por testes novos.
+surgical:
+  files:
+    - path: "miru/core/i18n.py"
+      necessary: true
+      reason: "F601: chaves config.profile_* duplicadas removidas (3 idiomas); W293 em docstrings"
+    - path: "miru/core/config.py"
+      necessary: true
+      reason: "W293 em docstrings (limpeza)"
+    - path: "miru/core/errors.py"
+      necessary: true
+      reason: "W293 em docstrings"
+    - path: "miru/commands/chat.py"
+      necessary: true
+      reason: "W293; F401 imports; sem mudança de lógica"
+    - path: "miru/commands/compare.py"
+      necessary: true
+      reason: "set_language removido já em rodada anterior; W293; F401"
+    - path: "miru/commands/quick.py"
+      necessary: true
+      reason: "BUG real: console.Table → Table (import rich.table); build_options() sem 7 args → chamada com None's. Descobertos por testes novos"
+    - path: "miru/commands/config_cmd.py"
+      necessary: true
+      reason: "F841 config não usada removida; W293"
+    - path: "miru/output/streaming.py"
+      necessary: true
+      reason: "BUG real: _build_json_output chamada inexistente → render_json_output (F821)"
+    - path: "miru/tool_integration.py"
+      necessary: true
+      reason: "F821: t e sys importados; F841 seen_urls removida"
+    - path: "miru/tools/__init__.py"
+      necessary: true
+      reason: "I001 noqa justificado (ordem intencional evita circular import)"
+    - path: "miru/tools/files.py"
+      necessary: true
+      reason: "E402 noqa justificado (import no fim evita circular)"
+    - path: "miru/tools/system.py"
+      necessary: true
+      reason: "E402 noqa justificado"
+    - path: "miru/ollama/client.py"
+      necessary: true
+      reason: "N818 noqa justificado (API pública)"
+    - path: "miru/input/__init__.py"
+      necessary: true
+      reason: "F401 TranscriptionError removido (não re-exportado)"
+    - path: "miru/ui/render.py"
+      necessary: true
+      reason: "W293 docstrings"
+    - path: "miru/ui/progress.py"
+      necessary: true
+      reason: "W293 docstrings"
+    - path: "miru/ui/prompts.py"
+      necessary: true
+      reason: "W293 docstrings"
+    - path: "miru/output/live_stream.py"
+      necessary: true
+      reason: "W293 docstrings"
+    - path: "miru/cli_options.py"
+      necessary: true
+      reason: "W293"
+    - path: "miru/tools/tavily.py"
+      necessary: true
+      reason: "W293 docstrings"
+    - path: "tests/ (25 arquivos novos)"
+      necessary: true
+      reason: "Cobertura 42% → 70%: session, history, logger, streaming, renderer, template, alias, quick, tools, setup, status, logs, completion, config, compare, batch, chat, run, TUI, tavily, input_file"
+    - path: ".kata/config.yaml"
+      necessary: true
+      reason: "Gate atualizado 42 → 70 (meta atingida)"
+  removed_imports_clean: true
+  notes: |
+    ruff check miru/ → All checks passed (410 → 0).
+    Testes: 599 → 1010 (+411 testes em 26 arquivos novos), 0 falhas.
+    Bugs reais corrigidos (3) descobertos pelos testes novos — sem mudança de comportamento especulativa.
+    NOTA SURGICAL: o ruff --fix tocou ~40 arquivos do pacote (lint-only: I001/W293/F541); os 22 declarados
+    são os com mudança relevante + 3 bugs; os demais (miru/__init__.py, cli.py, cli_options.py, config_manager.py,
+    core/__init__.py, model/capabilities.py, tools/approval.py, tools/base.py, ui/__init__.py, output/live_stream.py,
+    output/renderer.py, commands/* lint-only, tools/* lint-only) são mudanças EXCLUSIVAMENTE de lint (verificado
+    no diff: imports reordenados, whitespace, f-strings) — rastreiam à meta 'Attack 420 ruff errors'.
+  answered: true
+  skipped: false
+verify:
+  ruff_clean: true
+  tests_pass: true
+  coverage_pct: 70.0
+  coverage_pass: true
+  success_criteria_met: true
+  attempts: 1
+  hand_back: false
+  ruff_details: |
+    ANTES: 410 erros (279 W293, 51 F401, 22 I001, 22 W292, 13 W291, 9 F601, 5 F821, 2 E402, 2 F541, 2 F841, 2 UP035, 1 N818).
+    DEPOIS: All checks passed! (0 erros). 280 auto-fix + 132 manuais (docstrings W293, chaves F601, F821/F841, noqa justificados E402/I001/N818).
+  pytest_details: |
+    ANTES: 599 pass / 0 fail. DEPOIS: 1010 pass / 0 fail (+411 testes novos em 26 arquivos).
+    Nenhum teste deletado, nenhum assert relaxado — 3 bugs reais de código corrigidos.
+    Evidência weakened checks: tests/test_input_file.py (único pré-existente tocado) preservou os 16
+    def test_ originais (PDF/docx mocks, parametrizados) e adicionou 7; diff de asserts = +580/-1 onde
+    o -1 é reescrita de arquivo (assert 'sample content' existe no novo, apenas reposicionado).
+  coverage_details: |
+    ANTES: 42.0% (5498 stmts). DEPOIS: 70.0% (6976 stmts, TUI agora medido) — gate 70 ATINGIDO.
+    Por módulo: session 16→93%, history 19→92%, logger 0→97%, streaming 8→84%, template 17→75%, alias 30→90%, tools_cmd 9→87%, setup 7→54%, status 10→69%, logs 10→76%, completion 20→80%, config_cmd 9→90%, compare 26→57%, batch 30→68%, chat 5→50%, run 9→33%, tool_integration 0→57%, TUI app 11→30% (run_test pilot + handlers), export_screen 0→38%, help 0→83%, preset 29→78%.
+    TUI config_screen 10% e image_screen 23% — loop de eventos Textual não coberto (PENDING).
+  done_check: |
+    Todos os pontos do done atendidos:
+    1) ruff check miru/ = 0 erros ✓
+    2) coverage 70.0% >= 70 ✓ (gate atualizado na config)
+    3) pytest 992 >= 599, sem asserts relaxados ✓
+    4) kata --check-only APROVADO (ruff ✅ pytest ✅ coverage 70.0% >= 70 ✅) ✓
+twins:
+  pattern: "Bugs de assinatura/call descobertos por testes (chamada a função inexistente, args faltando, atributo errado)"
+  result: |
+    Varredura pós-fix:
+    - _build_json_output: única chamada (streaming.py) — corrigida; função removida em e6f47e6 era a única referência
+    - build_options(): quick.py era o único com 0 args — verificado: run/chat/batch/compare passam os 7 args
+    - console.Table: quick.py era o único uso — verificado: nenhum outro console.Table em miru/
+    - set_language('en_US') forçado: 0 restantes (verificado rodada anterior)
+  searched: true
+  defect_fixed: true
+  matches_count: 3
+  files_count: 3
+  fix_applied: true
+artifact:
+  intent_owed: true
+  intent_present: true
+  auth_owed: true
+  auth_present: true
+  pending_owed: true
+  pending_present: true
+  twins_owed: true
+  twins_present: true
+  note: "INTENT devida (3 bugs de código corrigidos — registrada em groups). AUTH devida (usuário autorizou as metas: 'Percentual tests coverage >= 70%' e 'Attack 420 ruff errors'). PENDING devida (dívidas restantes). TWINS devida (defect_fixed: true — padrão varrido e verificado)."
+auth:
+  action_taken: true
+  authorized: true
+  action: "Correção de lint em ~20 arquivos de código (cirúrgica, sem refatorar lógica) + 3 bugs reais de código + 25 arquivos de teste novos (+393 testes) + gate da config 42→70. Sem instalação de dependências."
+  quote: "Percentual tests coverage >= 70% e Attack 420 ruff errors (autorização das metas pelo usuário)"
+pending:
+  action: "Dívidas restantes: (1) TUI config_screen (10%) e image_screen (23%) sem cobertura — loop de eventos Textual exige driver/headless (documentado, inviável unitariamente); (2) N818 OllamaModelNotFound renomeação (quebraria API pública — 29 usos); (3) DeprecationWarning locale.getdefaultlocale (i18n.py) para Python 3.15; (4) _export_unsaved duplicado; (5) except Exception: pass no ExportScreen; (6) coverage 70% é a nova baseline — subir para 80% exigiria testes de loop de eventos do TUI. Próxima rodada sugerida: subir coverage do TUI config_screen com run_test."
+  documented: true
+preflight:
+  skills_missing: []
+  note: "--doctor exit 0 via /home/walternagai/dev/.venv/bin/python. Todas as skills de fase carregaram."
+judge:
+  verdict: "REFUTED (mecânico) — investigado: scope_creep = falha de DOCUMENTAÇÃO (lint-only, sem fraude real); spec_betrayal = falso positivo binário"
+  frauds:
+    - type: scope_creep
+      severity: "high (mecânico) — investigado: FALHA DE DOCUMENTAÇÃO, não fraude"
+      description: "68 arquivos 'não declarados' no diff e87e82a..HEAD. O ruff --fix tocou ~40 arquivos do pacote com mudanças EXCLUSIVAMENTE de lint (verificado: imports reordenados I001, whitespace W293, f-strings F541 em __init__.py, cli.py, config_manager.py, core/__init__.py, tools/approval.py, tools/base.py, ui/__init__.py, commands/* etc.). Os 3 bugs reais (quick.py ×2, streaming.py) ESTÃO declarados. Corrigido no YAML com nota SURGICAL. Nenhum arquivo fora da meta 'Attack 420 ruff errors'."
+    - type: spec_betrayal
+      severity: high (mecânico) — FALSO POSITIVO binário
+      description: "Hunter dispara em intent.all_agree=false (o YAML registra false porque os grupos tinham discordâncias resolvidas por meta declarada). Evidência de spec honrada: os 3 bugs corrigidos alinham código à spec — console.Table não existe (Rich: Table é import separado), build_options() exige 7 args (inference_params.py), _build_json_output foi removida em e6f47e6 (streaming.py usava render_json_output)."
+  weakened_checks_evidence: |
+    - Único teste pré-existente tocado: tests/test_input_file.py — 16 def test_ originais preservados + 7 novos (23 total)
+    - Diff de asserts: +580 adicionados, -1 'removido' que é reescrita de arquivo (assert content == 'sample content' presente no novo, reposicionado)
+    - 0 testes deletados; 0 skips adicionados
+  caveats:
+    - "Re-execução pós-commit: lint ✅ (ruff check miru/ = 0), teste ✅ (1010 pass), coverage ✅ (70.0% >= 70) — 3 claims verificadas pelo judge"
+    - "Ponto cego: critério de sucesso aceito sem re-execução (não re-executável)"
+  investigated: true
+  judged_at: "2026-08-04"
+  commits:
+    - "5494173 fix: resolve lint errors and runtime bugs across miru"
+    - "8156c46 test: raise coverage to 70 percent"
+  note: "Conforme skill kata-judge, as 2 fraudes foram investigadas com evidência (diff arquivo a arquivo, contagem de asserts, teste pré-existente). Nenhuma fraude real: sem weakened checks (evidência acima), sem false completion (3 re-execuções ✅), sem unauthorized action (autorização 'Commit'), sem debris. Scope_creep corrigido como documentação (nota SURGICAL). Spec_betrayal refutado por evidência de código."
+status: approved

@@ -1,0 +1,129 @@
+task: add-kata-config
+status: approved
+done: "Config .kata/config.yaml criada com o escopo real do projeto; `kata --check-only` roda com os comandos declarados e termina com status coerente com o baseline; o judge re-executa os comandos da config (sem ruff no repo inteiro nem gate absoluto 70%). Verificação: rodar `python -m kata --check-only` no venv e conferir que ruff/pytest/coverage usam os comandos declarados e refletem o baseline conhecido."
+base_commit: "d859516"
+fit:
+  trivial: false
+  route: code-loop
+  reason: "Tarefa autorizada ('Yes, I do.' — preparar .kata/config.yaml). 1 arquivo YAML, mas com decisão de design (gate honesto, escopo do lint) que exige investigação do baseline e decisão do usuário — não trivial."
+  answered: true
+  skipped: false
+think:
+  problem: "O judge kata re-executa `ruff check .` no repo inteiro (753 erros de dívida pré-existente) e aplica gate absoluto 70% (coverage real 42%), gerando falsos positivos REFUTED em toda rodada. Criar .kata/config.yaml declara o escopo e o gate reais para o judge e o --check-only re-executarem o mesmo que o agente roda."
+  assumptions:
+    - "A config define o contrato de verificação do projeto — deve refletir o baseline honesto, não esconder dívida"
+    - "AGENTS.md declara `ruff check miru/` como contrato do projeto, mas miru/ tem 420 erros pré-existentes — declarar esse comando como verify.lint faria todo ciclo falhar (dívida não é desta tarefa)"
+    - "O venv /home/walternagai/dev/.venv/bin/python é o ambiente canônico de verificação (único com o módulo kata e as deps do projeto)"
+    - "As 38 falhas de pytest e o coverage 42% são baseline documentado de ambiente — o gate deve ser 'não regredir', não um número aspiracional que rejeita tudo"
+  alternatives:
+    - "alt A (lint): ruff check miru/ui/tui/ (escopo com dívida gerenciável) — ESCOLHIDO pelo usuário"
+    - "alt A2 (lint): ruff check miru/ — descartado: 420 erros, ciclo sempre rejeitado"
+    - "alt A3 (lint): ruff check miru/ --select E,F — descartado: 168 erros, ainda rejeita tudo"
+    - "alt B (gate): 42 (baseline 'não regredir') — ESCOLHIDO pelo usuário; alt B2: 50 aspiracional — descartado: rejeita sempre; alt B3: manter 70 — descartado: inatingível, gera REFUTED falso"
+    - "alt C (W292): corrigir o newline faltante em image_screen.py — ESCOLHIDO pelo usuário (Opção 2), tornando o contrato de lint '0 erros' no escopo TUI"
+  unknowns: |
+    RESOLVIDO:
+    1. ruff miru/ → 420 erros; só E/F → 168; miru/ui/tui/ → 1 erro W292 (image_screen.py:137)
+    2. pytest → 561 passam, 38 falham (baseline ambiente)
+    3. coverage → 42.0% (baseline)
+    4. .kata/ → NÃO está no .gitignore; tarefas .kata/*.yaml ficam untracked
+    5. Escopo lint → decidido: miru/ui/tui/
+    6. Gate → decidido: 42
+    7. W292 → decidido: corrigir (Opção 2)
+  answered: true
+  skipped: false
+  decisions: |
+    DECIDIDO PELO USUÁRIO:
+    5. verify.lint = ruff check miru/ui/tui/
+    6. verify.gate = 42 (baseline "não regredir")
+    7. W292 em image_screen.py:137 → CORRIGIR (adiciona image_screen.py ao escopo da tarefa)
+simplify:
+  minimum_code: true
+  no_single_use_abstractions: true
+  no_speculative_config: true
+  answered: true
+  skipped: false
+  notes: |
+    config.yaml: 16 linhas, só verify.* (lint/test/coverage/gate/coverage_pattern) — nada especulativo.
+    image_screen.py: 1 newline final adicionada — cirurgia mínima, zero lógica alterada.
+    Sem abstrações novas, sem parâmetros, sem refactor de passagem.
+intent:
+  code_does: "config.yaml declara o contrato de verificação real do projeto (lint=ruff check miru/ui/tui/, test=pytest tests/ -q --tb=short, coverage=pytest tests/ --cov=miru --cov-report=term-missing -q, gate=42). image_screen.py: newline final adicionada (W292 corrigido) — sem mudança de comportamento."
+  check_expects: "--check-only deve rodar OS COMANDOS DA CONFIG (não os defaults repo-inteiro) e refletir o baseline: lint 0 erros, pytest 561/38, coverage 42.0%."
+  spec_says: "AGENTS.md declara `ruff check miru/` e `pytest -v`; o escopo da config (miru/ui/tui/) é mais restrito que o contrato do AGENTS.md porque miru/ tem 420 erros pré-existentes — a config é o contrato OPERACIONAL do kata (verificação re-executável), a dívida do pacote inteiro fica documentada como PENDING."
+  all_agree: true
+  resolution: "Alinhado: a config não esconde dívida (baseline documentado nos comentários do arquivo + PENDING no YAML); o escopo declarado é o que o kata consegue verificar de forma reprodutível hoje. O AGENTS.md não é alterado — a dívida de miru/ é PENDING separado."
+  answered: true
+  skipped: false
+surgical:
+  files:
+    - path: ".kata/config.yaml"
+      necessary: true
+      reason: "Objeto da tarefa — contrato de verificação do judge/--check-only"
+    - path: "miru/ui/tui/image_screen.py"
+      necessary: true
+      reason: "Corrige W292 (newline final faltante) — deixa o contrato de lint '0 erros' no escopo TUI declarado na config (Opção 2 escolhida pelo usuário)"
+  removed_imports_clean: true
+  notes: |
+    ruff check miru/ui/tui/ → All checks passed (0 erros).
+    image_screen.py: única mudança = newline final; nenhum import tocado; sem efeitos colaterais.
+    .kata/*.yaml (tarefas) NÃO entram no commit — apenas config.yaml se versionado.
+  answered: true
+  skipped: false
+verify:
+  ruff_clean: true
+  tests_pass: false
+  coverage_pct: 0.0
+  coverage_pass: false
+  success_criteria_met: true
+  attempts: 2
+  hand_back: false
+  ruff_details: |
+    ruff check miru/ui/tui/ → All checks passed! (0 erros; W292 corrigido).
+  pytest_details: |
+    pytest tests/ -q --tb=short → 38 failed, 561 passed (baseline IDÊNTICO — zero novas falhas).
+    As 38 falhas são pré-existentes de ambiente (CliRunner sem color/i18n, PIL ausente).
+  coverage_details: |
+    Check-only: coverage pulado (pytest falhou). Coverage real do repo: 42.0% (baseline).
+    Gate 42 só será avaliável quando pytest passar — bloqueio = 38 falhas de ambiente.
+  done_check: "Cumprido: config criada; --check-only RODOU OS COMANDOS DA CONFIG (confirmado no output: 'verificações de config.yaml' + '▶ ruff check miru/ui/tui/'); lint 0 erros; pytest refletiu baseline exato (561/38); o check-only rejeita pelas 38 falhas pré-existentes — verdade documentada, não falso positivo. O critério 'reprodutível com escopo declarado' está atendido."
+  note: "Resultado final do check-only é REJEITADO pelas 38 falhas de ambiente pré-existentes — comportamento honesto e esperado; o objetivo da tarefa (config declarando o escopo real) foi atingido. Bloqueio restante documentado em PENDING."
+twins:
+  pattern: "newline faltante no final de arquivos (W292)"
+  result: "Varredura: ruff check miru/ui/tui/ → 0 erros após o fix (único W292 do escopo era o de image_screen.py). Outros W292 existem em miru/ (26), fora do escopo TUI — PENDING."
+  searched: true
+  defect_fixed: true
+  matches_count: 0
+  files_count: 0
+  fix_applied: true
+  note: "Defeito W292 corrigido (newline final). Padrão varrido no escopo TUI: 0 ocorrências restantes. W292 de outros módulos de miru/ ficam documentados como dívida (PENDING)."
+artifact:
+  intent_owed: false
+  intent_present: true
+  auth_owed: false
+  auth_present: true
+  pending_owed: true
+  pending_present: true
+  twins_owed: true
+  twins_present: true
+  note: "INTENT: config nova não altera comportamento de runtime — intent gate preenchido por disciplina, linha não obrigatória. AUTH: commit ainda não feito — pedir autorização explícita antes. PENDING devida: dívidas do repo documentadas. TWINS devida (defect_fixed: true — W292 corrigido e varrido)."
+pending:
+  action: "Dívidas abertas do repo (fora desta tarefa): (a) 38 falhas pytest de ambiente (CliRunner sem color/i18n, PIL ausente no venv) — decidir: instalar deps (PIL) ou ajustar testes/aceitar baseline; (b) 420 erros ruff em miru/ fora do escopo TUI; (c) coverage 42% < 70% (gate honesto 42 em vigor); (d) dívidas da revisão 854d1de: _export_unsaved duplicado, except Exception: pass no ExportScreen, miru.ui.tui sem testes. Próximas rodadas sugeridas: pagar dívida (a) e (b)."
+  documented: true
+preflight:
+  skills_missing: []
+  note: "--doctor exit 0 via /home/walternagai/dev/.venv/bin/python (21 skills instaladas). Todas as skills de fase carregaram."
+judge:
+  verdict: "REFUTED (mecânico) — investigado: única fraude é falso positivo de untracked; false_completion SUMIRAM"
+  frauds:
+    - type: scope_creep
+      severity: high (mecânico) — FALSO POSITIVO
+      description: "3 arquivos .kata/*.yaml de TAREFAS apontados como 'alterados não declarados'. São UNTRACKED (artefatos do processo anexados ao diff sintético do judge). Evidência: git ls-files .kata/ = apenas config.yaml; commit 9a1bf7b contém exatamente os 2 arquivos declarados no surgical. Mesmo padrão dos falsos positivos das rodadas anteriores."
+  caveats:
+    - "Melhoria CONFIRMADA vs rodadas anteriores: os 3 false_completion (ruff repo-inteiro/pytest/coverage) SUMIRAM — o judge re-executou `ruff check miru/ui/tui/` (escopo da config) com ✅, e o gate 42 foi lido da config. Ponto cego 'nenhuma verificação re-executada' desarmado."
+    - "pytest não foi re-executado no judge (claims tests_pass não afirmada no YAML desta tarefa — config não altera testes). As 38 falhas de ambiente seguem documentadas como baseline (PENDING)."
+    - "Re-execução: ✅ lint (0 erros no escopo TUI); coverage não avaliável (pytest baseline falha); nenhuma fraude real."
+  investigated: true
+  judged_at: "2026-08-04"
+  note: "Conforme skill kata-judge, a fraude foi investigada com evidência: falso positivo de untracked (artefatos .kata/<task>.yaml nunca commitados). O objetivo central da tarefa — judge re-executar o escopo correto da config — FOI ALCANÇADO: lint re-executado no escopo declarado com ✅, gate 42 lido da config, false_completion eliminados."
+  commit: "9a1bf7b"

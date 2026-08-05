@@ -1,0 +1,168 @@
+task: tui-config-coverage-and-export-debt
+status: draft
+done: "Metas: (1) config_screen coverage >= 70% via run_test pilot (padrão validado em test_tui_app.py); (2) _export_unsaved sem duplicação estrutural — lógica comum extraída em session.py mantendo outputs IDÊNTICOS (regra dura: não mudar comportamento visível; testes existentes continuam passando); (3) zero except Exception: pass silencioso no ExportScreen (log + feedback); pytest >= 1010 sem assert relaxado; ruff check miru/ = 0; --check-only APROVADO."
+base_commit: "8156c46"
+fit:
+  trivial: false
+  route: code-loop
+  reason: "Três frentes: testes novos de TUI (config_screen via run_test), refactor de duplicação de formatação com INTENT, e tratamento de exceções. Múltiplos arquivos, decisões de design — não trivial."
+  answered: true
+  skipped: false
+think:
+  problem: "Três dívidas: (1) config_screen.py com 10% de coverage (maior módulo TUI sem teste junto com image_screen); (2) _export_unsaved em app.py duplica a iteração/formatação de export_session em session.py com outputs DIVERGENTES (TUI pt-BR 'Você/[VOCÊ]' vs CLI 'User/[USER]'); (3) 2× except Exception: pass silencioso no ExportScreen."
+  assumptions:
+    - "run_test() pilot funciona para ModalScreen pushado no TUIApp (padrão validado em test_tui_app.py)"
+    - "Unificar _export_unsaved com export_session MUDARIA o output visível do TUI (headers diferentes) — violaria a regra dura; a solução é extrair a lógica COMUM (iteração, skip de system, join) parametrizada por labels, mantendo outputs idênticos"
+    - "logging.getLogger é o padrão de log do repo (session.py, config_manager.py usam)"
+  alternatives:
+    - "alt A (_export_unsaved): unificar chamando export_session — descartado: muda output TUI (viola regra dura)"
+    - "alt B (_export_unsaved): extrair funções puras de formatação em session.py parametrizadas por labels (user_label/assistant_label/title) — ESCOLHIDO: elimina duplicação estrutural, outputs idênticos"
+    - "alt C (config_screen): deixar 10% e documentar — descartado: usuário pediu >= 70%"
+    - "alt D (image_screen): avaliar custo; se run_test servir, cobrir; senão PENDING documentado"
+  unknowns: |
+    RESOLVIDO no diagnóstico:
+    1. export_session está em miru/session.py:192 (sync, usa console.print + sys.exit — NÃO pode ser chamado do TUI)
+    2. _export_unsaved está em app.py:1601 (não em export_screen.py) — divergência: JSON inclui system_prompt? NÃO (TUI omite), Markdown headers 'Você/Assistente' vs 'User/Assistant', TXT '[VOCÊ]' vs '[USER]'
+    3. except pass: export_screen.py:111 (on_radio_set_changed) e :124 (_get_format)
+    4. config_screen: reload_config/save_config em __init__/_save_config — testável com mock de config_manager
+    5. image_screen handlers já testados (test_tui_handlers.py 23%) — o gap é compose/loop; run_test pilot funcionou (83%)
+    6. TWIN CHECK: 24 except Exception: pass no projeto — todos best-effort de UI/lookup (remover widget opcional, desabilitar botão, sugestão, lookup); ExportScreen limpo; demais fora do escopo (PENDING)
+  answered: true
+  skipped: false
+intent:
+  groups:
+    - id: "A-config-screen-tests"
+      code_does: "ConfigScreen: reload_config em __init__, _save_config valida e salva, _reset_to_defaults restaura, on_key escape dismiss"
+      check_expects: "Novos testes cobrem: montagem, valores pré-preenchidos, save com mock, validações (host obrigatório, timeout>0, temp 0-2), reset, cancel, escape"
+      spec_says: "Config é o contrato do repo (config.toml); save_config é a fonte de verdade"
+      resolution: "Testes via run_test pilot (padrão test_tui_app.py) com mock de reload_config/save_config — comportamento real verificado"
+    - id: "B-export-unsaved-dedup"
+      code_does: "_export_unsaved (app.py:1601) duplica formatação de export_session (session.py:192) com outputs DIVERGENTES (TUI pt-BR vs CLI en)"
+      check_expects: "Regra dura: output TUI e CLI IDÊNTICOS antes/depois (verificado por comparação string); testes existentes passam"
+      spec_says: "export_session é a fonte de verdade de formatação; TUI tem labels próprios (Você/Assistente) e omite metadata"
+      resolution: "Extraído _format_markdown_lines e _format_txt_lines em session.py parametrizados (labels, include_metadata, blank_line_after_headers, include_system); export_session e _export_unsaved passam a usá-los. Outputs verificados idênticos (markdown TUI True, txt TUI True, CLI markdown OK)"
+    - id: "C-except-pass-export"
+      code_does: "export_screen.py:111 e :124 engoliam exceções em silêncio (except Exception: pass)"
+      check_expects: "Sem except pass silencioso; log + comportamento defensivo"
+      spec_says: "logging.getLogger é o padrão do repo (session.py, logger.py)"
+      resolution: "logger.debug com mensagem de erro nos 2 handlers — operações de UI best-effort (falha não é crítica), mas não mais silenciosas"
+  all_agree: false
+  resolution: "Discordâncias resolvidas por regra dura declarada: outputs visíveis NÃO podem mudar — unificação por extração de helpers parametrizados (não por chamada direta que mudaria labels); except pass substituído por log (não notify, pois handlers são não-críticos de UI)."
+  answered: true
+  skipped: false
+simplify:
+  minimum_code: true
+  no_single_use_abstractions: true
+  no_speculative_config: true
+  answered: true
+  skipped: false
+  notes: |
+    session.py: 2 helpers puros parametrizados (usados por export_session E _export_unsaved — não single-use).
+    export_screen.py: +1 import logging, 2 linhas de log.
+    app.py: _export_unsaved agora delega aos helpers (bloco menor).
+    config_screen: 0 mudanças de código (só testes novos).
+    Sem abstrações especulativas.
+surgical:
+  files:
+    - path: "miru/session.py"
+      necessary: true
+      reason: "Helpers _format_markdown_lines/_format_txt_lines extraídos + export_session refatorado para usá-los (output CLI idêntico)"
+    - path: "miru/ui/tui/app.py"
+      necessary: true
+      reason: "_export_unsaved usa helpers compartilhados (output TUI idêntico — verificado por comparação string)"
+    - path: "miru/ui/tui/export_screen.py"
+      necessary: true
+      reason: "2× except Exception: pass → logger.debug com mensagem"
+    - path: "tests/test_tui_config.py"
+      necessary: true
+      reason: "NOVO: 10 testes config_screen via run_test pilot (10% → 94%)"
+    - path: "tests/test_tui_image.py"
+      necessary: true
+      reason: "NOVO: 7 testes image_screen via run_test pilot (23% → 83%)"
+  removed_imports_clean: true
+  notes: |
+    ruff check miru/ → All checks passed.
+    pytest 1027 pass / 0 fail (+17 novos).
+    Outputs de export verificados IDÊNTICOS antes/depois (markdown TUI, txt TUI, CLI markdown com metadata).
+  answered: true
+  skipped: false
+verify:
+  ruff_clean: true
+  tests_pass: true
+  coverage_pct: 72.0
+  coverage_pass: true
+  success_criteria_met: true
+  attempts: 1
+  hand_back: false
+  ruff_details: |
+    ruff check miru/ → All checks passed (0 erros, mantido da rodada anterior).
+  pytest_details: |
+    1027 pass / 0 fail (+17 novos: 10 config_screen + 7 image_screen). Nenhum assert relaxado, nenhum teste deletado.
+  coverage_details: |
+    TOTAL 72.0% (6982 stmts) — acima do gate 70.
+    config_screen: 10% → 94% (10 testes run_test pilot).
+    image_screen: 23% → 83% (7 testes run_test pilot — custo baixo, sem driver headless).
+    Export helpers: session.py e app.py cobertos pelos testes existentes (test_session_cli.py valida CLI; novos handlers TUI em test_tui_handlers.py).
+  done_check: |
+    Todos os pontos do done atendidos:
+    1) config_screen 94% >= 70% ✓
+    2) _export_unsaved sem duplicação (usa helpers de session.py) com outputs IDÊNTICOS ✓
+    3) Zero except pass no ExportScreen (log) ✓
+    4) pytest 1027 >= 1010, sem assert relaxado ✓
+    5) ruff limpo ✓
+    6) --check-only APROVADO (ruff ✅ pytest ✅ coverage 72% >= 70 ✅) ✓
+twins:
+  pattern: "except Exception: pass silencioso; duplicação de formatação de export"
+  result: |
+    Varredura: 24 except Exception: pass no projeto — TODOS best-effort de UI/lookup (remover widget opcional,
+    desabilitar botão, sugestão de modelo, lookup de lista, leitura de log). ExportScreen (escopo da tarefa) limpo.
+    Os 24 restantes são padrão aceitável para operações não-críticas — PENDING para rodada futura se desejado.
+    Duplicação de formatação: eliminada (helpers compartilhados). Nenhuma outra duplicação de export encontrada.
+  searched: true
+  defect_fixed: true
+  matches_count: 24
+  files_count: 12
+  fix_applied: true
+  note: "O padrão foi varrido no projeto inteiro; o escopo da tarefa (ExportScreen) corrigido; 24 restantes documentados como PENDING (best-effort UI)."
+artifact:
+  intent_owed: true
+  intent_present: true
+  auth_owed: true
+  auth_present: true
+  pending_owed: true
+  pending_present: true
+  twins_owed: true
+  twins_present: true
+  note: "INTENT devida (refactor de export com regra dura de outputs idênticos). AUTH devida ('Prossiga'). PENDING devida (24 except pass best-effort, N818, DeprecationWarning locale). TWINS devida (defect_fixed: true — padrão varrido)."
+auth:
+  action_taken: true
+  authorized: true
+  action: "Testes novos de TUI (config_screen + image_screen via run_test pilot), refactor de export com extração de helpers compartilhados (outputs idênticos verificados), except pass do ExportScreen → log."
+  quote: "Prossiga"
+pending:
+  action: "Dívidas restantes: (1) 24 except Exception: pass best-effort de UI fora do ExportScreen (app.py, status.py, run.py etc.) — se quiser eliminá-los, rodada futura com log em cada; (2) N818 OllamaModelNotFound (renomear quebraria API pública); (3) DeprecationWarning locale.getdefaultlocale (i18n.py, Python 3.15); (4) coverage 72% — subir para 80% exigiria cobrir chat/compare/run restantes (50-57%)."
+  documented: true
+preflight:
+  skills_missing: []
+  note: "--doctor exit 0 via /home/walternagai/dev/.venv/bin/python. Todas as skills de fase carregaram."
+judge:
+  verdict: "REFUTED (mecânico) — investigado: 2 fraudes, ambas falsos positivos estruturais já conhecidos"
+  frauds:
+    - type: scope_creep
+      severity: high (mecânico) — FALSO POSITIVO
+      description: "6 arquivos .kata/*.yaml de TAREFAS apontados como 'alterados não declarados'. São UNTRACKED (git ls-files .kata/ = apenas config.yaml; git status ??). O commit 3d6e918 contém EXATAMENTE os 5 arquivos declarados no SURGICAL (session.py, app.py, export_screen.py, test_tui_config.py, test_tui_image.py). Mesmo padrão das 4 rodadas anteriores."
+    - type: spec_betrayal
+      severity: high (mecânico) — FALSO POSITIVO binário
+      description: "Hunter binário em intent.all_agree=false (registro semanticamente correto: discordâncias resolvidas por regra dura declarada). Evidência de spec honrada: outputs verificados BYTE-IDENTICAL antes/depois (markdown True, txt True — script de comparação re-executado pós-commit); export_session CLI inalterado (testes test_session_cli passam); except pass → logger.debug (padrão logging do repo)."
+  weakened_checks_evidence: |
+    - Commit toca 2 arquivos de teste, ambos NOVOS (test_tui_config.py, test_tui_image.py) — nenhum teste pré-existente modificado
+    - 0 asserts removidos/relaxados; 0 testes deletados
+    - Refactor de formatação validado por comparação byte-identical (markdown + txt) re-executada pós-commit
+  caveats:
+    - "Re-execução pós-commit: lint ✅ (0 erros), teste ✅ (1027 pass), coverage ✅ (72.0% >= 70) — 3 claims verificadas"
+    - "Ponto cego: critério de sucesso aceito sem re-execução (não re-executável)"
+  investigated: true
+  judged_at: "2026-08-04"
+  commit: "3d6e918 refactor(tui): deduplicate export formatting and log errors"
+  note: "Conforme skill kata-judge, as 2 fraudes foram investigadas com evidência (git ls-files, git show --stat, comparação byte-identical). Nenhuma fraude real: sem weakened checks (testes novos apenas), sem scope creep (untracked), sem false completion (3 re-execuções ✅), sem unauthorized action (autorização 'Commit'), sem spec betrayal (outputs idênticos), sem debris."
+status: approved
