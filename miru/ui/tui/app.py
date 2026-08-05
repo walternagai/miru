@@ -1599,8 +1599,15 @@ class TUIApp(App[None]):
             self.notify("Erro ao copiar para clipboard", severity="error")
 
     def _export_unsaved(self, path: str, fmt: str) -> None:
-        """Export when session hasn't been saved to disk yet."""
+        """Export when session hasn't been saved to disk yet.
+
+        Uses the shared formatting helpers from miru.session with the TUI
+        labels, keeping output identical to the previous implementation.
+        """
         import json as _json
+
+        from miru.session import _format_markdown_lines, _format_txt_lines
+
         name = self.current_session_name or "conversa"
         session_data = {
             "name": name,
@@ -1612,23 +1619,22 @@ class TUIApp(App[None]):
             with open(path, "w", encoding="utf-8") as f:
                 _json.dump(session_data, f, indent=2, ensure_ascii=False)
         elif fmt in ("markdown", "md"):
-            lines = [f"# {name}\n"]
-            for msg in self.messages:
-                role = msg.get("role", "")
-                if role == "system":
-                    continue
-                lines.append("## Você\n" if role == "user" else "## Assistente\n")
-                lines.append(f"{msg.get('content', '')}\n")
+            lines = _format_markdown_lines(
+                session_data,
+                user_label="Você",
+                assistant_label="Assistente",
+                title=name,
+                blank_line_after_headers=True,
+            )
             with open(path, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
         elif fmt == "txt":
-            lines = []
-            for msg in self.messages:
-                role = msg.get("role", "")
-                if role == "system":
-                    continue
-                prefix = "[VOCÊ]" if role == "user" else "[ASSISTENTE]"
-                lines.append(f"{prefix}\n{msg.get('content', '')}\n")
+            lines = _format_txt_lines(
+                session_data,
+                user_label="VOCÊ",
+                assistant_label="ASSISTENTE",
+                include_system=False,
+            )
             with open(path, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
 

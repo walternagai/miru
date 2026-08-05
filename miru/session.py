@@ -189,6 +189,103 @@ def delete_session(name: str) -> bool:
     return True
 
 
+def _format_markdown_lines(
+    session: dict[str, Any],
+    user_label: str = "User",
+    assistant_label: str = "Assistant",
+    title: str | None = None,
+    include_metadata: bool = False,
+    blank_line_after_headers: bool = False,
+) -> list[str]:
+    """Build markdown export lines (shared by CLI and TUI exports).
+
+    Args:
+        session: Session data with name/model/messages
+        user_label: Header for user messages (CLI: "User", TUI: "Você")
+        assistant_label: Header for assistant messages (CLI: "Assistant", TUI: "Assistente")
+        title: Document title (CLI: "Chat Session: <name>", TUI: "<name>")
+        include_metadata: Include Model/Created/Turns block (CLI only — TUI
+            output is deliberately leaner)
+        blank_line_after_headers: Append a newline to the title/header lines
+            (TUI legacy output style)
+    """
+    if blank_line_after_headers:
+        lines = [f"# {title or session['name']}\n"]
+    else:
+        lines = [f"# {title or session['name']}"]
+
+    if include_metadata:
+        lines.extend(
+            [
+                "",
+                f"**Model:** {session['model']}",
+                f"**Created:** {session.get('created', 'unknown')}",
+                f"**Turns:** {len(session.get('messages', [])) // 2}",
+                "",
+            ]
+        )
+
+    if session.get("system_prompt"):
+        lines.append("## System Prompt")
+        lines.append(f"```\n{session['system_prompt']}\n```\n")
+
+    for msg in session.get("messages", []):
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+
+        if role == "system":
+            continue
+        elif role == "user":
+            header = f"## {user_label}"
+        elif role == "assistant":
+            header = f"## {assistant_label}"
+        else:
+            header = f"## {role.title()}"
+
+        if blank_line_after_headers:
+            header += "\n"
+
+        lines.append(header)
+        lines.append(f"{content}\n")
+
+    return lines
+
+
+def _format_txt_lines(
+    session: dict[str, Any],
+    user_label: str = "USER",
+    assistant_label: str = "ASSISTANT",
+    include_system: bool = True,
+) -> list[str]:
+    """Build txt export lines (shared by CLI and TUI exports).
+
+    Args:
+        session: Session data with name/model/messages
+        user_label: Label for user messages (CLI: "USER", TUI: "VOCÊ")
+        assistant_label: Label for assistant messages (CLI: "ASSISTANT", TUI: "ASSISTENTE")
+        include_system: Include [SYSTEM] blocks (CLI does; the TUI legacy
+            output skipped them)
+    """
+    lines = []
+
+    for msg in session.get("messages", []):
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+
+        if role == "system":
+            if include_system:
+                lines.append(f"[SYSTEM]\n{content}\n")
+            continue
+        elif role == "user":
+            lines.append(f"[{user_label}]\n{content}\n")
+        elif role == "assistant":
+            lines.append(f"[{assistant_label}]\n{content}\n")
+        else:
+            lines.append(f"[{role.upper()}]\n{content}\n")
+
+    return lines
+
+
 def export_session(name: str, output: str | None = None, format: str = "json") -> None:
     """Export session to different formats."""
     session = load_session(name)
@@ -207,33 +304,13 @@ def export_session(name: str, output: str | None = None, format: str = "json") -
         return
 
     if format == "markdown" or format == "md":
-        lines = [
-            f"# Chat Session: {session['name']}",
-            "",
-            f"**Model:** {session['model']}",
-            f"**Created:** {session.get('created', 'unknown')}",
-            f"**Turns:** {len(session.get('messages', [])) // 2}",
-            "",
-        ]
-
-        if session.get("system_prompt"):
-            lines.append("## System Prompt")
-            lines.append(f"```\n{session['system_prompt']}\n```\n")
-
-        for msg in session.get("messages", []):
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")
-
-            if role == "system":
-                continue
-            elif role == "user":
-                lines.append("## User")
-            elif role == "assistant":
-                lines.append("## Assistant")
-            else:
-                lines.append(f"## {role.title()}")
-
-            lines.append(f"{content}\n")
+        lines = _format_markdown_lines(
+            session,
+            user_label="User",
+            assistant_label="Assistant",
+            title=f"Chat Session: {session['name']}",
+            include_metadata=True,
+        )
 
         with open(output, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
@@ -242,20 +319,7 @@ def export_session(name: str, output: str | None = None, format: str = "json") -
         return
 
     if format == "txt":
-        lines = []
-
-        for msg in session.get("messages", []):
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")
-
-            if role == "system":
-                lines.append(f"[SYSTEM]\n{content}\n")
-            elif role == "user":
-                lines.append(f"[USER]\n{content}\n")
-            elif role == "assistant":
-                lines.append(f"[ASSISTANT]\n{content}\n")
-            else:
-                lines.append(f"[{role.upper()}]\n{content}\n")
+        lines = _format_txt_lines(session, user_label="USER", assistant_label="ASSISTANT")
 
         with open(output, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))

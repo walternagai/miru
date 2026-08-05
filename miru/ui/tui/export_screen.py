@@ -1,5 +1,6 @@
 """Export conversation screen."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,8 @@ from textual.containers import Center, Vertical
 from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, RadioButton, RadioSet
+
+logger = logging.getLogger(__name__)
 
 
 class ExportScreen(ModalScreen[tuple[str, str] | None]):
@@ -108,8 +111,8 @@ class ExportScreen(ModalScreen[tuple[str, str] | None]):
                 path_input.value = f"{stem}{ext}"
             else:
                 path_input.value = ""
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to update export path on radio change: %s", exc)
 
     def _get_format(self) -> str:
         try:
@@ -121,8 +124,8 @@ class ExportScreen(ModalScreen[tuple[str, str] | None]):
                     "fmt_json": "json",
                     "fmt_clip": "clipboard",
                 }.get(str(pressed.id or ""), "markdown")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to read export format: %s", exc)
         return "markdown"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
