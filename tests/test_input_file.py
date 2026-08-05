@@ -1,4 +1,4 @@
-"""Tests for miru/input/file.py."""
+"""Tests for miru/input/file.py — text extraction, token estimation, context limits."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -8,6 +8,7 @@ import pytest
 from miru.input.file import (
     FileExtractionError,
     UnsupportedFileTypeError,
+    check_context_limit,
     estimate_tokens,
     extract_text,
     format_for_prompt,
@@ -69,8 +70,6 @@ class TestExtractText:
         mock_pdfplumber.open.return_value = mock_pdf
 
         with patch.dict("sys.modules", {"pdfplumber": mock_pdfplumber}):
-            from miru.input.file import extract_text
-            
             filename, content = extract_text(pdf_file)
 
             assert filename == "test.pdf"
@@ -91,8 +90,6 @@ class TestExtractText:
         mock_pdfplumber.open.return_value = mock_pdf
 
         with patch.dict("sys.modules", {"pdfplumber": mock_pdfplumber}):
-            from miru.input.file import extract_text
-            
             with pytest.raises(FileExtractionError) as exc_info:
                 extract_text(pdf_file)
 
@@ -110,8 +107,6 @@ class TestExtractText:
         mock_document_class.return_value = mock_doc
 
         with patch.dict("sys.modules", {"docx": MagicMock(Document=mock_document_class)}):
-            from miru.input.file import extract_text
-            
             filename, content = extract_text(docx_file)
 
             assert filename == "test.docx"
@@ -125,10 +120,35 @@ class TestExtractText:
 
         with patch.dict("sys.modules", {"pdfplumber": None}):
             with pytest.raises(FileExtractionError) as exc_info:
-                from miru.input.file import extract_text
                 extract_text(pdf_file)
 
             assert "pdfplumber" in str(exc_info.value).lower()
+
+    def test_extract_docx_without_library(self, tmp_path: Path) -> None:
+        """Should raise FileExtractionError if python-docx not installed."""
+        docx_file = tmp_path / "test.docx"
+        docx_file.write_bytes(b"fake docx content")
+
+        with patch.dict("sys.modules", {"docx": None}):
+            with pytest.raises(FileExtractionError) as exc_info:
+                extract_text(docx_file)
+
+            assert "python-docx" in str(exc_info.value).lower()
+
+    def test_extract_directory_rejected(self, tmp_path: Path) -> None:
+        """Should raise FileNotFoundError for directories."""
+        with pytest.raises(FileNotFoundError):
+            extract_text(tmp_path)
+
+    def test_uppercase_extension(self, tmp_path: Path) -> None:
+        """Should handle uppercase extensions."""
+        text_file = tmp_path / "DOC.TXT"
+        text_file.write_text("upper", encoding="utf-8")
+
+        filename, content = extract_text(text_file)
+
+        assert filename == "DOC.TXT"
+        assert content == "upper"
 
 
 class TestEstimateTokens:
@@ -152,6 +172,33 @@ class TestEstimateTokens:
         tokens = estimate_tokens(text)
 
         assert tokens == len(text) // 4
+
+
+class TestCheckContextLimit:
+    """Tests for check_context_limit function."""
+
+    def test_within_limit(self, capsys) -> None:
+        """Should return True without warnings when within limit."""
+        assert check_context_limit("x" * 100, max_ctx=1000, filename="f.txt") is True
+        assert capsys.readouterr().err == ""
+
+    def test_over_limit_confirmed(self, monkeypatch) -> None:
+        """Should return True when user confirms continuation."""
+        monkeypatch.setattr("builtins.input", lambda: "s")
+        assert check_context_limit("x" * 4000, max_ctx=1000, filename="f.txt") is True
+
+    def test_over_limit_declined(self, monkeypatch) -> None:
+        """Should return False when user declines."""
+        monkeypatch.setattr("builtins.input", lambda: "n")
+        assert check_context_limit("x" * 4000, max_ctx=1000, filename="f.txt") is False
+
+    def test_over_limit_eof(self, monkeypatch) -> None:
+        """Should return False when input hits EOF."""
+        def raise_eof():
+            raise EOFError
+
+        monkeypatch.setattr("builtins.input", raise_eof)
+        assert check_context_limit("x" * 4000, max_ctx=1000, filename="f.txt") is False
 
 
 class TestFormatForPrompt:
