@@ -905,11 +905,13 @@ async def test_export_complete_error_notifies(app, monkeypatch) -> None:
     app.messages = [{"role": "user", "content": "x"}]
     app.current_session_name = "conv"
     async with app.run_test() as pilot:
-        with patch.object(app_mod, "export_session", side_effect=OSError("boom")):
-            app._on_export_complete(("markdown", "/tmp/x.md"))
-            await pilot.pause()
-        # não levanta — notify de erro
-        assert True
+        with patch.object(app, "notify") as mock_notify:
+            with patch.object(app_mod, "export_session", side_effect=OSError("boom")):
+                app._on_export_complete(("markdown", "/tmp/x.md"))
+                await pilot.pause()
+        mock_notify.assert_called_once()
+        assert "Erro ao exportar" in mock_notify.call_args[0][0]
+        assert mock_notify.call_args[1]["severity"] == "error"
 
 
 @pytest.mark.asyncio
@@ -917,10 +919,13 @@ async def test_export_clipboard_error_notifies(app, monkeypatch) -> None:
     """_export_to_clipboard com falha no clipboard → notify de erro."""
     app.messages = [{"role": "user", "content": "pergunta"}, {"role": "assistant", "content": "resposta"}]
     async with app.run_test() as pilot:
-        with patch.object(app, "copy_to_clipboard", side_effect=RuntimeError("boom")):
-            app._export_to_clipboard()
-            await pilot.pause()
-        assert True
+        with patch.object(app, "notify") as mock_notify:
+            with patch.object(app, "copy_to_clipboard", side_effect=RuntimeError("boom")):
+                app._export_to_clipboard()
+                await pilot.pause()
+        mock_notify.assert_called_once()
+        assert "Erro ao copiar" in mock_notify.call_args[0][0]
+        assert mock_notify.call_args[1]["severity"] == "error"
 
 
 @pytest.mark.asyncio
@@ -1009,9 +1014,11 @@ async def test_delete_session_no_session_notifies(app) -> None:
     """action_delete_session sem sessão → notify."""
     app.current_session_name = None
     async with app.run_test() as pilot:
-        app.action_delete_session()
-        await pilot.pause()
-        assert True
+        with patch.object(app, "notify") as mock_notify:
+            app.action_delete_session()
+            await pilot.pause()
+        mock_notify.assert_called_once()
+        assert "Nenhuma sessão selecionada" in mock_notify.call_args[0][0]
 
 
 @pytest.mark.asyncio
@@ -1035,6 +1042,8 @@ async def test_rename_session_no_session_notifies(app) -> None:
     """action_rename_session sem sessão → notify."""
     app.current_session_name = None
     async with app.run_test() as pilot:
-        app.action_rename_session()
-        await pilot.pause()
-        assert True
+        with patch.object(app, "notify") as mock_notify:
+            app.action_rename_session()
+            await pilot.pause()
+        mock_notify.assert_called_once()
+        assert "Nenhuma sessão selecionada" in mock_notify.call_args[0][0]
