@@ -1,6 +1,7 @@
 """Status command for Ollama health check."""
 
 import asyncio
+import logging
 from typing import Annotated
 
 import typer
@@ -9,6 +10,8 @@ from rich.table import Table
 
 from miru.config_manager import resolve_host
 from miru.core.i18n import t
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
@@ -22,8 +25,8 @@ async def get_ollama_version(host: str) -> dict | None:
             response = await client.get(f"{host}/api/version")
             if response.status_code == 200:
                 return response.json()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to get Ollama version: %s", exc)
     return None
 
 
@@ -37,8 +40,8 @@ async def get_running_models(host: str) -> list[dict]:
             if response.status_code == 200:
                 data = response.json()
                 return data.get("models", [])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to get running models: %s", exc)
     return []
 
 
@@ -223,8 +226,8 @@ async def _search_async(host: str, query: str) -> list[dict]:
                     name = m.get("name", "")
                     if query_lower in name.lower():
                         models.append(m)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to list models: %s", exc)
 
     return models
 

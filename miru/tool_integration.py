@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio as _asyncio
+import logging
 import sys as _sys
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,8 @@ from miru.tools.utils import (
     extract_tool_calls,
     has_tool_calls,
 )
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
@@ -167,9 +170,9 @@ common Python decorator patterns"""
                     variations.append(line)
                     if len(variations) >= max_variations + 1:  # +1 for original
                         break
-    except Exception:
+    except Exception as exc:
         # If variation generation fails, just use original
-        pass
+        logger.debug("Failed to generate variations: %s", exc)
 
     return variations[: max_variations + 1]
 

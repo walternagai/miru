@@ -5,11 +5,14 @@ Uses environment variable MIRU_LANG or system locale to determine language.
 """
 
 import locale
+import logging
 import os
 from typing import Any
 
 SUPPORTED_LANGUAGES = ["pt_BR", "en_US", "es_ES"]
 DEFAULT_LANGUAGE = "en_US"
+
+logger = logging.getLogger(__name__)
 
 MESSAGES: dict[str, dict[str, str]] = {
     "en_US": {
@@ -1303,8 +1306,8 @@ def detect_language() -> str:
                 return "pt_BR"
             if sys_lang.startswith("es"):
                 return "es_ES"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to detect system locale: %s", exc)
 
     return DEFAULT_LANGUAGE
 

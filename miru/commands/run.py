@@ -4,6 +4,7 @@ Refactored with i18n support and core/ui modules.
 """
 
 import asyncio
+import logging
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -51,6 +52,8 @@ from miru.output import (
     stream_as_markdown_live,
 )
 from miru.ui.render import render_error
+
+logger = logging.getLogger(__name__)
 
 
 async def _run_async(
@@ -104,8 +107,8 @@ async def _run_async(
                             m_caps = await get_capabilities(client, m.get("name", ""))
                             if m_caps.supports_vision:
                                 vision_models.append(m.get("name", ""))
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.debug("Failed to check vision capability of %s: %s", m.get("name", ""), exc)
 
                     models_list = "\n".join(f"    • {m}" for m in vision_models[:5])
                     if len(vision_models) > 5:
@@ -234,8 +237,8 @@ async def _run_async(
             async with OllamaClient(host) as client:
                 models = await client.list_models()
                 all_models = [str(m.get("name", "")) for m in models[:5]]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to list models for suggestion: %s", exc)
 
         error = ModelNotFoundError(model, all_models)
         render_error(error.message, error.suggestion)
@@ -381,8 +384,8 @@ def run(
         try:
             import asyncio as _asyncio
             _asyncio.run(_ensure_model_available(model, resolved_host, quiet))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Auto-pull failed for model %s: %s", model, exc)
 
     try:
         asyncio.run(

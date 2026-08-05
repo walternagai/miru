@@ -1,11 +1,14 @@
 """History management for prompts and sessions."""
 
 import json
+import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
 from miru.config_manager import HISTORY_FILE, ensure_config_dir
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -107,8 +110,8 @@ def _append_history(entry: HistoryEntry, max_entries: int) -> None:
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
             for e in entries:
                 f.write(json.dumps(e, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to write history to %s: %s", HISTORY_FILE, exc)
 
 
 def get_history(limit: int = 50, command: str | None = None) -> list[HistoryEntry]:

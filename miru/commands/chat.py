@@ -4,6 +4,7 @@ Refactored version using core module for i18n and errors.
 """
 
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
@@ -40,6 +41,8 @@ from miru.ollama.client import OllamaClient
 from miru.output import stream_as_markdown_live
 from miru.session import save_session
 from miru.ui.render import render_error, render_success
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
@@ -155,8 +158,8 @@ async def _chat_async(
                             save_session(session_name, current_model, messages)
                             if not quiet:
                                 print(f"\nSessão salva em ~/.miru/sessions/{session_name}.json")
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.warning("Failed to autosave session %s: %s", session_name, exc)
                     if not quiet:
                         print()
                         print("─" * 50)

@@ -54,6 +54,9 @@ class Logger:
                 with open(self.log_file, "a", encoding="utf-8") as f:
                     f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
             except Exception:
+                # Best-effort: writing the log file must never break
+                # the command. There is no logging channel left — the
+                # log file itself failed — so stay silent.
                 pass
 
     def debug(self, message: str, data: dict[str, Any] | None = None) -> None:

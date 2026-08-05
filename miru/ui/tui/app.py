@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import re
 import unicodedata
 from collections import deque
@@ -48,6 +49,8 @@ from miru.ui.tui.help_screen import HelpScreen
 from miru.ui.tui.image_screen import ImageScreen
 from miru.ui.tui.preset_screen import PRESETS, PresetScreen
 from miru.ui.tui.rename_screen import RenameScreen
+
+logger = logging.getLogger(__name__)
 
 
 def _session_id(session_name: str) -> str:
@@ -462,8 +465,8 @@ class TUIApp(App[None]):
                 f"  {model_name}   ·   {session_name}{stats}"
                 f"   [dim]ordenação: {sort_label}[/dim]"
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to update session header: %s", exc)
 
     # ── Model loading ─────────────────────────────────────────────────────────
 
@@ -477,8 +480,8 @@ class TUIApp(App[None]):
                 try:
                     self.query_one("#select_model", Select).value = coder_models[0][0]
                     self.notify(f"Modelo sugerido: {coder_models[0][0]}")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to suggest coder model: %s", exc)
 
     async def _load_available_models(self) -> None:
         try:
@@ -498,8 +501,8 @@ class TUIApp(App[None]):
             current_prompt = system_prompt_widget.text.strip()
             if current_prompt:
                 await self._suggest_model_from_prompt(current_prompt)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to sync model options to UI: %s", exc)
 
     # ── Mount ─────────────────────────────────────────────────────────────────
 
@@ -757,8 +760,8 @@ class TUIApp(App[None]):
 
         try:
             self.query_one("#send_button", Button).disabled = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to disable send button: %s", exc)
 
         try:
             current_model, current_temp, current_top_p, current_max_tokens, current_seed, system_prompt = (
@@ -916,8 +919,8 @@ class TUIApp(App[None]):
             self._current_worker = None
             try:
                 self.query_one("#send_button", Button).disabled = False
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to re-enable send button: %s", exc)
             stream_status.remove()
 
     # ── Generation control ────────────────────────────────────────────────────
@@ -932,8 +935,8 @@ class TUIApp(App[None]):
         self._is_generating = False
         try:
             self.query_one("#send_button", Button).disabled = False
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to re-enable send button after cancel: %s", exc)
         self.notify("Geração cancelada")
 
     # ── Session actions ───────────────────────────────────────────────────────
@@ -1169,8 +1172,8 @@ class TUIApp(App[None]):
             model_select = self.query_one("#select_model", Select)
             if self.config.default_model:
                 model_select.value = self.config.default_model
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to sync default model to UI: %s", exc)
         try:
             if self.config.default_temperature is not None:
                 self.query_one("#input_temp", Input).value = str(self.config.default_temperature)
@@ -1180,8 +1183,8 @@ class TUIApp(App[None]):
                 self.query_one("#input_max_tokens", Input).value = str(self.config.default_max_tokens)
             if self.config.default_seed is not None:
                 self.query_one("#input_seed", Input).value = str(self.config.default_seed)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to sync default params to UI: %s", exc)
         self.notify("Configurações sincronizadas")
 
     # ── Regenerate ────────────────────────────────────────────────────────────
@@ -1301,8 +1304,8 @@ class TUIApp(App[None]):
             else:
                 indicator.update("")
                 indicator.remove_class("has_images")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to update pending images indicator: %s", exc)
 
     def _clear_pending_images(self) -> None:
         self.pending_images = []
@@ -1330,8 +1333,8 @@ class TUIApp(App[None]):
 
             try:
                 self.query_one("#onboarding").remove()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to remove onboarding widget: %s", exc)
 
             ts = datetime.now().strftime("%H:%M")
             user_msg_dict: dict[str, Any] = {"role": "user", "content": user_text, "_ts": ts}
@@ -1431,8 +1434,8 @@ class TUIApp(App[None]):
             for child in chat_window.children:
                 child.remove_class("search-match")
                 child.remove_class("search-current")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to clear search highlights: %s", exc)
         self._search_matches = []
         self._search_idx = -1
         self._update_search_count()
@@ -1494,8 +1497,8 @@ class TUIApp(App[None]):
                 label.update(f"{self._search_idx + 1}/{len(self._search_matches)}")
             else:
                 label.update("0/0")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to update search count label: %s", exc)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "search_close_btn":

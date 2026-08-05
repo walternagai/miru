@@ -4,6 +4,7 @@ Refactored with i18n support.
 """
 
 import asyncio
+import logging
 from typing import Any
 
 import typer
@@ -16,6 +17,8 @@ from miru.core.errors import ModelNotFoundError
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.renderer import render_error, render_model_info, render_model_info_json
+
+logger = logging.getLogger(__name__)
 
 
 def info(
@@ -58,8 +61,8 @@ def info(
                     return await client.list_models()
             models = asyncio.run(get_models())
             available = [m.get("name", "") for m in models[:5]]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to suggest available models: %s", exc)
 
         error = ModelNotFoundError(model, available)
         render_error(error.message, error.suggestion)
