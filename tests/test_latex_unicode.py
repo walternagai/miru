@@ -209,3 +209,24 @@ class TestLatexToUnicode:
         assert "⊨" in result
         assert "∧" in result
         assert "⇔" in result
+
+class TestLatexMore:
+    def test_sqrt_nth_root(self) -> None:
+        assert latex_to_unicode(r"$\sqrt[3]{8}$") == "(8)^(1/3)"
+
+    def test_frac_nested(self) -> None:
+        assert latex_to_unicode(r"$\frac{a}{b}$") == "(a)/(b)"
+
+    def test_superscript_letters(self) -> None:
+        assert "x" in latex_to_unicode(r"$x^{abc}$")
+
+    def test_subscript_letters(self) -> None:
+        assert "x" in latex_to_unicode(r"$x_{abc}$")
+
+    def test_remove_latex_brackets(self) -> None:
+        out = latex_to_unicode(r"\[ display \]")
+        assert "display" in out
+
+    def test_spacing_commands_removed(self) -> None:
+        out = latex_to_unicode(r"a\,b\;c\:d")
+        assert "a b c d" in out or "a b c d" in out.replace("\u2009", " ")

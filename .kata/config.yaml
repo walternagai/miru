@@ -4,13 +4,13 @@
 # no repo inteiro (dívida pré-existente) nem gate absoluto 70% (coverage
 # real 42%, baseline de ambiente documentado).
 #
-# Baseline conhecido (revisão do commit 854d1de, ago/2026):
+# Baseline conhecido (ago/2026):
 #   - lint escopo miru/ui/tui/: 0 erros (após fix W292)
-#   - pytest: 992 passam / 0 falham (dependências e ambiente resolvidos)
-#   - coverage: 70.0% — gate 70 = meta atingida (era 42% em ago/2026)
+#   - pytest: 1106 passam / 0 falham
+#   - coverage: 80.0% — gate 80 = meta atingida (era 42% em ago/2026)
 verify:
   lint: ruff check miru/ui/tui/
   test: pytest tests/ -q --tb=short
   coverage: pytest tests/ --cov=miru --cov-report=term-missing -q
-  gate: 70
+  gate: 80
   coverage_pattern: "TOTAL\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+(\\d+)%"

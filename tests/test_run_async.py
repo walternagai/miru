@@ -8,11 +8,11 @@ import pytest
 from miru.commands.run import _run_async
 
 
-def _make_client(stream=False):
+def _make_client(stream=False, models=None):
     client = MagicMock()
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
-    client.list_models = AsyncMock(return_value=[{"name": "gemma3"}])
+    client.list_models = AsyncMock(return_value=models if models is not None else [{"name": "gemma3"}])
 
     async def gen():
         yield {"response": "resposta", "done": True, "eval_count": 3, "eval_duration": 1_000_000_000}
@@ -99,3 +99,65 @@ class TestRunAsync:
             with pytest.raises(SystemExit) as exc:
                 asyncio.run(_run_async(**_run(files=["nope.txt"])))
         assert exc.value.code == 1
+
+
+class TestRunAsyncMore:
+    def test_collect_chat_stream(self) -> None:
+        from miru.commands.run import _collect_chat_stream
+
+        async def gen():
+            yield {"message": {"content": "parte1"}}
+            yield {"message": {"content": "parte2"}, "done": True, "model": "gemma3"}
+
+        text, final, model = asyncio.run(_collect_chat_stream(gen()))
+        assert text == "parte1parte2"
+        assert final is not None
+        assert model == "gemma3"
+
+    def test_ensure_model_already_available(self) -> None:
+        from miru.commands.run import _ensure_model_available
+
+        client = _make_client()
+        with patch("miru.ollama.client.OllamaClient", return_value=client):
+            asyncio.run(_ensure_model_available("gemma3", "http://x", quiet=True))
+
+    def test_ensure_model_pulls_when_missing(self) -> None:
+        from miru.commands.run import _ensure_model_available
+
+        client = _make_client(models=[])
+        # list_models vazio → tenta pull
+        async def pull_gen():
+            yield {"status": "success"}
+
+        client.pull = MagicMock(return_value=pull_gen())
+        with patch("miru.ollama.client.OllamaClient", return_value=client), \
+             patch("miru.output.renderer.render_pull_progress", new_callable=AsyncMock) as mock_progress:
+            asyncio.run(_ensure_model_available("novo", "http://x", quiet=True))
+            assert client.pull.called
+
+    def test_ensure_model_pull_failure(self) -> None:
+        from miru.commands.run import _ensure_model_available
+        from miru.ollama.client import OllamaConnectionError
+
+        client = _make_client(models=[])
+        async def pull_gen():
+            raise OllamaConnectionError("down")
+            yield  # pragma: no cover
+
+        client.pull = MagicMock(return_value=pull_gen())
+        with patch("miru.ollama.client.OllamaClient", return_value=client), \
+             patch("miru.output.renderer.render_pull_progress", new_callable=AsyncMock):
+            # não deve levantar
+            asyncio.run(_ensure_model_available("novo", "http://x", quiet=True))
+
+    def test_vision_flow_with_capabilities(self) -> None:
+        """Modelo com visão → encode_images chamado, fluxo continua."""
+        client = _make_client()
+        caps = MagicMock()
+        caps.supports_vision = True
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.get_capabilities", new_callable=AsyncMock, return_value=caps), \
+             patch("miru.commands.run.encode_images", return_value=["b64"]) as mock_encode, \
+             patch("miru.commands.run.record_history"):
+            asyncio.run(_run_async(**_run(images=["foto.png"])))
+            mock_encode.assert_called_once_with(["foto.png"])

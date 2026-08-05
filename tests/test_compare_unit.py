@@ -85,3 +85,82 @@ def _async_iter(items):
             yield i
 
     return gen()
+
+
+class TestRenderComparisonTable:
+    def test_pt_br_headers(self) -> None:
+        from miru.core.i18n import set_language
+        from miru.commands.compare import _render_comparison_table
+        from miru.commands.compare import console as cmp_console
+
+        set_language("pt_BR")
+        with patch.object(cmp_console, "print") as mock_print:
+            _render_comparison_table(
+                [ModelResult("a", "p", "r", 5, 1_000_000_000, 2_000_000_000, 5.0, None)],
+                quiet=False,
+            )
+        assert mock_print.called
+        set_language("en_US")
+
+    def test_es_headers(self) -> None:
+        from miru.core.i18n import set_language
+        from miru.commands.compare import _render_comparison_table
+        from miru.commands.compare import console as cmp_console
+
+        set_language("es_ES")
+        with patch.object(cmp_console, "print") as mock_print:
+            _render_comparison_table(
+                [ModelResult("a", "p", "r", 5, 1_000_000_000, 2_000_000_000, 5.0, None)],
+                quiet=False,
+            )
+        assert mock_print.called
+        set_language("en_US")
+
+    def test_en_headers_with_error_row(self) -> None:
+        from miru.core.i18n import set_language
+        from miru.commands.compare import _render_comparison_table
+        from miru.commands.compare import console as cmp_console
+
+        set_language("en_US")
+        with patch.object(cmp_console, "print") as mock_print:
+            _render_comparison_table(
+                [
+                    ModelResult("a", "p", "r", 5, 1_000_000_000, 2_000_000_000, 5.0, None),
+                    ModelResult("b", "p", "", 0, 0, 0, 0.0, "erro"),
+                ],
+                quiet=False,
+            )
+        assert mock_print.called
+
+    def test_quiet_returns(self) -> None:
+        from miru.commands.compare import _render_comparison_table
+        from miru.commands.compare import console as cmp_console
+
+        with patch.object(cmp_console, "print") as mock_print:
+            _render_comparison_table([], quiet=True)
+        mock_print.assert_not_called()
+
+    def test_json_render(self) -> None:
+        from miru.commands.compare import _render_json_output
+
+        results = [
+            ModelResult("a", "p", "r", 5, 1_000_000_000, 2_000_000_000, 5.0, None),
+            ModelResult("b", "p", "", 0, 0, 0, 0.0, "erro"),
+        ]
+        _render_json_output(results)  # não deve levantar; imprime json
+
+    def test_seed_warning_renders(self) -> None:
+        from miru.commands.compare import _render_seed_warning
+        from miru.commands.compare import console as cmp_console
+
+        with patch.object(cmp_console, "print") as mock_print:
+            _render_seed_warning(quiet=False, seed=None)
+        assert mock_print.called
+
+    def test_seed_warning_quiet_skips(self) -> None:
+        from miru.commands.compare import _render_seed_warning
+        from miru.commands.compare import console as cmp_console
+
+        with patch.object(cmp_console, "print") as mock_print:
+            _render_seed_warning(quiet=True, seed=None)
+        mock_print.assert_not_called()

@@ -111,3 +111,84 @@ def _async_iter(items):
             yield i
 
     return gen()
+
+
+class TestBatchAsync:
+    @pytest.mark.asyncio
+    async def test_batch_async_success(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from miru.commands.batch import _batch_async
+
+        client = MagicMock()
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+
+        ok = MagicMock()
+        ok.success = True
+        ok.eval_count = 3
+        ok.total_duration_ns = 1_000_000_000
+        ok.tokens_per_second = 3.0
+        ok.response = "r"
+        ok.error = None
+        ok.prompt = "p"
+
+        with patch("miru.commands.batch.OllamaClient", return_value=client), \
+             patch("miru.commands.batch._process_single_prompt", new_callable=AsyncMock,
+                   return_value=ok), \
+             patch("miru.commands.batch._render_results_table"):
+            await _batch_async(
+                "gemma3", ["p1", "p2"], "http://x", None, None, None, None,
+                None, None, None, None, True, "text", False, None, None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_batch_async_json_output(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from miru.commands.batch import _batch_async
+
+        client = MagicMock()
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+
+        ok = MagicMock()
+        ok.success = True
+        ok.eval_count = 3
+        ok.total_duration_ns = 1_000_000_000
+        ok.tokens_per_second = 3.0
+        ok.response = "r"
+        ok.error = None
+        ok.prompt = "p"
+
+        with patch("miru.commands.batch.OllamaClient", return_value=client), \
+             patch("miru.commands.batch._process_single_prompt", new_callable=AsyncMock,
+                   return_value=ok), \
+             patch("miru.commands.batch._render_results_json") as mock_json:
+            await _batch_async(
+                "gemma3", ["p1"], "http://x", None, None, None, None,
+                None, None, None, None, True, "json", False, None, None,
+            )
+        mock_json.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_batch_async_all_failed_exits(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from miru.commands.batch import _batch_async
+
+        client = MagicMock()
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+
+        err = MagicMock()
+        err.success = False
+        err.error = "boom"
+
+        with patch("miru.commands.batch.OllamaClient", return_value=client), \
+             patch("miru.commands.batch._process_single_prompt", new_callable=AsyncMock,
+                   return_value=err), \
+             patch("miru.commands.batch._render_results_table"):
+            with pytest.raises(SystemExit) as exc:
+                await _batch_async(
+                    "gemma3", ["p1"], "http://x", None, None, None, None,
+                    None, None, None, None, True, "text", False, None, None,
+                )
+            assert exc.value.code == 1

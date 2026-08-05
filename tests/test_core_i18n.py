@@ -170,3 +170,38 @@ class TestMessageCategories:
         for lang in SUPPORTED_LANGUAGES:
             set_language(lang)
             assert t("suggestion.pull_model", model="x")
+
+class TestDetectLanguage:
+    def test_env_miru_lang(self, monkeypatch) -> None:
+        from miru.core.i18n import detect_language
+
+        monkeypatch.setenv("MIRU_LANG", "es_ES")
+        assert detect_language() == "es_ES"
+
+    def test_env_lang_pt(self, monkeypatch) -> None:
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.setenv("LANG", "pt_BR.UTF-8")
+        assert detect_language() == "pt_BR"
+
+    def test_env_lang_es(self, monkeypatch) -> None:
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.setenv("LANG", "es_ES.UTF-8")
+        assert detect_language() == "es_ES"
+
+    def test_env_lang_unsupported_falls_back(self, monkeypatch) -> None:
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+        assert detect_language() == "en_US"
+
+    def test_init_i18n_sets_language(self, monkeypatch) -> None:
+        from miru.core.i18n import init_i18n, get_language
+
+        monkeypatch.setenv("MIRU_LANG", "pt_BR")
+        init_i18n()
+        assert get_language() == "pt_BR"

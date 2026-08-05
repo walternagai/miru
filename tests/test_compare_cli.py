@@ -72,3 +72,39 @@ class TestCompareCliValidation:
                 app, ["compare", "a", "b", "--prompt", "x", "--format", "json"]
             )
             assert result.exit_code == 0
+
+
+class TestCompareCliMore:
+    def test_system_from_file(self, tmp_path) -> None:
+        f = tmp_path / "sys.txt"
+        f.write_text("seja conciso", encoding="utf-8")
+        with patch("miru.commands.compare._compare_async", new_callable=AsyncMock) as mock_cmp:
+            result = runner.invoke(
+                app, ["compare", "a", "b", "--prompt", "x", "--system-file", str(f), "--quiet"]
+            )
+            assert result.exit_code == 0
+            assert mock_cmp.called
+
+    def test_prompt_file_read(self, tmp_path) -> None:
+        f = tmp_path / "p.txt"
+        f.write_text("prompt do arquivo", encoding="utf-8")
+        with patch("miru.commands.compare._compare_async", new_callable=AsyncMock) as mock_cmp:
+            result = runner.invoke(
+                app, ["compare", "a", "b", "--prompt-file", str(f), "--quiet"]
+            )
+            assert result.exit_code == 0
+            assert mock_cmp.called
+
+    def test_prompt_file_missing_exits(self) -> None:
+        result = runner.invoke(app, ["compare", "a", "b", "--prompt-file", "nope.txt"])
+        assert result.exit_code == 1
+
+    def test_json_output_format(self, tmp_path) -> None:
+        f = tmp_path / "sys.txt"
+        f.write_text("s", encoding="utf-8")
+        with patch("miru.commands.compare._compare_async", new_callable=AsyncMock) as mock_cmp:
+            mock_cmp.return_value = []
+            result = runner.invoke(
+                app, ["compare", "a", "b", "--prompt-file", str(f), "--format", "json", "--quiet"]
+            )
+            assert result.exit_code == 0
