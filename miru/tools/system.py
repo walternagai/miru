@@ -334,4 +334,4 @@ __all__ = [
 
 
 # Import at end to avoid circular dependency
-from miru.tools.base import get_tool_from_function
+from miru.tools.base import get_tool_from_function  # noqa: E402

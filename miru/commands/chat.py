@@ -6,21 +6,15 @@ Refactored version using core module for i18n and errors.
 import asyncio
 import sys
 from pathlib import Path
-from typing import Annotated
 
-import typer
 from rich.console import Console
 
 from miru.alias import resolve_alias
-from miru.session import save_session
 from miru.cli_options import (
-    AudioFile,
     Context,
     EnableTavily,
     EnableTools,
     Host,
-    ImageFiles,
-    InputFiles,
     MaxTokens,
     ModelOptional,
     Quiet,
@@ -37,13 +31,14 @@ from miru.cli_options import (
     get_model_with_fallback,
 )
 from miru.core.config import resolve_host
-from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
-from miru.core.i18n import t, set_language
-from miru.history import record_history, get_history
+from miru.core.errors import ConnectionError as MiruConnectionError
+from miru.core.errors import ModelNotFoundError
+from miru.core.i18n import set_language, t
+from miru.history import get_history, record_history
 from miru.inference_params import build_options
 from miru.ollama.client import OllamaClient
 from miru.output import stream_as_markdown_live
-from miru.ui.prompts import prompt_choice
+from miru.session import save_session
 from miru.ui.render import render_error, render_success
 
 console = Console()
@@ -102,7 +97,7 @@ async def _chat_async(
         async with OllamaClient(host, timeout=timeout) as client:
             all_models = await client.list_models()
             model_names = [m.get("name", "") for m in all_models]
-            
+
             if model not in model_names:
                 error = ModelNotFoundError(model, model_names[:5])
                 render_error(error.message, error.suggestion)
@@ -434,7 +429,7 @@ def chat(
     tool_mode: ToolMode = "auto_safe",
 ) -> None:
     """Start interactive chat session.
-    
+
     Chat commands:
         /exit, /quit   - End session
         /clear         - Clear history
@@ -446,13 +441,13 @@ def chat(
         /retry         - Retry last prompt
         /save <file>   - Save conversation
         /help          - Show commands
-        
+
     Tools (Function Calling):
         --enable-tools    Enable all tools (file, system, tavily)
         --tavily          Enable Tavily web search specifically
         --sandbox-dir     Directory for file operations (default: ./.miru_sandbox)
         --tool-mode       Execution mode: manual/auto/auto_safe (default: auto_safe)
-        
+
     Examples:
         miru chat gemma3:latest
         miru chat --system "You are a helpful assistant"
@@ -463,20 +458,26 @@ def chat(
     from miru.core.config import get_config
 
     config = get_config()
-    
+
     # Set language from config
     if config.language:
         set_language(config.language)
-    
+
     # Get model (with fallback to config)
     model = get_model_with_fallback(model)
 
     # Resolve tool settings from config if not specified via CLI
     from miru.core.config import (
-        resolve_enable_tools as _resolve_tools,
         resolve_enable_tavily as _resolve_tavily,
-        resolve_tool_mode as _resolve_mode,
+    )
+    from miru.core.config import (
+        resolve_enable_tools as _resolve_tools,
+    )
+    from miru.core.config import (
         resolve_sandbox_dir as _resolve_sandbox,
+    )
+    from miru.core.config import (
+        resolve_tool_mode as _resolve_mode,
     )
 
     final_enable_tools = enable_tools if enable_tools else _resolve_tools()

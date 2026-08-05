@@ -36,7 +36,10 @@ Example:
     result = registry.execute("read_file", {"path": "/etc/hosts"})
 """
 
-from miru.tools.base import Tool, create_tool, get_tool_from_function
+# Order is intentional: files/system must be imported before execution
+# (execution imports back from this package; alphabetical order creates a
+# circular import).
+from miru.tools.base import Tool, create_tool, get_tool_from_function  # noqa: I001
 from miru.tools.exceptions import (
     ToolExecutionError,
     ToolNotFoundError,

@@ -9,10 +9,10 @@ from typing import Any
 import typer
 
 from miru.alias import resolve_alias
-from miru.cli_options import Host, Format, Quiet, Model
+from miru.cli_options import Format, Host, Model, Quiet
 from miru.core.config import resolve_host
-from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
-from miru.core.i18n import t
+from miru.core.errors import ConnectionError as MiruConnectionError
+from miru.core.errors import ModelNotFoundError
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.renderer import render_error, render_model_info, render_model_info_json
@@ -60,7 +60,7 @@ def info(
             available = [m.get("name", "") for m in models[:5]]
         except Exception:
             pass
-        
+
         error = ModelNotFoundError(model, available)
         render_error(error.message, error.suggestion)
         raise typer.Exit(code=1)

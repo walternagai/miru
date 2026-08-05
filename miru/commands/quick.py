@@ -6,13 +6,14 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.table import Table
 
 from miru.alias import resolve_alias
 from miru.config import get_host
 from miru.config_manager import load_config
+from miru.core.i18n import t
 from miru.inference_params import build_options
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
-from miru.core.i18n import t
 
 console = Console()
 
@@ -133,7 +134,15 @@ async def _run_quick_command_async(
                 console.print(f"[dim]{t('suggestion.pull_model', model=model)}[/]")
                 sys.exit(1)
 
-            options = build_options()
+            options = build_options(
+                temperature=None,
+                top_p=None,
+                top_k=None,
+                max_tokens=None,
+                seed=None,
+                repeat_penalty=None,
+                ctx=None,
+            )
             messages = []
             if system:
                 messages.append({"role": "system", "content": system})
@@ -178,7 +187,7 @@ def _extract_params(template: str) -> list[str]:
 
 def quick_list() -> None:
     """List available quick commands."""
-    table = console.Table(title=t("quick.title"), show_header=True, header_style="bold cyan")
+    table = Table(title=t("quick.title"), show_header=True, header_style="bold cyan")
     table.add_column(t("quick.command_header"), style="green")
     table.add_column(t("quick.description_header"))
     table.add_column(t("quick.params_header"))

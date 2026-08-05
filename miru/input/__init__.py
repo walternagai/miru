@@ -2,7 +2,6 @@
 
 from miru.input.audio import (
     AudioFileNotFoundError,
-    TranscriptionError,
     UnsupportedAudioFormatError,
     WhisperNotInstalledError,
     is_whisper_available,

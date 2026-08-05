@@ -10,6 +10,7 @@ from typing import Any
 from rich.console import Console
 
 from miru.config_manager import get_config_value
+from miru.core.i18n import t
 from miru.ollama.client import OllamaClient
 from miru.output.renderer import render_markdown
 from miru.tools import ToolExecutionManager, ToolExecutionMode
@@ -196,7 +197,6 @@ async def enhance_tavily_search(
     variations = await generate_query_variations(client, model, query, max_variations=2)
 
     all_results = []
-    seen_urls = set()
 
     for search_query in variations:
         result, error = tool_manager.execute_tool(
@@ -373,4 +373,4 @@ def validate_tools_config(enable_tavily: bool, enable_tools: bool) -> None:
                 "Ou use: export MIRU_TAVILY_API_KEY=tvly-sua-key\n"
                 "Obtenha sua key em: https://tavily.com",
             )
-            sys.exit(1)
+            _sys.exit(1)

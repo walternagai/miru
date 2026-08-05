@@ -5,12 +5,12 @@
 # real 42%, baseline de ambiente documentado).
 #
 # Baseline conhecido (revisão do commit 854d1de, ago/2026):
-#   - lint escopo miru/ui/tui/: 1 erro W292 pré-existente (image_screen.py:137)
-#   - pytest: 561 passam / 38 falham (falhas de ambiente: CliRunner/PIL)
-#   - coverage: 42.0% — gate 42 = "não regredir abaixo do baseline"
+#   - lint escopo miru/ui/tui/: 0 erros (após fix W292)
+#   - pytest: 992 passam / 0 falham (dependências e ambiente resolvidos)
+#   - coverage: 70.0% — gate 70 = meta atingida (era 42% em ago/2026)
 verify:
   lint: ruff check miru/ui/tui/
   test: pytest tests/ -q --tb=short
   coverage: pytest tests/ --cov=miru --cov-report=term-missing -q
-  gate: 42
+  gate: 70
   coverage_pattern: "TOTAL\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+(\\d+)%"

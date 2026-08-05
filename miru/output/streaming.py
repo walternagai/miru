@@ -5,7 +5,6 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from miru.latex_unicode import latex_to_unicode
-from miru.output.renderer import format_metrics
 
 
 async def render_stream(
@@ -62,8 +61,12 @@ async def render_stream(
 
     if output_format == "json" and final_chunk:
         response_text = "".join(collected_response)
-        output_data = _build_json_output(final_chunk, response_text, model, prompt)
-        print(json.dumps(output_data, indent=2))
+        render_json_output(
+            model=model or "",
+            prompt=prompt or "",
+            response=response_text,
+            metrics=final_chunk,
+        )
 
     return final_chunk
 

@@ -11,7 +11,7 @@ from miru.alias import resolve_alias
 from miru.cli_options import Host, Quiet
 from miru.core.config import resolve_host
 from miru.core.errors import ConnectionError as MiruConnectionError
-from miru.core.i18n import t, get_language
+from miru.core.i18n import get_language, t
 from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.renderer import create_progress_bar, render_error, render_success
 

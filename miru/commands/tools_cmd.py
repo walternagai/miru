@@ -6,10 +6,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from miru.core.i18n import t
 from miru.tools import ToolRegistry, create_file_tools, create_system_tools
 from miru.tools.files import FileSandbox
 from miru.tools.system import CommandWhitelist, EnvironmentWhitelist
-from miru.core.i18n import t
 
 console = Console()
 app = typer.Typer(help="Manage tools for function calling")
@@ -113,7 +113,7 @@ def tools_show(
         raise typer.Exit(1)
 
     console.print(f"\n[bold cyan]{tool.name}[/]\n")
-    console.print(f"[bold]Description:[/]")
+    console.print("[bold]Description:[/]")
     console.print(f"  {tool.description}\n")
 
     properties = tool.parameters.get("properties", {})

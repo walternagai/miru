@@ -8,9 +8,9 @@ from typing import Annotated
 import typer
 
 from miru.config import get_host
+from miru.core.i18n import t
 from miru.input import extract_text
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
-from miru.core.i18n import t
 
 
 async def _embed_async(

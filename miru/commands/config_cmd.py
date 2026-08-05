@@ -270,13 +270,11 @@ def config_reset(
         console.print(f"[dim]{t('config.use_force')}[/]")
         return
 
-    config = load_config()
     from miru.config_manager import Config
 
     fresh_config = Config()
     save_config(fresh_config)
     console.print(f"[green bold]✓[/] {t('config.reset_success')}")
-
 
 def config() -> None:
     """Config command group entry point."""

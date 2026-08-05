@@ -11,7 +11,7 @@ class OllamaConnectionError(Exception):
     """Ollama server is not accessible."""
 
 
-class OllamaModelNotFound(Exception):
+class OllamaModelNotFound(Exception):  # noqa: N818 — public API name, renaming is a breaking change (PENDING)
     """Requested model not found."""
 
 

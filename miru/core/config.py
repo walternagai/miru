@@ -7,7 +7,8 @@ Consolidates all configuration logic into a single module with:
 - Precedence chain
 """
 
-from dataclasses import MISSING, dataclass, field, fields as dc_fields
+from dataclasses import MISSING, dataclass, field
+from dataclasses import fields as dc_fields
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +33,7 @@ LOG_DIR = CONFIG_DIR / "logs"
 @dataclass
 class Config:
     """Configuration settings for miru CLI.
-    
+
     Attributes:
         default_host: Ollama server URL
         default_model: Default model for commands
@@ -132,7 +133,7 @@ def ensure_config_dir() -> None:
 
 def load_config() -> Config:
     """Load configuration from TOML file.
-    
+
     Returns:
         Config object with loaded or default values
     """
@@ -162,7 +163,7 @@ def _get_default_values() -> dict[str, Any]:
 
 def save_config(config: Config) -> None:
     """Save configuration to TOML file.
-    
+
     Args:
         config: Config object to save
     """
@@ -188,15 +189,15 @@ def save_config(config: Config) -> None:
 
 def get_config_value(key: str) -> Any:
     """Get a single config value with precedence chain.
-    
+
     Precedence:
     1. Environment variable (MIRU_*)
     2. Config file
     3. Default
-    
+
     Args:
         key: Configuration key name
-        
+
     Returns:
         Configuration value
     """
@@ -264,17 +265,17 @@ def _get_config_type(key: str) -> type:
 
 def resolve_host(cli_override: str | None = None) -> str:
     """Resolve host with full precedence chain.
-    
+
     Precedence:
     1. CLI override
     2. Environment variable OLLAMA_HOST
     3. Environment variable MIRU_DEFAULT_HOST
     4. Config file
     5. Default
-    
+
     Args:
         cli_override: CLI argument for host
-        
+
     Returns:
         Resolved host URL
     """
@@ -296,10 +297,10 @@ def resolve_host(cli_override: str | None = None) -> str:
 
 def resolve_model(cli_override: str | None = None) -> str | None:
     """Resolve default model with precedence.
-    
+
     Args:
         cli_override: CLI argument for model
-        
+
     Returns:
         Resolved model name or None
     """
@@ -311,10 +312,10 @@ def resolve_model(cli_override: str | None = None) -> str | None:
 
 def resolve_enable_tools(cli_override: bool | None = None) -> bool:
     """Resolve enable_tools with precedence.
-    
+
     Args:
         cli_override: CLI argument
-        
+
     Returns:
         Boolean value
     """
@@ -326,10 +327,10 @@ def resolve_enable_tools(cli_override: bool | None = None) -> bool:
 
 def resolve_enable_tavily(cli_override: bool | None = None) -> bool:
     """Resolve enable_tavily with precedence.
-    
+
     Args:
         cli_override: CLI argument
-        
+
     Returns:
         Boolean value
     """
@@ -341,10 +342,10 @@ def resolve_enable_tavily(cli_override: bool | None = None) -> bool:
 
 def resolve_tool_mode(cli_override: str | None = None) -> str:
     """Resolve tool_mode with precedence.
-    
+
     Args:
         cli_override: CLI argument
-        
+
     Returns:
         Tool mode string
     """
@@ -360,10 +361,10 @@ def resolve_tool_mode(cli_override: str | None = None) -> str:
 
 def resolve_sandbox_dir(cli_override: str | None = None) -> str | None:
     """Resolve sandbox_dir with precedence.
-    
+
     Args:
         cli_override: CLI argument
-        
+
     Returns:
         Sandbox directory path or None
     """
@@ -378,10 +379,10 @@ _config_instance: Config | None = None
 
 def get_config() -> Config:
     """Get cached config instance.
-    
+
     Loads config once and caches it for subsequent calls.
     Call reload_config() to force reload.
-    
+
     Returns:
         Config object
     """
@@ -393,7 +394,7 @@ def get_config() -> Config:
 
 def reload_config() -> Config:
     """Force reload configuration from disk.
-    
+
     Returns:
         Freshly loaded Config object
     """

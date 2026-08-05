@@ -204,13 +204,13 @@ OutputFile = Annotated[
 
 def get_model_with_fallback(model: str | None) -> str:
     """Get model with fallback to config.
-    
+
     Args:
         model: Model name from CLI or None
-        
+
     Returns:
         Model name
-        
+
     Raises:
         SystemExit: If no model specified and no default configured
     """
@@ -218,13 +218,14 @@ def get_model_with_fallback(model: str | None) -> str:
         return model
 
     from miru.core.config import resolve_model
-    
+
     default_model = resolve_model()
     if default_model:
         return default_model
 
-    from miru.ui.render import render_error
     import sys
+
+    from miru.ui.render import render_error
 
     render_error(
         t("prompt.model_required"),

@@ -355,8 +355,8 @@ def tui_cmd(
         miru tui gemma3:latest
         miru tui --host http://localhost:11434
     """
-    import os
     import asyncio
+
     from miru.core.config import resolve_host, resolve_model
     from miru.ui.tui.app import TUIApp
 

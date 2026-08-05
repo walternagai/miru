@@ -8,9 +8,9 @@ import typer
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
-from miru.config_manager import CONFIG_FILE, ensure_config_dir, load_config, save_config
-from miru.ollama.client import OllamaClient, OllamaConnectionError
+from miru.config_manager import CONFIG_FILE, load_config, save_config
 from miru.core.i18n import t
+from miru.ollama.client import OllamaClient
 
 console = Console()
 
@@ -184,7 +184,7 @@ async def setup_async(host: str, non_interactive: bool) -> None:
             )
             alias_model = Prompt.ask(t('setup.model_to_alias'), default=default_model)
 
-            from miru.alias import _save_aliases, _load_aliases
+            from miru.alias import _load_aliases, _save_aliases
 
             aliases = _load_aliases()
             aliases[alias_name] = alias_model

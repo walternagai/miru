@@ -246,7 +246,7 @@ def search(
 
     resolved_host = resolve_host(host)
     models = asyncio.run(_search_async(resolved_host, query))
-    
+
     # Sort models alphabetically by name
     models = sorted(models, key=lambda m: m.get("name", ""))
 

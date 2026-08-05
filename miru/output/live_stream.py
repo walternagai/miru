@@ -20,7 +20,7 @@ console = Console()
 def _detect_code_blocks(text: str) -> tuple[str, list[tuple[str, str]]]:
     """
     Detect complete and incomplete code blocks in text.
-    
+
     Returns:
         Tuple of (text_without_complete_blocks, list of (lang, code) tuples)
     """
@@ -39,12 +39,12 @@ def _detect_code_blocks(text: str) -> tuple[str, list[tuple[str, str]]]:
 def _render_with_syntax_highlight(text: str) -> Markdown:
     """
     Render text with syntax highlighting for complete code blocks.
-    
+
     Incomplete code blocks remain as plain text until completed.
-    
+
     Args:
         text: Full text buffer
-        
+
     Returns:
         Rich Markdown object with highlighted code blocks
     """
@@ -55,7 +55,7 @@ def _render_with_syntax_highlight(text: str) -> Markdown:
 def _has_incomplete_code_block(text: str) -> bool:
     """
     Check if there's an incomplete code block.
-    
+
     Returns:
         True if there's an odd number of ``` markers
     """
@@ -65,7 +65,7 @@ def _has_incomplete_code_block(text: str) -> bool:
 def _get_incomplete_code_block(text: str) -> str | None:
     """
     Get the language and content of an incomplete code block.
-    
+
     Returns:
         Tuple of (language, code) or None if no incomplete block
     """
@@ -92,18 +92,18 @@ async def stream_as_markdown_live(
 ) -> tuple[str, dict | None]:
     """
     Stream chunks in real-time with Rich Live Display.
-    
+
     Features:
     - Line buffer: renders on encountering \\n
     - Progressive Markdown rendering
     - Syntax highlighting for complete code blocks
     - Metrics display at end
-    
+
     Args:
         chunks: Async iterator of response chunks
         quiet: If True, suppress all output (only return text)
         show_metrics: If True, show metrics after rendering
-        
+
     Returns:
         Tuple of (full_response_text, final_chunk)
     """

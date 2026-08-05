@@ -18,14 +18,14 @@ def confirm(
     default: bool = False,
 ) -> bool:
     """Prompt user for confirmation.
-    
+
     Args:
         message: Prompt message
         default: Default value if user presses Enter
-        
+
     Returns:
         True if confirmed, False otherwise
-        
+
     Example:
         >>> if confirm("Delete file?", default=False):
         ...     delete_file()
@@ -43,15 +43,15 @@ def prompt_input(
     password: bool = False,
 ) -> str:
     """Prompt user for text input.
-    
+
     Args:
         message: Prompt message
         default: Default value
         password: Whether to hide input
-        
+
     Returns:
         User input string
-        
+
     Example:
         >>> name = prompt_input("Enter name:", default="anonymous")
     """
@@ -68,15 +68,15 @@ def prompt_choice(
     default: str | None = None,
 ) -> str:
     """Prompt user to choose from a list.
-    
+
     Args:
         message: Prompt message
         choices: List of valid choices
         default: Default choice
-        
+
     Returns:
         Selected choice
-        
+
     Example:
         >>> language = prompt_choice(
         ...     "Select language:",
@@ -97,15 +97,15 @@ def prompt_multiselect(
     defaults: list[str] | None = None,
 ) -> list[str]:
     """Prompt user to select multiple options.
-    
+
     Args:
         message: Prompt message
         options: Available options
         defaults: Default selections
-        
+
     Returns:
         List of selected options
-        
+
     Example:
         >>> selected = prompt_multiselect(
         ...     "Select features:",
@@ -114,19 +114,19 @@ def prompt_multiselect(
         ... )
     """
     console.print(f"[bold]{message}[/]")
-    
+
     for i, option in enumerate(options, 1):
         default_marker = " (default)" if defaults and option in defaults else ""
         console.print(f"  {i}. {option}{default_marker}")
-    
+
     console.print()
     console.print("[dim]Enter numbers separated by spaces, or press Enter for defaults[/]")
-    
+
     answer = Prompt.ask("Selection", default="").strip()
-    
+
     if not answer:
         return defaults or []
-    
+
     try:
         indices = [int(x) for x in answer.split()]
         return [options[i - 1] for i in indices if 1 <= i <= len(options)]

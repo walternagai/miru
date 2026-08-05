@@ -6,7 +6,6 @@ Uses environment variable MIRU_LANG or system locale to determine language.
 
 import locale
 import os
-from dataclasses import dataclass
 from typing import Any
 
 SUPPORTED_LANGUAGES = ["pt_BR", "en_US", "es_ES"]
@@ -70,21 +69,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "renderer.download_complete": "Complete.",
         "renderer.tokens_metric": "tokens",
         "renderer.speed_metric": "tok/s",
-        
+
         # Suggestions
         "suggestion.pull_model": "To download: miru pull {model}",
         "suggestion.pull_vision_model": "Download a vision model: miru pull llava:latest",
         "suggestion.available_vision_models": "Available vision models:\n{models}",
         "suggestion.check_ollama": "Make sure Ollama is running: ollama serve",
         "suggestion.use_vision_model": "Use: miru run {model} \"<prompt>\" --image <file>",
-        
+
         # Success messages
         "success.model_pulled": "Model '{model}' pulled successfully.",
         "success.model_deleted": "Model '{model}' deleted successfully.",
         "success.model_copied": "Model copied to '{new_name}'.",
         "success.config_saved": "Configuration saved.",
         "success.session_saved": "Session saved to '{filename}'.",
-        
+
         # Chat commands
         "chat.commands.help": "Chat Commands:",
         "chat.commands.exit": "Exit session",
@@ -109,7 +108,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.no_previous_prompt": "No previous prompt to retry.",
         "chat.model_switched": "Model switched to: {model}",
         "chat.system_updated": "System prompt updated.",
-        
+
         # Tools
         "tools.processing": "Processing...",
         "tools.iteration_limit": "Tool iteration limit reached.",
@@ -117,25 +116,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tools.tavily_setup": "Configure with: miru config set tavily_api_key tvly-your-key\n"
                             "Or use: export MIRU_TAVILY_API_KEY=tvly-your-key\n"
                             "Get your key at: https://tavily.com",
-        
+
         # Model operations
         "models.empty": "No models found.",
         "models.pull_progress": "Pulling {model}...",
         "models.available": "Available models",
         "models.loaded_vram": "Models loaded in VRAM",
-        
+
         # List table headers
         "list.size": "Size",
         "list.modified": "Modified",
         "list.expires": "Expires",
-        
+
         # Config
         "config.current": "Current configuration",
-        "config.profile_created": "Profile '{name}' created.",
-        "config.profile_switched": "Switched to profile '{name}'.",
-        "config.profile_deleted": "Profile '{name}' deleted.",
         "config.reset": "Configuration reset to defaults.",
-        
+
         # Setup wizard
         "setup.welcome": "Welcome to miru setup!",
         "setup.checking_ollama": "Checking Ollama connection...",
@@ -145,44 +141,44 @@ MESSAGES: dict[str, dict[str, str]] = {
         "setup.configure_history": "Configure prompt history",
         "setup.configure_aliases": "Configure model aliases",
         "setup.complete": "Setup complete!",
-        
+
         # Status
         "status.ollama_running": "Ollama is running at {host}",
         "status.ollama_not_running": "Ollama is not accessible at {host}",
         "status.models_count": "{count} model(s) available",
-        
+
         # Quick commands
         "quick.generating_code": "Generating code...",
         "quick.summarizing": "Summarizing text...",
         "quick.translating": "Translating...",
         "quick.analyzing": "Analyzing...",
-        
+
         # Progress indicators
         "progress.downloading": "Downloading",
         "progress.processing": "Processing",
         "progress.comparing": "Comparing models",
         "progress.batch_processing": "Processing batch",
-        
+
         # Misc
         "prompt.enter": "Enter prompt",
         "prompt.model_required": "Model not specified",
         "prompt.use_specify": "Use: miru {command} <model>",
         "prompt.or_configure": "Or configure default_model: miru config set default_model <model>",
-        
+
         "file.copied_clipboard": "Command copied to clipboard.",
-        
+
         "alias.created": "Alias '{alias}' created for '{model}'.",
         "alias.deleted": "Alias '{alias}' deleted.",
         "alias.not_found": "Alias '{alias}' not found.",
-        
+
         "template.saved": "Template '{name}' saved.",
         "template.deleted": "Template '{name}' deleted.",
         "template.not_found": "Template '{name}' not found.",
-        
+
         "session.exported": "Session exported to '{filename}'.",
         "session.deleted": "Session '{name}' deleted.",
         "session.not_found": "Session '{name}' not found.",
-        
+
         # Status command
         "status.connection_failed": "Ollama is not responding at {host}",
         "status.check_running": "Check if Ollama is running: ollama serve",
@@ -199,7 +195,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "status.stop_error": "Error stopping model: {error}",
         "status.no_models_found": "No models found for '{query}'",
         "status.models_matching": "Models matching '{query}'",
-        
+
         # Config command
         "config.unknown_key": "Unknown config key: {key}",
         "config.valid_keys": "Valid keys: default_host, default_model, default_timeout,",
@@ -248,7 +244,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "config.reset_warning": "This will reset all configuration to defaults.",
         "config.use_force": "Use --force to confirm",
         "config.reset_success": "Configuration reset to defaults",
-        
+
         # Tools command
         "tools.no_tools_found": "No tools found",
         "tools.available_tools": "Available Tools",
@@ -272,7 +268,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tools.reference_header": "Tools Reference",
         "tools.overview_header": "Overview",
         "tools.total_tools_count": "Total tools: {count}",
-        
+
         # Setup wizard
         "setup.title": "miru Setup Wizard",
         "setup.wizard_hint": "This wizard will help you configure miru CLI for first use.",
@@ -322,7 +318,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "setup.try_chat": "Try: miru chat",
         "setup.try_run": "Try: miru run gemma3 'Hello'",
         "setup.see_commands": "See all commands: miru --help",
-        
+
         # Quick command
         "quick.title": "Quick Commands",
         "quick.unknown_command": "Unknown quick command: {command}",
@@ -335,7 +331,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "quick.usage": "Usage: miru quick <command> <model> --param KEY=VALUE",
         "quick.example": "Example: miru quick code gemma3 --param language=python --param task='sort a list'",
         "quick.invalid_param": "Invalid parameter: {param}. Use KEY=VALUE",
-        
+
         # Examples browser
         "examples.no_examples": "No examples found matching the criteria.",
         "examples.key_header": "Key",
@@ -361,7 +357,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "examples.use_copy_help": "Use '<name> --copy' to copy command to clipboard",
         "examples.popular_examples": "Popular examples:",
         "examples.full_list": "Full list: miru examples --list",
-        
+
         # Embed command
         "embed.model_label": "Model: {model}",
         "embed.dimensions_label": "Dimensions: {count}",
@@ -380,7 +376,7 @@ MESSAGES: dict[str, dict[str, str]] = {
                               "  miru embed nomic-embed-text --file document.txt\n"
                               "  miru embed nomic-embed-text --batch texts.txt",
         "embed.use_one_option": "Use only one option: text, --file, or --batch (do not combine).",
-        
+
         # Batch command
         "batch.title": "Batch Results",
         "batch.col_status": "Status",
@@ -422,7 +418,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "history.speed": "Speed: {speed:.1f} tok/s",
         "history.time": "Time: {time:.1f}s",
         "history.error_label": "Error:",
-        
+
         # Logs command
         "logs.none_found": "No logs found",
         "logs.files_title": "Log Files",
@@ -493,21 +489,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "renderer.download_complete": "Concluído.",
         "renderer.tokens_metric": "tokens",
         "renderer.speed_metric": "tok/s",
-        
+
         # Suggestions
         "suggestion.pull_model": "Para baixar: miru pull {model}",
         "suggestion.pull_vision_model": "Baixe um modelo com visão: miru pull llava:latest",
         "suggestion.available_vision_models": "Modelos com visão disponíveis:\n{models}",
         "suggestion.check_ollama": "Certifique-se de que o Ollama está rodando: ollama serve",
         "suggestion.use_vision_model": "Use: miru run {model} \"<prompt>\" --image <arquivo>",
-        
+
         # Success messages
         "success.model_pulled": "Modelo '{model}' baixado com sucesso.",
         "success.model_deleted": "Modelo '{model}' deletado com sucesso.",
         "success.model_copied": "Modelo copiado para '{new_name}'.",
         "success.config_saved": "Configuração salva.",
         "success.session_saved": "Sessão salva em '{filename}'.",
-        
+
         # Chat commands
         "chat.commands.help": "Comandos do Chat:",
         "chat.commands.exit": "Encerrar sessão",
@@ -532,7 +528,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.no_previous_prompt": "Nenhum prompt anterior para repetir.",
         "chat.model_switched": "Modelo alterado para: {model}",
         "chat.system_updated": "System prompt atualizado.",
-        
+
         # Tools
         "tools.processing": "Processando...",
         "tools.iteration_limit": "Limite de iterações de tools atingido.",
@@ -540,25 +536,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tools.tavily_setup": "Configure com: miru config set tavily_api_key tvly-sua-key\n"
                             "Ou use: export MIRU_TAVILY_API_KEY=tvly-sua-key\n"
                             "Obtenha sua key em: https://tavily.com",
-        
+
         # Model operations
         "models.empty": "Nenhum modelo encontrado.",
         "models.pull_progress": "Baixando {model}...",
         "models.available": "Modelos disponíveis",
         "models.loaded_vram": "Modelos carregados na VRAM",
-        
+
         # List table headers
         "list.size": "Tamanho",
         "list.modified": "Modificado",
         "list.expires": "Expira",
-        
+
         # Config
         "config.current": "Configuração atual",
-        "config.profile_created": "Profile '{name}' criado.",
-        "config.profile_switched": "Mudado para profile '{name}'.",
-        "config.profile_deleted": "Profile '{name}' deletado.",
         "config.reset": "Configuração resetada para defaults.",
-        
+
         # Setup wizard
         "setup.welcome": "Bem-vindo ao setup do miru!",
         "setup.checking_ollama": "Verificando conexão com Ollama...",
@@ -568,44 +561,44 @@ MESSAGES: dict[str, dict[str, str]] = {
         "setup.configure_history": "Configurar histórico de prompts",
         "setup.configure_aliases": "Configurar aliases de modelos",
         "setup.complete": "Setup completo!",
-        
+
         # Status
         "status.ollama_running": "Ollama está rodando em {host}",
         "status.ollama_not_running": "Ollama não está acessível em {host}",
         "status.models_count": "{count} modelo(s) disponível(eis)",
-        
+
         # Quick commands
         "quick.generating_code": "Gerando código...",
         "quick.summarizing": "Resumindo texto...",
         "quick.translating": "Traduzindo...",
         "quick.analyzing": "Analisando...",
-        
+
         # Progress indicators
         "progress.downloading": "Baixando",
         "progress.processing": "Processando",
         "progress.comparing": "Comparando modelos",
         "progress.batch_processing": "Processando lote",
-        
+
         # Misc
         "prompt.enter": "Digite o prompt",
         "prompt.model_required": "Modelo não especificado",
         "prompt.use_specify": "Use: miru {command} <model>",
         "prompt.or_configure": "Ou configure default_model: miru config set default_model <model>",
-        
+
         "file.copied_clipboard": "Comando copiado para a área de transferência.",
-        
+
         "alias.created": "Alias '{alias}' criado para '{model}'.",
         "alias.deleted": "Alias '{alias}' deletado.",
         "alias.not_found": "Alias '{alias}' não encontrado.",
-        
+
         "template.saved": "Template '{name}' salvo.",
         "template.deleted": "Template '{name}' deletado.",
         "template.not_found": "Template '{name}' não encontrado.",
-        
+
         "session.exported": "Sessão exportada para '{filename}'.",
         "session.deleted": "Sessão '{name}' deletada.",
         "session.not_found": "Sessão '{name}' não encontrada.",
-        
+
         # Status command
         "status.connection_failed": "Ollama não está respondendo em {host}",
         "status.check_running": "Verifique se o Ollama está rodando: ollama serve",
@@ -622,7 +615,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "status.stop_error": "Erro ao parar modelo: {error}",
         "status.no_models_found": "Nenhum modelo encontrado para '{query}'",
         "status.models_matching": "Modelos correspondentes a '{query}'",
-        
+
         # Config command
         "config.unknown_key": "Chave de configuração desconhecida: {key}",
         "config.valid_keys": "Chaves válidas: default_host, default_model, default_timeout,",
@@ -671,7 +664,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "config.reset_warning": "Isto irá resetar toda a configuração para os valores padrão.",
         "config.use_force": "Use --force para confirmar",
         "config.reset_success": "Configuração resetada para os valores padrão",
-        
+
         # Tools command
         "tools.no_tools_found": "Nenhuma ferramenta encontrada",
         "tools.available_tools": "Ferramentas Disponíveis",
@@ -695,7 +688,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tools.reference_header": "Referência de Ferramentas",
         "tools.overview_header": "Visão Geral",
         "tools.total_tools_count": "Total de ferramentas: {count}",
-        
+
         # Setup wizard
         "setup.title": "Assistente de Configuração do miru",
         "setup.wizard_hint": "Este assistente irá ajudá-lo a configurar o miru CLI para primeiro uso.",
@@ -745,7 +738,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "setup.try_chat": "Experimente: miru chat",
         "setup.try_run": "Experimente: miru run gemma3 'Olá'",
         "setup.see_commands": "Veja todos os comandos: miru --help",
-        
+
         # Quick command
         "quick.title": "Comandos Rápidos",
         "quick.unknown_command": "Comando rápido desconhecido: {command}",
@@ -758,7 +751,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "quick.usage": "Uso: miru quick <comando> <modelo> --param CHAVE=VALOR",
         "quick.example": "Exemplo: miru quick code gemma3 --param language=python --param task='ordenar lista'",
         "quick.invalid_param": "Parâmetro inválido: {param}. Use CHAVE=VALOR",
-        
+
         # Examples browser
         "examples.no_examples": "Nenhum exemplo encontrado com os critérios.",
         "examples.key_header": "Chave",
@@ -784,7 +777,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "examples.use_copy_help": "Use '<nome> --copy' para copiar comando",
         "examples.popular_examples": "Exemplos populares:",
         "examples.full_list": "Lista completa: miru examples --list",
-        
+
         # Embed command
         "embed.model_label": "Modelo: {model}",
         "embed.dimensions_label": "Dimensões: {count}",
@@ -803,7 +796,7 @@ MESSAGES: dict[str, dict[str, str]] = {
                               "  miru embed nomic-embed-text --file documento.txt\n"
                               "  miru embed nomic-embed-text --batch textos.txt",
         "embed.use_one_option": "Use apenas uma opção: texto, --file, ou --batch (não combine).",
-        
+
         # Batch command
         "batch.title": "Resultados do Batch",
         "batch.col_status": "Status",
@@ -845,7 +838,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "history.speed": "Velocidade: {speed:.1f} tok/s",
         "history.time": "Tempo: {time:.1f}s",
         "history.error_label": "Erro:",
-        
+
         # Logs command
         "logs.none_found": "Nenhum log encontrado",
         "logs.files_title": "Arquivos de Log",
@@ -916,21 +909,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "renderer.download_complete": "Completado.",
         "renderer.tokens_metric": "tokens",
         "renderer.speed_metric": "tok/s",
-        
+
         # Suggestions
         "suggestion.pull_model": "Para descargar: miru pull {model}",
         "suggestion.pull_vision_model": "Descargue un modelo con visión: miru pull llava:latest",
         "suggestion.available_vision_models": "Modelos con visión disponibles:\n{models}",
         "suggestion.check_ollama": "Asegúrese de que Ollama esté ejecutándose: ollama serve",
         "suggestion.use_vision_model": "Use: miru run {model} \"<prompt>\" --image <archivo>",
-        
+
         # Success messages
         "success.model_pulled": "Modelo '{model}' descargado exitosamente.",
         "success.model_deleted": "Modelo '{model}' eliminado exitosamente.",
         "success.model_copied": "Modelo copiado a '{new_name}'.",
         "success.config_saved": "Configuración guardada.",
         "success.session_saved": "Sesión guardada en '{filename}'.",
-        
+
         # Chat commands
         "chat.commands.help": "Comandos del Chat:",
         "chat.commands.exit": "Terminar sesión",
@@ -955,7 +948,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "chat.no_previous_prompt": "No hay prompt anterior para repetir.",
         "chat.model_switched": "Modelo cambiado a: {model}",
         "chat.system_updated": "System prompt actualizado.",
-        
+
         # Tools
         "tools.processing": "Procesando...",
         "tools.iteration_limit": "Límite de iteraciones de tools alcanzado.",
@@ -963,25 +956,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tools.tavily_setup": "Configure con: miru config set tavily_api_key tvly-su-key\n"
                             "O use: export MIRU_TAVILY_API_KEY=tvly-su-key\n"
                             "Obtenga su key en: https://tavily.com",
-        
+
         # Model operations
         "models.empty": "Ningún modelo encontrado.",
         "models.pull_progress": "Descargando {model}...",
         "models.available": "Modelos disponibles",
         "models.loaded_vram": "Modelos cargados en VRAM",
-        
+
         # List table headers
         "list.size": "Tamaño",
         "list.modified": "Modificado",
         "list.expires": "Expira",
-        
+
         # Config
         "config.current": "Configuración actual",
-        "config.profile_created": "Profile '{name}' creado.",
-        "config.profile_switched": "Cambiado a profile '{name}'.",
-        "config.profile_deleted": "Profile '{name}' eliminado.",
         "config.reset": "Configuración restablecida a valores predeterminados.",
-        
+
         # Setup wizard
         "setup.welcome": "¡Bienvenido al setup de miru!",
         "setup.checking_ollama": "Verificando conexión con Ollama...",
@@ -991,44 +981,44 @@ MESSAGES: dict[str, dict[str, str]] = {
         "setup.configure_history": "Configurar historial de prompts",
         "setup.configure_aliases": "Configurar alias de modelos",
         "setup.complete": "¡Setup completo!",
-        
+
         # Status
         "status.ollama_running": "Ollama está ejecutándose en {host}",
         "status.ollama_not_running": "Ollama no está accesible en {host}",
         "status.models_count": "{count} modelo(s) disponible(s)",
-        
+
         # Quick commands
         "quick.generating_code": "Generando código...",
         "quick.summarizing": "Resumiendo texto...",
         "quick.translating": "Traduciendo...",
         "quick.analyzing": "Analizando...",
-        
+
         # Progress indicators
         "progress.downloading": "Descargando",
         "progress.processing": "Procesando",
         "progress.comparing": "Comparando modelos",
         "progress.batch_processing": "Procesando lote",
-        
+
         # Misc
         "prompt.enter": "Ingrese el prompt",
         "prompt.model_required": "Modelo no especificado",
         "prompt.use_specify": "Use: miru {command} <model>",
         "prompt.or_configure": "O configure default_model: miru config set default_model <model>",
-        
+
         "file.copied_clipboard": "Comando copiado al portapapeles.",
-        
+
         "alias.created": "Alias '{alias}' creado para '{model}'.",
         "alias.deleted": "Alias '{alias}' eliminado.",
         "alias.not_found": "Alias '{alias}' no encontrado.",
-        
+
         "template.saved": "Template '{name}' guardado.",
         "template.deleted": "Template '{name}' eliminado.",
         "template.not_found": "Template '{name}' no encontrado.",
-        
+
         "session.exported": "Sesión exportada a '{filename}'.",
         "session.deleted": "Sesión '{name}' eliminada.",
         "session.not_found": "Sesión '{name}' no encontrada.",
-        
+
         # Status command
         "status.connection_failed": "Ollama no está respondiendo en {host}",
         "status.check_running": "Verifique que Ollama esté ejecutándose: ollama serve",
@@ -1045,7 +1035,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "status.stop_error": "Error al detener modelo: {error}",
         "status.no_models_found": "Ningún modelo encontrado para '{query}'",
         "status.models_matching": "Modelos que coinciden con '{query}'",
-        
+
         # Config command
         "config.unknown_key": "Clave de configuración desconocida: {key}",
         "config.valid_keys": "Claves válidas: default_host, default_model, default_timeout,",
@@ -1094,7 +1084,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "config.reset_warning": "Esto reseteará toda la configuración a valores por defecto.",
         "config.use_force": "Use --force para confirmar",
         "config.reset_success": "Configuración reseteada a valores por defecto",
-        
+
         # Tools command
         "tools.no_tools_found": "Ninguna herramienta encontrada",
         "tools.available_tools": "Herramientas Disponibles",
@@ -1118,7 +1108,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "tools.reference_header": "Referencia de Herramientas",
         "tools.overview_header": "Vista General",
         "tools.total_tools_count": "Total de herramientas: {count}",
-        
+
         # Setup wizard
         "setup.title": "Asistente de Configuración de miru",
         "setup.wizard_hint": "Este asistente le ayudará a configurar miru CLI para primer uso.",
@@ -1168,7 +1158,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "setup.try_chat": "Pruebe: miru chat",
         "setup.try_run": "Pruebe: miru run gemma3 'Hola'",
         "setup.see_commands": "Vea todos los comandos: miru --help",
-        
+
         # Quick command
         "quick.title": "Comandos Rápidos",
         "quick.unknown_command": "Comando rápido desconocido: {command}",
@@ -1181,7 +1171,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "quick.usage": "Uso: miru quick <comando> <modelo> --param CLAVE=VALOR",
         "quick.example": "Ejemplo: miru quick code gemma3 --param language=python --param task='ordenar lista'",
         "quick.invalid_param": "Parámetro inválido: {param}. Use CLAVE=VALOR",
-        
+
         # Examples browser
         "examples.no_examples": "Ningún ejemplo encontrado con los criterios.",
         "examples.key_header": "Clave",
@@ -1207,7 +1197,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "examples.use_copy_help": "Use '<nombre> --copy' para copiar comando",
         "examples.popular_examples": "Ejemplos populares:",
         "examples.full_list": "Lista completa: miru examples --list",
-        
+
         # Embed command
         "embed.model_label": "Modelo: {model}",
         "embed.dimensions_label": "Dimensiones: {count}",
@@ -1226,7 +1216,7 @@ MESSAGES: dict[str, dict[str, str]] = {
                               "  miru embed nomic-embed-text --file documento.txt\n"
                               "  miru embed nomic-embed-text --batch textos.txt",
         "embed.use_one_option": "Use solo una opción: texto, --file, o --batch (no combine).",
-        
+
         # Batch command
         "batch.title": "Resultados del Batch",
         "batch.col_status": "Estado",
@@ -1268,7 +1258,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "history.speed": "Velocidad: {speed:.1f} tok/s",
         "history.time": "Tiempo: {time:.1f}s",
         "history.error_label": "Error:",
-        
+
         # Logs command
         "logs.none_found": "Ningún log encontrado",
         "logs.files_title": "Archivos de Log",
@@ -1289,7 +1279,7 @@ _current_language: str = DEFAULT_LANGUAGE
 
 def detect_language() -> str:
     """Detect language from environment.
-    
+
     Precedence:
     1. MIRU_LANG environment variable
     2. LANG environment variable
@@ -1299,13 +1289,13 @@ def detect_language() -> str:
     lang = os.environ.get("MIRU_LANG", "")
     if lang in SUPPORTED_LANGUAGES:
         return lang
-    
+
     lang = os.environ.get("LANG", "")
     if lang.startswith("pt_BR") or lang.startswith("pt_BR"):
         return "pt_BR"
     if lang.startswith("es") or lang.startswith("es_"):
         return "es_ES"
-    
+
     try:
         sys_lang = locale.getdefaultlocale()[0]
         if sys_lang:
@@ -1315,13 +1305,13 @@ def detect_language() -> str:
                 return "es_ES"
     except Exception:
         pass
-    
+
     return DEFAULT_LANGUAGE
 
 
 def set_language(lang: str) -> None:
     """Set the current language.
-    
+
     Args:
         lang: Language code (pt_BR, en_US, es_ES)
     """
@@ -1339,14 +1329,14 @@ def get_language() -> str:
 
 def t(msg_key: str, **kwargs: Any) -> str:
     """Translate a message key to the current language.
-    
+
     Args:
         msg_key: Message key (e.g., "error.model_not_found")
         **kwargs: Format variables for the message
-        
+
     Returns:
         Translated and formatted message
-        
+
     Example:
         >>> set_language("pt_BR")
         >>> t("error.model_not_found", model="gemma3:latest")
@@ -1354,7 +1344,7 @@ def t(msg_key: str, **kwargs: Any) -> str:
     """
     messages = MESSAGES.get(_current_language, MESSAGES[DEFAULT_LANGUAGE])
     message = messages.get(msg_key, MESSAGES[DEFAULT_LANGUAGE].get(msg_key, msg_key))
-    
+
     try:
         return message.format(**kwargs)
     except KeyError:

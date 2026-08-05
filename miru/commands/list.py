@@ -8,10 +8,9 @@ from typing import Any
 
 import typer
 
-from miru.cli_options import Host, Format, Quiet
+from miru.cli_options import Format, Host, Quiet
 from miru.core.config import resolve_host
 from miru.core.errors import ConnectionError as MiruConnectionError
-from miru.core.i18n import t
 from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.renderer import (
     render_empty_models,

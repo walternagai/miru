@@ -10,7 +10,8 @@ import typer
 from miru.alias import resolve_alias
 from miru.cli_options import Force, Host
 from miru.core.config import resolve_host
-from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
+from miru.core.errors import ConnectionError as MiruConnectionError
+from miru.core.errors import ModelNotFoundError
 from miru.core.i18n import t
 from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.ui.render import render_error, render_success

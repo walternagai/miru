@@ -14,26 +14,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from miru.cli_options import (
-    Context,
-    Format,
-    Host,
-    MaxTokens,
-    Quiet,
-    RepeatPenalty,
-    Seed,
-    SystemPrompt,
-    SystemPromptFile,
-    Temperature,
-    Timeout,
-    TopK,
-    TopP,
-)
 from miru.core.config import resolve_host
-from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
-from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.core.i18n import t
 from miru.inference_params import build_options
+from miru.ollama.client import OllamaClient, OllamaConnectionError
 from miru.ui.render import render_error
 
 console = Console()

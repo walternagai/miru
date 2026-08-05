@@ -14,31 +14,13 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from miru.cli_options import (
-    AutoPull,
-    Context,
-    Format,
-    Host,
-    ImageFiles,
-    MaxTokens,
-    Quiet,
-    RepeatPenalty,
-    Seed,
-    SystemPrompt,
-    SystemPromptFile,
-    Temperature,
-    Timeout,
-    TopK,
-    TopP,
-)
 from miru.core.config import resolve_host
-from miru.core.errors import ModelNotFoundError, ConnectionError as MiruConnectionError
 from miru.core.i18n import t
 from miru.inference_params import build_options
 from miru.input import encode_images
 from miru.model.capabilities import get_capabilities
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
-from miru.ui.render import render_error, render_success
+from miru.ui.render import render_error
 
 console = Console()
 
@@ -198,7 +180,7 @@ def _render_comparison_table(results: list[ModelResult], quiet: bool = False) ->
 
     from miru.core.i18n import get_language
     lang = get_language()
-    
+
     if lang == "pt_BR":
         title = "Comparação de Modelos"
         col_model = "Modelo"
@@ -278,7 +260,7 @@ def _render_seed_warning(quiet: bool, seed: int | None) -> None:
 
     from miru.core.i18n import get_language
     lang = get_language()
-    
+
     console.print()
     if lang == "pt_BR":
         console.print("[yellow]⚠ Sem --seed: resultados podem variar entre execuções.[/]")

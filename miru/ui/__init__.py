@@ -17,11 +17,11 @@ from miru.ui.prompts import (
 )
 from miru.ui.render import (
     render_error,
+    render_info,
+    render_metrics,
+    render_model_table,
     render_success,
     render_warning,
-    render_info,
-    render_model_table,
-    render_metrics,
 )
 
 __all__ = [

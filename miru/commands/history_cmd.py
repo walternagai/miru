@@ -8,8 +8,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from miru.history import clear_history, get_history, search_history
 from miru.core.i18n import t
+from miru.history import clear_history, get_history, search_history
 from miru.output import render_markdown
 
 console = Console()

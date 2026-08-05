@@ -66,7 +66,7 @@ async def get_capabilities(client: OllamaClient, model: str) -> ModelCapabilitie
 
     # Extract capabilities from API response
     raw_capabilities = data.get("capabilities") or []
-    
+
     # Check for vision support:
     # 1. "clip" in families (local models)
     # 2. "vision" in capabilities (cloud/remote models)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from rich.console import Console
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 from rich.table import Table
 
 console = Console()
