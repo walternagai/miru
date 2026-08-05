@@ -145,7 +145,7 @@ async def _execute_model(
             error="No final chunk received",
         )
 
-    except Exception:
+    except OllamaModelNotFound:
         if not quiet and stream:
             print()
         return ModelResult(

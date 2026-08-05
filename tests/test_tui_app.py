@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from miru.ui.tui.app import TUIApp
+from miru.ui.tui.app import TUIApp, _session_id
 
 
 @pytest.fixture
@@ -503,3 +503,138 @@ async def test_cancel_generation_with_worker(app) -> None:
         await pilot.pause()
         worker.cancel.assert_called_once()
         assert app._is_generating is False
+
+
+@pytest.mark.asyncio
+async def test_load_session_renders_messages(app, tmp_path, monkeypatch) -> None:
+    """Carregar sessão → mensagens renderizadas como widgets."""
+    import miru.ui.tui.app as app_mod
+
+    session_data = {
+        "name": "conv1",
+        "model": "gemma3",
+        "messages": [
+            {"role": "user", "content": "pergunta", "_ts": "10:00"},
+            {"role": "assistant", "content": "resposta"},
+        ],
+    }
+    monkeypatch.setattr(app_mod, "load_session", lambda name: session_data)
+
+    async with app.run_test() as pilot:
+        app.refresh_sessions()
+        await pilot.pause()
+        # simula seleção de item da lista
+        from unittest.mock import MagicMock
+
+        event = MagicMock()
+        event.item.id = _session_id("conv1")
+        event.item.add_class = MagicMock()
+        app._session_id_to_name = {_session_id("conv1"): "conv1"}
+        app.on_list_view_selected(event)
+        await pilot.pause()
+        assert app.current_session_name == "conv1"
+        assert len(app.messages) == 2
+
+
+@pytest.mark.asyncio
+async def test_toggle_favorite_with_session(app, tmp_path, monkeypatch) -> None:
+    """Favoritar sessão com current_session_name definido."""
+    import miru.ui.tui.app as app_mod
+
+    app.current_session_name = "conv1"
+    with patch.object(app_mod, "toggle_favorite", return_value=True) as mock_toggle, \
+         patch.object(app_mod, "load_favorites", return_value=set()):
+        async with app.run_test() as pilot:
+            app.action_toggle_favorite()
+            await pilot.pause()
+            mock_toggle.assert_called_once_with("conv1")
+
+
+@pytest.mark.asyncio
+async def test_add_image_opens_screen(app) -> None:
+    """action_add_image → push ImageScreen."""
+    async with app.run_test() as pilot:
+        app.action_add_image()
+        await pilot.pause()
+        assert app.screen_stack  # modal pushado
+
+
+@pytest.mark.asyncio
+async def test_update_pending_images_indicator(app) -> None:
+    """Indicador de imagens pendentes."""
+    async with app.run_test() as pilot:
+        app.pending_images = ["foto.png"]
+        app._update_pending_images_indicator()
+        await pilot.pause()
+        app.pending_images = []
+        app._update_pending_images_indicator()
+        await pilot.pause()
+
+
+@pytest.mark.asyncio
+async def test_open_config_screen(app) -> None:
+    """action_open_config → push ConfigScreen (screen real)."""
+    from miru.ui.tui.config_screen import ConfigScreen
+
+    async with app.run_test() as pilot:
+        app.action_open_config()
+        await pilot.pause()
+        assert app.screen_stack  # modal pushado
+
+
+@pytest.mark.asyncio
+async def test_rename_session_file_success(app, tmp_path, monkeypatch) -> None:
+    """_rename_session_file: sucesso com favorito migrado."""
+    import miru.ui.tui.app as app_mod
+
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir(exist_ok=True)
+    old = sessions_dir / "old.json"
+    old.write_text('{"name": "old", "messages": []}', encoding="utf-8")
+
+    monkeypatch.setattr(app_mod, "load_session", lambda n: {"name": n, "messages": []})
+    monkeypatch.setattr(app_mod, "load_favorites", lambda: {"old"})
+    monkeypatch.setattr(app_mod, "save_favorites", lambda f: None)
+    monkeypatch.setattr(app_mod, "CONFIG_DIR", tmp_path)
+
+    async with app.run_test() as pilot:
+        ok = app._rename_session_file("old", "new")
+        await pilot.pause()
+    assert ok is True
+    assert (sessions_dir / "new.json").exists()
+    assert not (sessions_dir / "old.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_rename_session_file_missing(app, monkeypatch) -> None:
+    """_rename_session_file: sessão não existe → False."""
+    import miru.ui.tui.app as app_mod
+
+    monkeypatch.setattr(app_mod, "load_session", lambda n: None)
+    async with app.run_test() as pilot:
+        ok = app._rename_session_file("nope", "new")
+        await pilot.pause()
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_submit_message_empty_returns(app) -> None:
+    """action_submit_message com input vazio → return sem efeito."""
+    async with app.run_test() as pilot:
+        user_input = app.query_one("#user_input")
+        user_input.text = "   "
+        app.action_submit_message()
+        await pilot.pause()
+        assert app.messages == []
+
+
+@pytest.mark.asyncio
+async def test_submit_message_while_generating(app) -> None:
+    """action_submit_message bloqueado durante geração."""
+    app._is_generating = True
+    async with app.run_test() as pilot:
+        user_input = app.query_one("#user_input")
+        user_input.text = "olá"
+        app.action_submit_message()
+        await pilot.pause()
+        assert app.messages == []  # bloqueado

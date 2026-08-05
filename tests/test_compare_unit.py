@@ -235,13 +235,8 @@ class TestCompareSeedEs:
 
 class TestExecuteModelExceptions:
     @pytest.mark.asyncio
-    async def test_exception_returns_error_result(self) -> None:
-        """Comportamento atual: except Exception engole e reporta 'model not found'.
-
-        NOTA: o segundo `except Exception as e` (com o erro real) é INALCANÇÁVEL
-        — o primeiro except Exception captura tudo. Bug de código morto documentado
-        em PENDING; não corrigido para não mudar comportamento visível nesta rodada.
-        """
+    async def test_runtime_error_returns_real_error(self) -> None:
+        """Erro de lógica → mensagem com o erro REAL (2º except alcançável)."""
         from miru.commands.compare import _execute_model
 
         client = MagicMock()
@@ -250,6 +245,22 @@ class TestExecuteModelExceptions:
             client, "m", "p", "sys", None, {}, stream=False, quiet=True
         )
         assert result.error is not None
+        assert "boom" in str(result.error)
+
+    @pytest.mark.asyncio
+    async def test_connection_error_not_model_not_found(self) -> None:
+        """Erro de conexão → NÃO deve reportar 'Modelo não encontrado'."""
+        from miru.ollama.client import OllamaConnectionError
+        from miru.commands.compare import _execute_model
+
+        client = MagicMock()
+        client.chat = MagicMock(side_effect=OllamaConnectionError("Cannot connect"))
+        result = await _execute_model(
+            client, "m", "p", "sys", None, {}, stream=False, quiet=True
+        )
+        assert result.error is not None
+        assert "não encontrado" not in str(result.error).lower()
+        assert "connect" in str(result.error).lower()
 
     @pytest.mark.asyncio
     async def test_ollama_model_not_found(self) -> None:
@@ -262,3 +273,5 @@ class TestExecuteModelExceptions:
             client, "m", "p", "sys", None, {}, stream=False, quiet=True
         )
         assert result.error is not None
+        # i18n model_not_found (mensagem específica preservada)
+        assert "Modelo" in str(result.error)
