@@ -83,3 +83,38 @@ class TestHistoryShow:
     def test_show_missing_exits(self) -> None:
         result = runner.invoke(app, ["history", "show", "99"])
         assert result.exit_code == 1
+
+
+class TestHistoryShowDetailed:
+    def test_show_with_metrics_and_error(self) -> None:
+        """Entrada com metrics e error → detalhes completos."""
+        import miru.history as history_mod
+
+        entry = history_mod.HistoryEntry(
+            timestamp="2026-01-01T00:00:00",
+            command="run",
+            model="gemma3",
+            prompt="prompt longo",
+            system_prompt="sys",
+            response="resposta",
+            success=False,
+            error="falhou",
+            metrics={"eval_count": 10, "tokens_per_second": 5.0, "total_duration_ns": 1_000_000_000},
+        )
+        history_mod._append_history(entry, max_entries=50)
+
+        result = runner.invoke(app, ["history", "show", "0"])
+        assert result.exit_code == 0
+        assert "falhou" in result.output
+        assert "resposta" in result.output
+
+    def test_show_without_response_or_metrics(self) -> None:
+        import miru.history as history_mod
+
+        entry = history_mod.HistoryEntry(
+            timestamp="2026-01-01T00:00:00", command="chat", model="m", prompt="p"
+        )
+        history_mod._append_history(entry, max_entries=50)
+
+        result = runner.invoke(app, ["history", "show", "0"])
+        assert result.exit_code == 0

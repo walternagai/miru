@@ -372,3 +372,134 @@ async def test_run_llm_response_model_not_found(app) -> None:
             await pilot.pause()
     assert app._is_generating is False
     assert mock_q.called
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_with_images(app) -> None:
+    """run_llm_response com imagens pendentes → encode_images chamado."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        yield {"message": {"content": "resp"}, "done": True,
+               "eval_count": 3, "eval_duration": 1_000_000_000,
+               "total_duration": 1_000_000_000}
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = ["foto.png"]
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.input.image.encode_images", return_value=["b64"]) as mock_encode:
+            await app.run_llm_response("pergunta", user_msg_dict={"role": "user", "content": "pergunta"})
+            await pilot.pause()
+    assert mock_encode.called
+    assert app._is_generating is False
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_with_tools(app) -> None:
+    """run_llm_response com tools habilitadas → execute_tool_loop."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+
+    app.enable_tools = True
+    app.pending_images = []
+    async with app.run_test() as pilot:
+        async def fake_loop(*a, **k):
+            await asyncio.sleep(0)  # deixa o Textual montar o bot_msg
+            return "resposta da tool"
+
+        fake_loop_mock = AsyncMock(side_effect=fake_loop)
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client), \
+             patch("miru.tool_integration.execute_tool_loop", new=fake_loop_mock) as mock_loop:
+            await app.run_llm_response("pergunta", user_msg_dict={"role": "user", "content": "pergunta"})
+            await pilot.pause()
+    assert mock_loop.called
+    assert app._is_generating is False
+
+
+@pytest.mark.asyncio
+async def test_run_llm_response_skip_user_append(app) -> None:
+    """skip_user_append=True → mensagem do usuário NÃO é re-adicionada."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        yield {"message": {"content": "nova resp"}, "done": True,
+               "eval_count": 1, "eval_duration": 1_000_000_000,
+               "total_duration": 1_000_000_000}
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    app.messages = [{"role": "user", "content": "pergunta original"}]
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client):
+            await app.run_llm_response("pergunta original", skip_user_append=True)
+            await pilot.pause()
+    assert app._is_generating is False
+    user_msgs = [m for m in app.messages if m.get("role") == "user"]
+    assert len(user_msgs) == 1  # não duplicou
+
+
+@pytest.mark.asyncio
+async def test_regenerate_last_message(app) -> None:
+    """regenerate_last_message remove a última assistant e re-executa."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    async def chat_gen():
+        await asyncio.sleep(0)
+        yield {"message": {"content": "regenerada"}, "done": True,
+               "eval_count": 1, "eval_duration": 1_000_000_000,
+               "total_duration": 1_000_000_000}
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.chat = MagicMock(return_value=chat_gen())
+
+    app.pending_images = []
+    app.messages = [
+        {"role": "user", "content": "pergunta"},
+        {"role": "assistant", "content": "resposta antiga"},
+    ]
+    async with app.run_test() as pilot:
+        with patch("miru.ui.tui.app.OllamaClient", return_value=client):
+            app.regenerate_last_message()
+            await pilot.pause()
+            await pilot.pause()
+    assert app._is_generating is False
+    assert app.messages[-1]["content"] == "regenerada"
+
+
+@pytest.mark.asyncio
+async def test_regenerate_blocked_while_generating(app) -> None:
+    app._is_generating = True
+    async with app.run_test() as pilot:
+        app.regenerate_last_message()
+        await pilot.pause()
+        assert app._is_generating is True  # bloqueado
+
+
+@pytest.mark.asyncio
+async def test_cancel_generation_with_worker(app) -> None:
+    from unittest.mock import MagicMock
+
+    worker = MagicMock()
+    app._is_generating = True
+    app._current_worker = worker
+    async with app.run_test() as pilot:
+        app.action_cancel_generation()
+        await pilot.pause()
+        worker.cancel.assert_called_once()
+        assert app._is_generating is False

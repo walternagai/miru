@@ -6,11 +6,11 @@
 #
 # Baseline conhecido (ago/2026):
 #   - lint escopo miru/ui/tui/: 0 erros (após fix W292)
-#   - pytest: 1106 passam / 0 falham
-#   - coverage: 80.0% — gate 80 = meta atingida (era 42% em ago/2026)
+#   - pytest: 1207 passam / 0 falham
+#   - coverage: 85.0% — gate 85 = meta atingida (era 42% em ago/2026)
 verify:
   lint: ruff check miru/ui/tui/
   test: pytest tests/ -q --tb=short
   coverage: pytest tests/ --cov=miru --cov-report=term-missing -q
-  gate: 80
+  gate: 85
   coverage_pattern: "TOTAL\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+(\\d+)%"

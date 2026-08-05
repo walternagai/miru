@@ -375,3 +375,69 @@ class TestEmbedClient:
                 body = call_args[1]["json"]
                 assert "options" in body
                 assert body["options"]["temperature"] == 0.5
+
+
+class TestEmbedBatch:
+    def test_batch_jsonl(self, tmp_path) -> None:
+        f = tmp_path / "batch.jsonl"
+        f.write_text('{"prompt": "primeiro"}\n{"text": "segundo"}\n', encoding="utf-8")
+        with patch("miru.commands.embed.OllamaClient") as MockClient:
+            client = AsyncMock()
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=None)
+            client.embed = AsyncMock(return_value={"embedding": [0.1], "total_duration": 1_000_000})
+            MockClient.return_value = client
+            result = runner.invoke(app, ["embed", "nomic-embed-text", "--batch", str(f)])
+            assert result.exit_code == 0
+
+    def test_batch_missing_file(self) -> None:
+        result = runner.invoke(app, ["embed", "nomic-embed-text", "--batch", "nope.txt"])
+        assert result.exit_code == 1
+
+    def test_batch_empty_file(self, tmp_path) -> None:
+        f = tmp_path / "empty.txt"
+        f.write_text("\n\n", encoding="utf-8")
+        result = runner.invoke(app, ["embed", "nomic-embed-text", "--batch", str(f)])
+        assert result.exit_code == 1
+
+    def test_batch_jsonl_format(self, tmp_path) -> None:
+        f = tmp_path / "batch.txt"
+        f.write_text("linha um\nlinha dois\n", encoding="utf-8")
+        with patch("miru.commands.embed.OllamaClient") as MockClient:
+            client = AsyncMock()
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=None)
+            client.embed = AsyncMock(return_value={"embedding": [0.1]})
+            MockClient.return_value = client
+            result = runner.invoke(
+                app, ["embed", "nomic-embed-text", "--batch", str(f), "--format", "jsonl"]
+            )
+            assert result.exit_code == 0
+
+    def test_batch_model_not_found(self, tmp_path) -> None:
+        f = tmp_path / "batch.txt"
+        f.write_text("linha", encoding="utf-8")
+        with patch("miru.commands.embed.OllamaClient") as MockClient:
+            client = AsyncMock()
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=None)
+            client.embed = AsyncMock(side_effect=OllamaModelNotFound("not found"))
+            MockClient.return_value = client
+            result = runner.invoke(app, ["embed", "nomic-embed-text", "--batch", str(f)])
+            assert result.exit_code == 1
+
+    def test_batch_connection_error(self, tmp_path) -> None:
+        f = tmp_path / "batch.txt"
+        f.write_text("linha", encoding="utf-8")
+        with patch("miru.commands.embed.OllamaClient") as MockClient:
+            client = AsyncMock()
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=None)
+            client.embed = AsyncMock(side_effect=OllamaConnectionError("Cannot connect"))
+            MockClient.return_value = client
+            result = runner.invoke(app, ["embed", "nomic-embed-text", "--batch", str(f)])
+            assert result.exit_code == 1
+
+    def test_file_missing(self) -> None:
+        result = runner.invoke(app, ["embed", "nomic-embed-text", "--file", "nope.txt"])
+        assert result.exit_code == 1

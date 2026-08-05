@@ -41,3 +41,23 @@ class TestExamplesCmd:
     def test_categories(self) -> None:
         result = runner.invoke(app, ["examples", "--categories"])
         assert result.exit_code == 0
+
+
+class TestExamplesCopyInstalled:
+    def test_copy_with_pyperclip(self) -> None:
+        """pyperclip instalado (mock) → copia e confirma."""
+        from unittest.mock import MagicMock, patch
+
+        fake_pyperclip = MagicMock()
+        with patch.dict("sys.modules", {"pyperclip": fake_pyperclip}):
+            result = runner.invoke(app, ["examples", "hello-world", "--copy"])
+        assert result.exit_code == 0
+        fake_pyperclip.copy.assert_called_once()
+
+
+class TestExamplesNoArgs:
+    def test_no_args_shows_browser(self) -> None:
+        """Sem args → browser interativo (lista popular)."""
+        result = runner.invoke(app, ["examples"])
+        assert result.exit_code == 0
+        assert "hello-world" in result.output

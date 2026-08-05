@@ -2,6 +2,8 @@
 
 from unittest.mock import AsyncMock, patch
 
+from miru.core.config import Config
+
 import pytest
 
 from miru.cli import app
@@ -153,3 +155,54 @@ class TestSetupInteractivePaths:
                  patch("miru.commands.setup.asyncio.sleep", new_callable=AsyncMock):
                 result = runner.invoke(app, ["setup", "--host", "http://x:11434"])
                 assert result.exit_code == 0
+
+
+class TestSetupCancelBranch:
+    def test_interactive_cancel(self) -> None:
+        """Confirm.ask inicial retorna False → cancela."""
+        import miru.commands.setup as s
+
+        with patch("miru.commands.setup.check_ollama", new_callable=AsyncMock) as mock_check, \
+             patch("miru.commands.setup.get_models", new_callable=AsyncMock):
+            mock_check.return_value = (True, "0.5.0")
+            with patch.object(s.Confirm, "ask", return_value=False):
+                result = runner.invoke(app, ["setup", "--host", "http://x:11434"])
+                assert result.exit_code == 0
+
+    def test_interactive_retry_declined(self) -> None:
+        """Ollama down + Confirm retry=False → return."""
+        import miru.commands.setup as s
+
+        with patch("miru.commands.setup.check_ollama", new_callable=AsyncMock) as mock_check, \
+             patch("miru.commands.setup.get_models", new_callable=AsyncMock):
+            mock_check.return_value = (False, "")
+            with patch.object(s.Confirm, "ask", return_value=False):
+                result = runner.invoke(app, ["setup", "--host", "http://x:11434"])
+                assert result.exit_code == 0
+
+    def test_interactive_retry_then_success(self) -> None:
+        """Ollama down → retry=True → 2ª checagem ok → continua."""
+        import miru.commands.setup as s
+
+        calls = {"n": 0}
+
+        async def fake_check(host):
+            calls["n"] += 1
+            return (calls["n"] >= 2, "0.5.0")
+
+        # Confirm.ask: continue=True, retry=True, depois history/verbose/alias → True
+        # Prompt.ask: model default, max entries, alias name/model
+        prompt_answers = iter(["gemma3:latest", "500", "g3", "gemma3:latest"])
+
+        with patch("miru.commands.setup.check_ollama", new=fake_check), \
+             patch("miru.commands.setup.get_models", new_callable=AsyncMock, return_value=["gemma3:latest"]), \
+             patch.object(s.Confirm, "ask", return_value=True), \
+             patch.object(s.Prompt, "ask", lambda *a, **k: next(prompt_answers)), \
+             patch("miru.commands.setup.asyncio.sleep", new_callable=AsyncMock), \
+             patch("miru.commands.setup.load_config", return_value=Config()), \
+             patch("miru.commands.setup.save_config"), \
+             patch("miru.alias._load_aliases", return_value={}), \
+             patch("miru.alias._save_aliases"):
+            result = runner.invoke(app, ["setup", "--host", "http://x:11434"])
+            assert result.exit_code == 0
+            assert calls["n"] == 2  # 1ª falha + retry

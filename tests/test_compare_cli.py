@@ -108,3 +108,16 @@ class TestCompareCliMore:
                 app, ["compare", "a", "b", "--prompt-file", str(f), "--format", "json", "--quiet"]
             )
             assert result.exit_code == 0
+
+
+class TestCompareVisionErrors:
+    def test_vision_connection_error(self) -> None:
+        """Imagem + OllamaConnectionError → exit 1."""
+        from miru.ollama.client import OllamaConnectionError
+
+        with patch("miru.commands.compare._compare_async", new_callable=AsyncMock) as mock_cmp:
+            mock_cmp.side_effect = OllamaConnectionError("down")
+            result = runner.invoke(
+                app, ["compare", "a", "b", "--prompt", "x", "--image", "foto.png", "--quiet"]
+            )
+            assert result.exit_code == 1

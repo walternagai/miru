@@ -161,3 +161,127 @@ class TestChatCliWrapper:
 
             result = CliRunner().invoke(app, ["chat", "--quiet"])
             assert result.exit_code == 1
+
+
+class TestChatRecallInteractive:
+    """Testa os branches do /recall: texto, múltiplos matches, seleção interativa."""
+
+    @staticmethod
+    def _seed_history(monkeypatch, prompts=None):
+        import miru.history as history_mod
+
+        config = type("C", (), {"history_enabled": True, "history_max_entries": 50})()
+        monkeypatch.setattr("miru.config_manager.load_config", lambda: config)
+        for p in prompts or ["prompt python", "prompt bolo", "outro"]:
+            history_mod.record_history("chat", "gemma3", p, response="resp")
+
+    def test_recall_text_no_match(self, monkeypatch) -> None:
+        self._seed_history(monkeypatch, ["prompt python", "outro"])
+        # /recall zzz → sem match → avisa e continua; /exit sai
+        assert _run(["/recall zzz", "/exit"]) == 0
+
+    def test_recall_text_single_match(self, monkeypatch) -> None:
+        self._seed_history(monkeypatch, ["prompt python", "outro"])
+        # /recall python → 1 match → carrega e faz fall-through (chama client.chat); /exit
+        assert _run(["/recall python", "/exit", "/exit"]) == 0  # match único → fall-through envia msg
+
+    def test_recall_text_multiple_matches_selection(self, monkeypatch) -> None:
+        self._seed_history(monkeypatch, ["prompt python um", "prompt python dois", "outro"])
+        # /recall python → 2 matches → tabela + input de seleção
+        # inputs: /recall python (1º), "0" (seleção), /exit
+        assert _run(["/recall python", "0", "/exit", "/exit"]) == 0  # seleção → fall-through
+
+    def test_recall_text_multiple_invalid_selection(self, monkeypatch) -> None:
+        self._seed_history(monkeypatch, ["prompt python um", "prompt python dois"])
+        # seleção inválida (99) → erro e continue; /exit
+        assert _run(["/recall python", "99", "/exit"]) == 0
+
+    def test_recall_interactive_selection(self, monkeypatch) -> None:
+        self._seed_history(monkeypatch, ["prompt um", "prompt dois"])
+        # /recall vazio → tabela interativa; seleciona "1"; /exit
+        assert _run(["/recall", "1", "/exit"]) == 0
+
+    def test_recall_interactive_invalid_selection(self, monkeypatch) -> None:
+        self._seed_history(monkeypatch, ["prompt um"])
+        # seleção fora do range → erro e continue; /exit
+        assert _run(["/recall", "5", "/exit"]) == 0
+
+    def test_recall_interactive_empty_selection(self, monkeypatch) -> None:
+        self._seed_history(monkeypatch, ["prompt um"])
+        # seleção vazia → continue (sem erro); /exit
+        assert _run(["/recall", "", "/exit"]) == 0
+
+    def test_recall_interactive_eof(self, monkeypatch) -> None:
+        """EOF na seleção → except (EOFError) → continue → /exit sai."""
+        self._seed_history(monkeypatch, ["prompt um"])
+
+        async def run():
+            calls = {"n": 0}
+
+            def fake_input(_prompt=""):
+                calls["n"] += 1
+                # 1ª chamada: /recall (loop principal); 2ª: seleção (EOF)
+                if calls["n"] == 1:
+                    return "/recall"
+                raise EOFError
+
+            with patch("miru.commands.chat.OllamaClient", return_value=_make_client()), \
+                 patch("builtins.input", fake_input):
+                try:
+                    await _chat_async(
+                        "gemma3", "http://x", None, None, None, None, None, None,
+                        None, None, quiet=False, timeout=None,
+                    )
+                except SystemExit as e:
+                    return e.code
+            # EOF no loop principal também encerra
+            return 0
+
+        assert asyncio.run(run()) == 0
+
+
+class TestChatErrorBranches:
+    def test_save_error_renders_error(self, tmp_path) -> None:
+        # /save para diretório inexistente → erro de escrita → render_error
+        target = tmp_path / "nao_existe" / "sessao.md"
+        assert _run([f"/save {target}", "/exit"]) == 0
+
+    def test_autosave_on_keyboard_interrupt(self, monkeypatch) -> None:
+        """KeyboardInterrupt após enviar mensagem → autosave → sys.exit(0)."""
+        import miru.commands.chat as chat_mod
+
+        saved = {}
+
+        def fake_save(name, model, messages):
+            saved["name"] = name
+
+        calls = {"n": 0}
+
+        def fake_input(_prompt=""):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return "olá"  # envia mensagem → turn_count > 0
+            raise KeyboardInterrupt  # Ctrl+C na 2ª iteração
+
+        client = _make_client()
+        with patch("miru.commands.chat.OllamaClient", return_value=client), \
+             patch("builtins.input", fake_input), \
+             patch.object(chat_mod, "save_session", fake_save):
+            with pytest.raises(SystemExit) as exc:
+                asyncio.run(_chat_async(
+                    "gemma3", "http://x", None, None, None, None, None, None,
+                    None, None, quiet=False, timeout=None,
+                ))
+            assert exc.value.code == 0
+            assert "autosave" in saved.get("name", "")
+
+    def test_model_switch_unknown(self) -> None:
+        # /model bogus → não existe → avisa e continua; /exit
+        assert _run(["/model bogus", "/exit"]) == 0
+
+    def test_model_switch_valid(self) -> None:
+        assert _run(["/model gemma3", "/exit"]) == 0
+
+    def test_stats_with_tokens(self) -> None:
+        # envia mensagem (gera tokens), depois /stats
+        assert _run(["olá", "/stats", "/exit"]) == 0

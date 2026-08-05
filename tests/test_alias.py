@@ -103,3 +103,16 @@ class TestCliIntegration:
     def test_cli_list(self) -> None:
         result = runner.invoke(app, ["alias", "list"])
         assert result.exit_code == 0
+
+
+class TestAliasTomliMissing:
+    def test_save_without_tomli_w(self, monkeypatch, capsys) -> None:
+        """tomli_w ausente → aviso e não salva."""
+        import miru.alias as alias_mod
+
+        monkeypatch.setattr(alias_mod, "tomli_w", None)
+        alias_add("g3", "gemma3:latest")
+        captured = capsys.readouterr()
+        assert "tomli_w" in captured.out
+        # não deve ter salvo
+        assert resolve_alias("g3") == "g3"

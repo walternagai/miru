@@ -282,3 +282,18 @@ class TestStreamAsMarkdownLive:
             for item in items:
                 yield item
         return async_generator()
+
+class TestLiveStreamMore:
+    @pytest.mark.asyncio
+    async def test_get_incomplete_code_block_edge_cases(self) -> None:
+        """Branches do _get_incomplete_code_block."""
+        from miru.output.live_stream import _get_incomplete_code_block
+
+        # sem blocos → None
+        assert _get_incomplete_code_block("texto sem bloco") is None
+        # fence no final sem conteúdo
+        assert _get_incomplete_code_block("```") == ""
+        # fence com conteúdo na mesma linha
+        assert _get_incomplete_code_block("```python") == "python"
+        # fence com conteúdo na próxima linha
+        assert _get_incomplete_code_block("```python\nprint('x')") == "print('x')"

@@ -205,3 +205,46 @@ class TestDetectLanguage:
         monkeypatch.setenv("MIRU_LANG", "pt_BR")
         init_i18n()
         assert get_language() == "pt_BR"
+
+
+class TestDetectLocaleFallback:
+    def test_locale_pt_br(self, monkeypatch) -> None:
+        """Sem MIRU_LANG/LANG → locale.getdefaultlocale pt_BR."""
+        import miru.core.i18n as i18n_mod
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.delenv("LANG", raising=False)
+        monkeypatch.setattr(i18n_mod.locale, "getdefaultlocale", lambda: ("pt_BR.UTF-8", "UTF-8"))
+        assert detect_language() == "pt_BR"
+
+    def test_locale_es(self, monkeypatch) -> None:
+        import miru.core.i18n as i18n_mod
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.delenv("LANG", raising=False)
+        monkeypatch.setattr(i18n_mod.locale, "getdefaultlocale", lambda: ("es_ES.UTF-8", "UTF-8"))
+        assert detect_language() == "es_ES"
+
+    def test_locale_none_falls_back_en(self, monkeypatch) -> None:
+        import miru.core.i18n as i18n_mod
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.delenv("LANG", raising=False)
+        monkeypatch.setattr(i18n_mod.locale, "getdefaultlocale", lambda: (None, None))
+        assert detect_language() == "en_US"
+
+    def test_locale_error_falls_back_en(self, monkeypatch) -> None:
+        import miru.core.i18n as i18n_mod
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.delenv("LANG", raising=False)
+
+        def boom():
+            raise Exception("boom")
+
+        monkeypatch.setattr(i18n_mod.locale, "getdefaultlocale", boom)
+        assert detect_language() == "en_US"

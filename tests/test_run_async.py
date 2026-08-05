@@ -161,3 +161,114 @@ class TestRunAsyncMore:
              patch("miru.commands.run.record_history"):
             asyncio.run(_run_async(**_run(images=["foto.png"])))
             mock_encode.assert_called_once_with(["foto.png"])
+
+
+class TestRunAsyncVisionBranches:
+    def test_vision_no_vision_models_available(self) -> None:
+        """Modelo sem visão e NENHUM modelo com visão → sugestão pull_vision_model."""
+        client = _make_client()
+        caps = MagicMock()
+        caps.supports_vision = False
+        # list_models retorna só o modelo sem visão
+        client.list_models = AsyncMock(return_value=[{"name": "gemma3"}])
+
+        # get_capabilities para o modelo consultado → False
+        async def fake_caps(c, m):
+            return caps
+
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.get_capabilities", new=fake_caps):
+            with pytest.raises(SystemExit) as exc:
+                asyncio.run(_run_async(**_run(images=["foto.png"])))
+        assert exc.value.code == 1
+
+    def test_vision_with_vision_models(self) -> None:
+        """Modelo sem visão mas há modelos com visão → sugestão com lista."""
+        client = _make_client()
+        caps = MagicMock()
+        caps.supports_vision = False
+
+        async def fake_caps(c, m):
+            if m == "gemma3":
+                return caps  # sem visão
+            vision = MagicMock()
+            vision.supports_vision = True
+            return vision
+
+        # list_models inclui um modelo com visão
+        client.list_models = AsyncMock(return_value=[{"name": "gemma3"}, {"name": "llava:latest"}])
+
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.get_capabilities", new=fake_caps):
+            with pytest.raises(SystemExit) as exc:
+                asyncio.run(_run_async(**_run(images=["foto.png"])))
+        assert exc.value.code == 1
+
+    def test_audio_transcription(self) -> None:
+        """Áudio válido → transcrição adicionada ao contexto."""
+        client = _make_client()
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.transcribe", return_value="texto transcrito") as mock_tr, \
+             patch("miru.commands.run.record_history"):
+            asyncio.run(_run_async(**_run(audio="audio.mp3")))
+            mock_tr.assert_called_once_with("audio.mp3")
+
+    def test_audio_transcription_error(self) -> None:
+        """Erro na transcrição → render_error + exit."""
+        client = _make_client()
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.transcribe", side_effect=RuntimeError("boom")):
+            with pytest.raises(SystemExit) as exc:
+                asyncio.run(_run_async(**_run(audio="audio.mp3")))
+        assert exc.value.code == 1
+
+    def test_file_processing_error(self) -> None:
+        """Arquivo com erro de processamento → render_error + exit."""
+        client = _make_client()
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.extract_text", side_effect=RuntimeError("corrupt")):
+            with pytest.raises(SystemExit) as exc:
+                asyncio.run(_run_async(**_run(files=["x.pdf"])))
+        assert exc.value.code == 1
+
+
+class TestRunSystemPromptBranches:
+    def test_system_prompt_non_quiet_text(self) -> None:
+        """system_prompt + text + não-quiet + no_stream → render_markdown + metrics."""
+        client = _make_client()
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.record_history"), \
+             patch("miru.commands.run.render_markdown") as mock_md, \
+             patch("miru.commands.run.render_metrics") as mock_metrics:
+            asyncio.run(_run_async(**_run(system_prompt="sys", no_stream=True, quiet=False)))
+        assert mock_md.called
+
+    def test_system_prompt_quiet_text(self) -> None:
+        """system_prompt + text + quiet + no_stream → print direto."""
+        client = _make_client()
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.record_history"):
+            asyncio.run(_run_async(**_run(system_prompt="sys", no_stream=True, quiet=True)))
+
+    def test_system_prompt_streaming_live(self) -> None:
+        """system_prompt + stream=True → stream_as_markdown_live."""
+        client = _make_client()
+        with patch("miru.commands.run.OllamaClient", return_value=client), \
+             patch("miru.commands.run.record_history"), \
+             patch("miru.commands.run.stream_as_markdown_live", new_callable=AsyncMock,
+                   return_value=("resp", {"done": True})) as mock_live:
+            asyncio.run(_run_async(**_run(system_prompt="sys", no_stream=False)))
+        assert mock_live.called
+
+
+class TestRunCliMore:
+    def test_cli_auto_pull(self) -> None:
+        """--auto-pull → _ensure_model_available chamado."""
+        with patch("miru.commands.run._run_async", new_callable=AsyncMock) as mock_run, \
+             patch("miru.commands.run._ensure_model_available", new_callable=AsyncMock) as mock_ensure:
+            from typer.testing import CliRunner
+            from miru.cli import app
+
+            result = CliRunner().invoke(app, ["run", "gemma3", "olá", "--auto-pull", "--quiet"])
+            assert result.exit_code == 0
+            mock_ensure.assert_called_once()

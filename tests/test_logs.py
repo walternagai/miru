@@ -2,6 +2,8 @@
 
 import json
 
+from unittest.mock import patch
+
 import pytest
 
 import miru.commands.logs as logs_mod
@@ -92,3 +94,50 @@ class TestClearLogs:
     def test_clear_empty(self, tmp_path, monkeypatch) -> None:
         monkeypatch.setattr(logs_mod, "LOG_DIR", tmp_path / "empty")
         clear_logs(force=True)  # no raise
+
+
+class TestLogsMore:
+    def test_show_with_warning_level(self, log_dir) -> None:
+        _write_log(log_dir, lines=[
+            json.dumps({"timestamp": "2026-01-01T00:00:00", "level": "WARNING", "message": "cuidado"}),
+            json.dumps({"timestamp": "2026-01-01T00:00:01", "level": "ERROR", "message": "falhou"}),
+        ])
+        result = runner.invoke(app, ["logs"])
+        assert result.exit_code == 0
+
+    def test_raw_line_fallback(self, log_dir) -> None:
+        _write_log(log_dir, lines=["linha sem json", "outra"])
+        result = runner.invoke(app, ["logs"])
+        assert result.exit_code == 0
+
+    def test_lines_limit(self, log_dir) -> None:
+        _write_log(log_dir, lines=[json.dumps({"level": "INFO", "message": f"m{i}"}) for i in range(10)])
+        result = runner.invoke(app, ["logs", "--lines", "2"])
+        assert result.exit_code == 0
+
+    def test_empty_log_file(self, log_dir) -> None:
+        _write_log(log_dir, lines=[])
+        result = runner.invoke(app, ["logs"])
+        assert result.exit_code == 0
+
+
+class TestLogsFollow:
+    def test_follow_keyboard_interrupt(self, log_dir) -> None:
+        """--follow com KeyboardInterrupt → para graciosamente."""
+        _write_log(log_dir)
+
+        def fake_sleep(_seconds):
+            raise KeyboardInterrupt
+
+        with patch("time.sleep", fake_sleep):
+            result = runner.invoke(app, ["logs", "--follow"])
+        assert result.exit_code == 0
+
+
+
+class TestLogsErrorReading:
+    def test_error_reading_file(self, log_dir) -> None:
+        """Arquivo ilegível (diretório como log) → mensagem de erro."""
+        (log_dir / "miru_bad.log").mkdir()
+        result = runner.invoke(app, ["logs"])
+        assert result.exit_code == 0  # erro é impresso, não levanta

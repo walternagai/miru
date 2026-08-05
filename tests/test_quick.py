@@ -84,3 +84,40 @@ def _async_iter(items):
             yield i
 
     return gen()
+
+
+class TestQuickMetrics:
+    def test_non_quiet_shows_metrics(self) -> None:
+        """Com final_chunk e não-quiet → mostra tokens e tok/s."""
+        client = _make_test_client()
+        with patch("miru.commands.quick.OllamaClient", return_value=client):
+            result = runner.invoke(
+                app, ["quick", "code", "gemma3", "--param", "language=python", "--param", "task=oi"]
+            )
+        assert result.exit_code == 0
+        assert "tokens" in result.output
+
+    def test_model_not_found(self) -> None:
+        from miru.ollama.client import OllamaModelNotFound
+
+        client = _make_test_client()
+        client.chat = MagicMock(side_effect=OllamaModelNotFound("nope"))
+        with patch("miru.commands.quick.OllamaClient", return_value=client):
+            result = runner.invoke(
+                app, ["quick", "code", "gemma3", "--param", "language=python", "--param", "task=oi"]
+            )
+        assert result.exit_code == 1
+
+
+def _make_test_client():
+    """Client de teste: list_models ok + chat com stream."""
+    async def gen():
+        yield {"message": {"content": "resposta"}, "done": True,
+               "eval_count": 5, "eval_duration": 1_000_000_000}
+
+    client = AsyncMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.list_models = AsyncMock(return_value=[{"name": "gemma3"}])
+    client.chat = MagicMock(return_value=gen())
+    return client

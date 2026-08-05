@@ -95,3 +95,49 @@ class TestTavilyWarning:
                 warnings.simplefilter("always")
                 _manager(mode=ToolExecutionMode.AUTO, sandbox_dir=".", enable_tavily=True)
         assert any("Tavily" in str(w.message) for w in caught)
+
+
+class TestProcessToolCallsLoop:
+    @pytest.mark.asyncio
+    async def test_disabled_returns_messages(self) -> None:
+        m = _manager(mode=ToolExecutionMode.DISABLED)
+        msgs = [{"role": "user", "content": "q"}]
+        result = await m.process_tool_calls_loop(msgs, chat_func=None)
+        assert result == msgs
+
+    @pytest.mark.asyncio
+    async def test_loop_with_tool_call_then_final(self) -> None:
+        m = _manager(mode=ToolExecutionMode.AUTO_SAFE, sandbox_dir=".")
+        responses = [
+            {"message": {"tool_calls": [{"function": {"name": "file_exists", "arguments": {"path": "x"}}}]}},
+            {"message": {"content": "final"}},
+        ]
+        idx = {"n": 0}
+
+        async def fake_chat(msgs):
+            r = responses[idx["n"]]
+            idx["n"] += 1
+            return r
+
+        msgs = [{"role": "user", "content": "q"}]
+        result = await m.process_tool_calls_loop(msgs, chat_func=fake_chat, max_iterations=3)
+        assert any(m.get("role") == "tool" for m in result)
+        assert result[-1]["message"]["content"] == "final"
+
+    @pytest.mark.asyncio
+    async def test_loop_skipped_dangerous_tool(self) -> None:
+        m = _manager(mode=ToolExecutionMode.AUTO_SAFE, sandbox_dir=".")
+        responses = [
+            {"message": {"tool_calls": [{"function": {"name": "delete_file", "arguments": {"path": "x"}}}]}},
+            {"message": {"content": "final"}},
+        ]
+        idx = {"n": 0}
+
+        async def fake_chat(msgs):
+            r = responses[idx["n"]]
+            idx["n"] += 1
+            return r
+
+        msgs = [{"role": "user", "content": "q"}]
+        result = await m.process_tool_calls_loop(msgs, chat_func=fake_chat, max_iterations=3)
+        assert any("skipped" in str(m.get("content", "")) for m in result)

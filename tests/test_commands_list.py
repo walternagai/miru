@@ -1,6 +1,7 @@
 """Tests for miru/commands/list.py."""
 
 import json
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -133,3 +134,15 @@ class TestListCommand:
             # Verify the custom host was passed
             call_args = mock_list.call_args[0]
             assert "custom" in call_args[0]
+
+class TestListAsync:
+    def test_list_models_async(self) -> None:
+        from miru.commands.list import _list_models_async
+
+        client = AsyncMock()
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+        client.list_models = AsyncMock(return_value=[{"name": "gemma3"}])
+        with patch("miru.commands.list.OllamaClient", return_value=client):
+            models = asyncio.run(_list_models_async("http://x"))
+        assert models == [{"name": "gemma3"}]

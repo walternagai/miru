@@ -216,3 +216,13 @@ class TestInfoCommand:
             assert result.exit_code == 0
             call_args = mock_info.call_args[0]
             assert "custom" in call_args[0]
+
+class TestInfoConnectionError:
+    def test_info_connection_error(self) -> None:
+        from miru.ollama.client import OllamaConnectionError
+
+        with patch("miru.commands.info._get_model_info_async", new_callable=AsyncMock) as mock_info:
+            mock_info.side_effect = OllamaConnectionError("Cannot connect")
+            result = runner.invoke(app, ["info", "gemma3"])
+            assert result.exit_code == 1
+            assert "Falha ao conectar" in result.output
