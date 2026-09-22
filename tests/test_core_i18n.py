@@ -251,3 +251,41 @@ class TestDetectLocaleFallback:
 
         monkeypatch.setattr(i18n_mod.locale, "getlocale", boom)
         assert detect_language() == "en_US"
+
+
+class TestMessageKeyCoverage:
+    """Every key used via t() must exist in all supported locales."""
+
+    def test_all_used_keys_are_defined_in_all_locales(self) -> None:
+        import pathlib
+        import re
+
+        used: set[str] = set()
+        for path in pathlib.Path("miru").rglob("*.py"):
+            if "__pycache__" in str(path):
+                continue
+            text = path.read_text(encoding="utf-8")
+            used.update(re.findall(r'\bt\(\s*"([^"]+)"', text))
+            used.update(re.findall(r"\bt\(\s*'([^']+)'", text))
+
+        assert used, "expected to find t() call sites"
+        for lang in SUPPORTED_LANGUAGES:
+            missing = sorted(key for key in used if key not in MESSAGES[lang])
+            assert missing == [], f"missing keys in {lang}: {missing}"
+
+    def test_examples_title_defined_in_all_locales(self) -> None:
+        for lang in SUPPORTED_LANGUAGES:
+            assert "examples.title" in MESSAGES[lang]
+
+    def test_force_overwrite_suggestion_defined_in_all_locales(self) -> None:
+        for lang in SUPPORTED_LANGUAGES:
+            assert "suggestion.force_overwrite" in MESSAGES[lang]
+
+    def test_pt_variant_detected(self, monkeypatch) -> None:
+        """LANG=pt_PT maps to pt_BR (Portuguese family)."""
+        from miru.core.i18n import detect_language
+
+        monkeypatch.delenv("MIRU_LANG", raising=False)
+        monkeypatch.setenv("LANG", "pt_PT.UTF-8")
+        assert detect_language() == "pt_BR"
+

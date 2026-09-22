@@ -79,6 +79,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "suggestion.available_vision_models": "Available vision models:\n{models}",
         "suggestion.check_ollama": "Make sure Ollama is running: ollama serve",
         "suggestion.use_vision_model": "Use: miru run {model} \"<prompt>\" --image <file>",
+        "suggestion.force_overwrite": "Use --force to overwrite the existing model.",
 
         # Success messages
         "success.model_pulled": "Model '{model}' pulled successfully.",
@@ -336,6 +337,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "quick.invalid_param": "Invalid parameter: {param}. Use KEY=VALUE",
 
         # Examples browser
+        "examples.title": "Usage Examples",
         "examples.no_examples": "No examples found matching the criteria.",
         "examples.key_header": "Key",
         "examples.title_header": "Title",
@@ -499,6 +501,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "suggestion.available_vision_models": "Modelos com visão disponíveis:\n{models}",
         "suggestion.check_ollama": "Certifique-se de que o Ollama está rodando: ollama serve",
         "suggestion.use_vision_model": "Use: miru run {model} \"<prompt>\" --image <arquivo>",
+        "suggestion.force_overwrite": "Use --force para sobrescrever o modelo existente.",
 
         # Success messages
         "success.model_pulled": "Modelo '{model}' baixado com sucesso.",
@@ -756,6 +759,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "quick.invalid_param": "Parâmetro inválido: {param}. Use CHAVE=VALOR",
 
         # Examples browser
+        "examples.title": "Exemplos de Uso",
         "examples.no_examples": "Nenhum exemplo encontrado com os critérios.",
         "examples.key_header": "Chave",
         "examples.title_header": "Título",
@@ -919,6 +923,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "suggestion.available_vision_models": "Modelos con visión disponibles:\n{models}",
         "suggestion.check_ollama": "Asegúrese de que Ollama esté ejecutándose: ollama serve",
         "suggestion.use_vision_model": "Use: miru run {model} \"<prompt>\" --image <archivo>",
+        "suggestion.force_overwrite": "Use --force para sobrescribir el modelo existente.",
 
         # Success messages
         "success.model_pulled": "Modelo '{model}' descargado exitosamente.",
@@ -1176,6 +1181,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "quick.invalid_param": "Parámetro inválido: {param}. Use CLAVE=VALOR",
 
         # Examples browser
+        "examples.title": "Ejemplos de Uso",
         "examples.no_examples": "Ningún ejemplo encontrado con los criterios.",
         "examples.key_header": "Clave",
         "examples.title_header": "Título",
@@ -1294,7 +1300,7 @@ def detect_language() -> str:
         return lang
 
     lang = os.environ.get("LANG", "")
-    if lang.startswith("pt_BR") or lang.startswith("pt_BR"):
+    if lang.startswith("pt_BR") or lang.startswith("pt"):
         return "pt_BR"
     if lang.startswith("es") or lang.startswith("es_"):
         return "es_ES"
