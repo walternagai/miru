@@ -51,3 +51,6 @@ Thumbs.db
 
 # Project specific
 *.log
+
+# Kata agent working directory (local task state)
+.kata/
