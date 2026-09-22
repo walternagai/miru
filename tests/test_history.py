@@ -148,3 +148,49 @@ class TestSearchAndClear:
         history_mod.HISTORY_FILE.write_text("{bad json\n", encoding="utf-8")
         assert get_history() == []
         assert search_history("x") == []
+
+    def _write_lines(self, *lines: str) -> None:
+        history_mod.HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        history_mod.HISTORY_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def _entry_line(self, prompt: str, command: str = "run") -> str:
+        return json.dumps(
+            HistoryEntry(timestamp="2026-01-01T00:00:00", command=command, model="m", prompt=prompt).to_dict(),
+            ensure_ascii=False,
+        )
+
+    def test_corrupt_line_between_valid_entries_is_skipped(self) -> None:
+        self._write_lines(
+            self._entry_line("first"),
+            "{bad json",
+            self._entry_line("second"),
+        )
+        entries = get_history()
+        assert [e.prompt for e in entries] == ["second", "first"]
+        assert {e.prompt for e in search_history("s")} == {"first", "second"}
+
+    def test_append_after_corrupt_line_preserves_valid_entries(self, monkeypatch) -> None:
+        config = type("C", (), {"history_enabled": True, "history_max_entries": 50})()
+        monkeypatch.setattr("miru.config_manager.load_config", lambda: config)
+
+        self._write_lines(
+            self._entry_line("first"),
+            "{bad json",
+            self._entry_line("second"),
+        )
+        record_history("run", "m", "third")
+
+        entries = get_history()
+        assert {e.prompt for e in entries} == {"first", "second", "third"}
+        assert len(entries) == 3
+
+    def test_append_after_corrupt_line_rewrites_valid_lines_only(self) -> None:
+        self._write_lines(self._entry_line("only"), "not json at all")
+        history_mod._append_history(
+            HistoryEntry(timestamp="2026-01-01T00:00:00", command="run", model="m", prompt="new"),
+            max_entries=50,
+        )
+
+        lines = [ln for ln in history_mod.HISTORY_FILE.read_text(encoding="utf-8").splitlines() if ln]
+        assert len(lines) == 2
+        assert all(json.loads(ln) for ln in lines)

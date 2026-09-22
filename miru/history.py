@@ -85,23 +85,43 @@ def record_history(
     _append_history(entry, config.history_max_entries)
 
 
+def _read_entries() -> list[HistoryEntry]:
+    """Read all history entries, skipping corrupt lines.
+
+    A corrupt line is logged and ignored so the valid entries survive;
+    one bad line must never wipe the whole history.
+    """
+    if not HISTORY_FILE.exists():
+        return []
+
+    entries: list[HistoryEntry] = []
+    try:
+        with open(HISTORY_FILE, encoding="utf-8") as f:
+            for lineno, line in enumerate(f, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(HistoryEntry.from_dict(json.loads(line)))
+                except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                    logger.debug(
+                        "Skipping corrupt history line %d in %s: %s",
+                        lineno,
+                        HISTORY_FILE,
+                        exc,
+                    )
+    except OSError as exc:
+        logger.warning("Failed to read history from %s: %s", HISTORY_FILE, exc)
+    return entries
+
+
 def _append_history(entry: HistoryEntry, max_entries: int) -> None:
     """Append entry to history file with rotation."""
     ensure_config_dir()
 
-    entries = []
+    entries = _read_entries()
 
-    if HISTORY_FILE.exists():
-        try:
-            with open(HISTORY_FILE, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        entries.append(json.loads(line))
-        except Exception:
-            entries = []
-
-    entries.append(entry.to_dict())
+    entries.append(entry)
 
     while len(entries) > max_entries:
         entries.pop(0)
@@ -109,7 +129,7 @@ def _append_history(entry: HistoryEntry, max_entries: int) -> None:
     try:
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
             for e in entries:
-                f.write(json.dumps(e, ensure_ascii=False) + "\n")
+                f.write(json.dumps(e.to_dict(), ensure_ascii=False) + "\n")
     except Exception as exc:
         logger.warning("Failed to write history to %s: %s", HISTORY_FILE, exc)
 
@@ -124,20 +144,9 @@ def get_history(limit: int = 50, command: str | None = None) -> list[HistoryEntr
     Returns:
         List of history entries (most recent first)
     """
-    if not HISTORY_FILE.exists():
-        return []
-
-    entries = []
-    try:
-        with open(HISTORY_FILE, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    data = json.loads(line)
-                    if command is None or data.get("command") == command:
-                        entries.append(HistoryEntry.from_dict(data))
-    except Exception:
-        return []
+    entries = _read_entries()
+    if command is not None:
+        entries = [e for e in entries if e.command == command]
 
     entries.reverse()
     return entries[:limit]
@@ -160,25 +169,14 @@ def search_history(query: str, limit: int = 20) -> list[HistoryEntry]:
     Returns:
         List of matching entries
     """
-    if not HISTORY_FILE.exists():
-        return []
-
-    entries = []
     query_lower = query.lower()
 
-    try:
-        with open(HISTORY_FILE, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    data = json.loads(line)
-                    prompt = data.get("prompt", "")
-                    response = data.get("response", "") or ""
-
-                    if query_lower in prompt.lower() or query_lower in response.lower():
-                        entries.append(HistoryEntry.from_dict(data))
-    except Exception:
-        return []
+    entries = [
+        e
+        for e in _read_entries()
+        if query_lower in e.prompt.lower()
+        or query_lower in (e.response or "").lower()
+    ]
 
     entries.reverse()
     return entries[:limit]

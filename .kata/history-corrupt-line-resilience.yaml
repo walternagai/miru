@@ -1,0 +1,90 @@
+schema_version: 1
+task: history-corrupt-line-resilience
+status: approved
+domain: coding
+done: "Linha JSONL corrompida não zera o histórico: entradas válidas são preservadas em get/search/append; linha ruim é ignorada (log debug) sem reescrever o arquivo sem as entradas antigas; testes cobrem arquivo com 1 linha inválida + 2 válidas (retorna 2, append mantém as 2 + nova); ruff+pytest verdes; git diff limitado a miru/history.py e tests."
+fit:
+  trivial: false
+  route: code-loop
+  reason: "P1 da revisão: data-loss — 1 linha JSONL inválida faz entries=[] e o próximo append regrava só a nova entrada. Correção de resiliência + testes."
+  answered: true
+  skipped: false
+think:
+  problem: "Leitura de history.jsonl em try envolvendo o loop inteiro: qualquer linha ruim → entries=[] (ou return []). Próximo save sobrescreve arquivo só com o que veio depois. Corrigir para skip por linha + preservar entries já lidas."
+  assumptions:
+    - "Formato é um JSON object por linha (JSONL)"
+    - "Linha inválida ≠ arquivo ausente — arquivo ausente continua vazio por design"
+    - "Não há atomic write nesta task (escopo só resiliência de leitura); append pode considerar skip de linha ruim ao reescrever"
+    - "history.py é módulo canônico (não commands/history_cmd.py)"
+  alternatives:
+    - "Try interno por linha + log — escolhida"
+    - "Backup .bak antes de qualquer leitura — extra, fora do mínimo"
+    - "Falhar alto com exceção — quebra UX de listagem"
+  unknowns: |
+    RESOLVIDO POR INVESTIGAÇÃO:
+    1. _append_history lia entries como dicts e regravava o arquivo inteiro — confirmado o data-loss.
+    2. tests/test_history.py isola HISTORY_FILE via monkeypatch num fixture autouse (tmp_path) — os testes novos usam o mesmo isolamento.
+    3. test_corrupt_history_returns_empty usa arquivo com SÓ linha ruim → continua [] (sem entradas válidas) — não conflita com a correção.
+    4. Helper central _read_entries() elimina a triplicação de leitura em _append_history/get_history/search_history.
+  answered: true
+  skipped: false
+simplify:
+  minimum_code: true
+  no_single_use_abstractions: true
+  no_speculative_config: true
+  notes: "Um helper _read_entries() consumido por 3 callers (não é abstração de uso único); nenhuma config nova; get/search agora expressam filtro como comprehension sobre o helper. history.py ficou 86 linhas trocadas (net -). Sem atomic write — fora do escopo declarado."
+  answered: true
+  skipped: false
+intent:
+  code_does: "Antes: qualquer linha JSONL inválida abortava o loop inteiro e retornava lista vazia; o append seguinte regravava o arquivo apenas com a entrada nova (data-loss silencioso)."
+  check_expects: "test_corrupt_history_returns_empty (pré-existente) espera [] para arquivo só com linha ruim — continua verde. Testes novos esperam entradas válidas preservadas com linha ruim no meio, tanto na leitura quanto no append (3 entradas após append, arquivo reescrito só com linhas válidas)."
+  spec_says: "Docstrings de get_history/search_history descrevem filtro e limite, não política de corrupção. A revisão (full-code-review) classificou o reset silencioso como P1 de data-loss."
+  all_agree: true
+  conflict_resolution: ""
+  answered: true
+  skipped: false
+surgical:
+  files:
+    - path: miru/history.py
+      necessary: true
+    - path: tests/test_history.py
+      necessary: true
+  removed_imports_clean: true
+  answered: true
+  skipped: false
+verify:
+  ruff_clean: true
+  tests_pass: true
+  coverage_pct: 87.0
+  coverage_pass: true
+  success_criteria_met: true
+  attempts: 1
+  hand_back: false
+preflight:
+  skills_missing: []
+artifact:
+  intent_owed: true
+  intent_present: true
+  auth_owed: false
+  auth_present: true
+  pending_owed: false
+  pending_present: true
+  twins_owed: true
+  twins_present: true
+auth:
+  action_taken: false
+  authorized: false
+  action: ""
+  quote: ""
+pending:
+  action: ""
+  documented: false
+twins:
+  pattern: "leitura de arquivo com json.loads dentro de try externo que zera/reseta o acumulador + caminho de escrita que regrava o arquivo"
+  result: "3 candidatos inspecionados: miru/commands/logs.py e miru/commands/batch.py já fazem skip por linha (não são gêmeos); miru/alias.py tem leitura que zera em corrupção (_load_aliases) + escrita que regrava (_save_aliases), mas TOML de arquivo único — a perda já é irreversível na leitura, sem 'entradas válidas' para preservar; mesmo shape em load/save_favorites (session.py, json único). Nenhum outro arquivo no repo combina leitor-parcial-de-múltiplas-entradas + reescritor (grep por json.loads/HISTORY_FILE/HISTORY: só history.py). Sem correção aplicada — fora do escopo desta task."
+  searched: true
+  defect_fixed: true
+  matches_count: 0
+  files_count: 0
+  fix_applied: false
+base_commit: 57c910b
