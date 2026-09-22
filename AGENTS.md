@@ -6,7 +6,7 @@ Guia para agentes de IA trabalhando neste repositório.
 
 Miru (見る — "ver/olhar") é uma CLI Python para servidor Ollama local com suporte multimodal, benchmarking, function calling e i18n.
 
-**Versão:** 0.5.0 · **Python:** >=3.10 (não 3.11+)
+**Versão:** 0.6.0 · **Python:** >=3.10 (não 3.11+)
 
 ## Stack
 

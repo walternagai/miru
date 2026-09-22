@@ -4,7 +4,7 @@
 
 Miru (見る) significa "ver" ou "olhar" em japonês. Representa a capacidade de visualizar e interagir com modelos de IA através de comandos claros e intuitivos, com suporte completo a function calling para que modelos executem ações no seu sistema.
 
-**Versão 0.5.0**
+**Versão 0.6.0**
 
 ## Instalação
 

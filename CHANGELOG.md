@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-09-22
+
+### Added
+
+#### TUI — Expandida e promovida a comando próprio
+
+- **Novo comando `miru tui`** — abre a interface full-screen diretamente
+  (antes, a TUI era lançada implicitamente por `miru chat`; agora `chat` opera em modo CLI)
+- **7 telas modais novas**: config, confirm, export, help, image, preset e rename
+- **Multimodal na TUI** — anexo de imagens com `ctrl+i`, codificadas e enviadas em `user_msg["images"]`
+- **Gerenciamento de sessões** — autosave, renomear (`f2`), deletar (`delete`),
+  favoritar (`ctrl+shift+f`) e exportar (`ctrl+e`)
+- **Presets de parâmetros** (`ctrl+o`): Preciso, Criativo, Programador, Acadêmico, Conversacional
+- **Zen mode** (`ctrl+z`) — oculta sidebar e painel de contexto
+- **Tela de ajuda** (`f1`) com a lista de atalhos
+- **Conjunto completo de key bindings** — busca (`ctrl+f`), regenerar (`ctrl+shift+r`),
+  copiar (`ctrl+y`), cancelar geração (`ctrl+x`), entre outros
+
+#### Chat e histórico
+
+- **`/recall` com Rich Table** — exibição tabular das entradas do histórico
+- **Autosave de sessão no chat** — sessões nomeadas com sufixo `_autosave`
+- **Paginação no histórico** — `miru history --page/-p`
+
+#### Ferramentas
+
+- **Endurecimento do `run_command`** — rejeita metacaracteres de shell (`;&|`$<>\n\r()`)
+  antes de qualquer matching, valida `allowed_args` por token via `shlex.split` e
+  executa com `shell=False`
+
+### Fixed
+
+- **Shell injection em `run_command`** — comandos encadeados (`echo hi; rm -rf /`)
+  não passam mais por match do primeiro token
+- **Perda de dados no histórico** — uma linha JSONL corrompida zerava todas as entradas
+  e o append seguinte regravava o arquivo sem elas
+- **Resolução de host inconsistente** — `quick`, `embed` e `setup` usavam o `get_host`
+  legado (3 níveis) e ignoravam `MIRU_DEFAULT_HOST` e o config file
+- **Chaves i18n ausentes** — `examples.title` e `suggestion.force_overwrite`
+  adicionadas nos 3 locales; `detect_language` agora reconhece qualquer variante `pt*`
+- **Conflito de flag** — `--format` perdeu o atalho `-f`, que colidia com `--file` em `miru run`
+- **Encaminhamento de parâmetros da TUI** — `system_prompt`, `top_k`, `max_tokens`, `seed`,
+  `ctx`, `timeout` e config de tools agora chegam ao `TUIApp` em vez de serem ignorados
+- **Streaming em stdout não-TTY** — saída em texto puro quando não há terminal
+- **Tratamento de erros** — `compare` com handler alcançável; exceções nomeadas (`N818`);
+  `except Exception` silenciosos substituídos por logging em todo o pacote
+
+### Changed
+
+- **`textual>=0.80.0` agora é dependência declarada** — em 0.5.0 a TUI importava
+  `textual` sem declará-la no `pyproject.toml`
+- **`miru chat` opera em modo CLI** — a TUI é acessada por `miru tui`
+- **`run --format` não aceita mais `-f`** — use `--format`
+- **Verificação de host unificada** em `resolve_host` (`cli > OLLAMA_HOST >
+  MIRU_DEFAULT_HOST > config file > default`)
+
+### Documentation
+
+- **`AGENTS.md`** adicionado e atualizado com stack, comandos reais e escopo de verificação
+- **`README.md`** reescrito com referência precisa da CLI e documentação da TUI
+
+---
+
 ## [0.5.0] - 2026-04-07
 
 ### Added
