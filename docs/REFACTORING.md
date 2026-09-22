@@ -174,7 +174,7 @@ miru run gemma3 "test" --system "prompt" --image photo.jpg --file doc.pdf --temp
 **Depois:**
 ```python
 # Flags curtas consistentes
-miru run gemma3 "test" -s "prompt" -i photo.jpg -f doc.pdf -t 0.7
+miru run gemma3 "test" -s "prompt" -i photo.jpg -f doc.pdf --temperature 0.7
 ```
 
 ### Mapeamento Completo
@@ -264,10 +264,10 @@ Os módulos podem ser migrados gradualmente:
 
 ## Próximos Passos
 
-1. **Refatorar outros comandos**: `run.py`, `compare.py`, `batch.py`, etc.
+1. **i18n em `info.py` e `list.py`** — os dois únicos comandos que ainda não usam `t()`
 2. **Adicionar mais idiomas**: Fácil adicionar mensagens para novos idiomas
-3. **Testes de integração**: Validar CLI completa
-4. **Documentação**: Atualizar README e tutorial
+3. **Remover wrappers legados**: `config_manager.py` e `renderer.py` (Fase 3 da migração)
+4. **Reduzir dívida de lint/testes**: ~437 erros ruff em `tests/`, ~104 erros mypy em `miru/`
 
 ## Variáveis de Ambiente
 
@@ -316,11 +316,14 @@ miru run gemma3 "Explica recursión"
 miru run llama3 "test" --system "be concise" --image photo.png --temperature 0.7
 
 # Depois
-miru run llama3 "test" -s "be concise" -i photo.png -t 0.7
+miru run llama3 "test" -s "be concise" -i photo.png --temperature 0.7
 
 # Comandos chat também suportam
-miru chat llama3 -s "be helpful" -t 0.7
+miru chat llama3 -s "be helpful" --temperature 0.7
 ```
+
+> Nota: `-t` é `--timeout` (segundos) em `run`/`chat`/`batch`, não temperatura.
+> `--temperature` não tem flag curta.
 
 ## Checklist de Implementação
 
@@ -333,10 +336,13 @@ miru chat llama3 -s "be helpful" -t 0.7
 - [x] cli_options.py com short flags
 - [x] Wrapper de compatibilidade config_manager.py
 - [x] Atualização do __init__.py
-- [ ] Refatorar commands/chat.py (em progresso)
-- [ ] Refatorar commands/run.py
-- [ ] Refatorar commands/compare.py
-- [ ] Refatorar commands/batch.py
-- [ ] Refatorar outros comandos
-- [ ] Testes de integração
-- [ ] Documentação atualizada
+- [x] Refatorar commands/chat.py
+- [x] Refatorar commands/run.py
+- [x] Refatorar commands/compare.py
+- [x] Refatorar commands/batch.py
+- [x] Refatorar outros comandos (16 de 18 importam i18n; `info.py` e `list.py` ainda não usam `t()`)
+- [x] Testes de integração (`tests/test_integration.py`, `tests/test_tool_integration.py`)
+- [x] Documentação atualizada
+
+> Atualizado em 2026-09-22: os comandos pendentes acima foram refatorados entre
+> os releases 0.5.0 e 0.6.0. O wrapper `renderer.py` continua valendo.

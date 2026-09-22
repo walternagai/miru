@@ -53,31 +53,37 @@ miru config set language pt_BR
 
 ## Short Flags
 
-Flags curtas disponíveis nos comandos principais:
+Flags curtas por comando — o mesmo atalho significa coisas diferentes em comandos diferentes:
 
-| Flag Longa      | Flag Curta | Descrição                     |
-|-----------------|------------|-------------------------------|
-| `--host`        | `-h`       | URL do servidor Ollama        |
-| `--quiet`       | `-q`       | Output minimal                |
-| `--verbose`     | `-v`       | Output verboso                |
-| `--system`      | `-s`       | System prompt                 |
-| `--image`       | `-i`       | Arquivo de imagem             |
-| `--file`        | `-f`       | Arquivo de input              |
-| `--audio`       | `-a`       | Arquivo de áudio              |
-| `--temperature` | `-t`       | Temperatura de amostragem     |
-| `--max-tokens`  | `-m`       | Máximo de tokens              |
-| `--top-p`       | `-p`       | Nucleus sampling              |
-| `--top-k`       | `-k`       | Top-k sampling                |
-| `--ctx`         | `-c`       | Janela de contexto            |
-| `--output`      | `-o`       | Arquivo de saída              |
-| `--limit`       | `-n`       | Número de entradas            |
+| Flag Curta | Significa | Onde                                 |
+|------------|-----------|--------------------------------------|
+| `-h`       | `--host`  | `list`, `info`, `pull`, `delete`, `copy`, `embed`, `batch`, `status`, `ps`, `stop`, `search`, `setup`, `quick` |
+| `-h`       | *não existe* | `run`, `chat`, `compare`, `examples` — use `--host` |
+| `-q`       | `--quiet` | `list`, `info`, `pull`, `run`, `chat`, `compare`, `batch`, `embed` |
+| `-s`       | `--system` | `run`, `chat`, `compare` (em `history`, `-s` é `--search`) |
+| `-i`       | `--image` | `run`, `compare` (não existe em `chat` nem `tui`) |
+| `-f`       | `--file`  | `run`, `embed` (`-f` é `--format` em `list`, `info`, `search`; `--force` em `copy`, `delete`, `stop`; `--prompt-file` em `compare`; `--follow` em `logs`) |
+| `-a`       | `--audio` | `run`                                 |
+| `-t`       | `--timeout` | `run`, `chat`, `batch` — **não** é temperatura; em `examples`, `-t` é `--tag` |
+| `-o`       | `--output` | `completion`, `session export`, `template export`, `tools docs` |
+| `-n`       | `--limit` | `history`; em `logs`, `-n` é `--lines`; em `template import`, `--name` |
+| `-p`       | `--prompt` / `--param` / `--prompts` | `compare`, `template save` / `quick` / `batch` |
+| `-v`       | `--verbose` | `status`                            |
+| `-y`       | `--non-interactive` | `setup`                    |
+| `-l`       | `--list`  | `quick`, `examples`; em `logs`, `-l` é `--latest` |
+| `-c`       | `--category` / `--command` | `examples` / `history` |
+| `-b`       | `--batch` | `embed`                               |
+
+`--temperature`, `--max-tokens`, `--top-p`, `--top-k`, `--seed`, `--ctx` e
+`--format` de `run`/`chat` **não têm flag curta** — use o nome longo.
 
 ```bash
 # Exemplos com short flags
-miru run gemma3 "Explique closures" -s "Seja conciso" -t 0.7 -m 200
+miru run gemma3 "Explique closures" -s "Seja conciso" --temperature 0.7 --max-tokens 200
 miru run llava "Descreva" -i foto.jpg -f notas.txt
-miru list -q
+miru list -q -h http://localhost:11434
 miru history -n 50 -c run
+miru logs -n 100 -f
 ```
 
 ## Uso
@@ -140,7 +146,7 @@ miru run gemma3:latest "Transcreva" -a reuniao.mp3
 miru run gemma3:latest "Explique decorators" -s "Você é um especialista em Python. Seja conciso."
 
 # Com parâmetros de inferência
-miru run gemma3:latest "Teste" -t 0.7 --seed 42 -m 200
+miru run gemma3:latest "Teste" --temperature 0.7 --seed 42 --max-tokens 200
 
 # Download automático se modelo não existir
 miru run gemma3:latest "Teste" --auto-pull
@@ -174,12 +180,19 @@ miru chat gemma3:latest --tavily
 miru chat qwen2.5:7b --enable-tools --sandbox-dir ./workspace
 
 # Parâmetros de inferência passados ao chat
-miru chat gemma3 -t 0.3 --seed 42 --system "Seja conciso"
+miru chat gemma3 --temperature 0.3 --seed 42 --system "Seja conciso"
 ```
 
-O `miru chat` abre a **interface TUI** (Terminal User Interface) quando o Textual está instalado, ou cai automaticamente para o **modo CLI interativo** se não estiver disponível.
+O `miru chat` opera em **modo CLI interativo**. Para a interface full-screen, use
+`miru tui`.
 
-#### Interface TUI
+#### Interface TUI (`miru tui`)
+
+```bash
+miru tui                       # Modelo padrão configurado
+miru tui gemma3:latest
+miru tui --host http://localhost:11434
+```
 
 A TUI oferece um layout em três painéis:
 
@@ -230,13 +243,13 @@ A TUI oferece um layout em três painéis:
 - **Copiar Código** — extrai e copia apenas os blocos de código
 - **Regenerar** — reexecuta a última pergunta com nova resposta
 
-#### Modo CLI interativo (fallback)
+#### Comandos do modo CLI
 
-Quando a TUI não está disponível, o chat opera em modo texto puro com os seguintes comandos:
+O `miru chat` opera em modo texto puro com os seguintes comandos:
 
 ```
 >>> /help              # Listar comandos disponíveis
->>> /exit              # Encerrar sessão
+>>> /exit, /quit       # Encerrar sessão
 >>> /clear             # Limpar histórico da conversa
 >>> /history           # Mostrar contagem de turnos
 >>> /stats             # Mostrar estatísticas da sessão (tokens, velocidade)
@@ -247,6 +260,8 @@ Quando a TUI não está disponível, o chat opera em modo texto puro com os segu
 >>> /retry             # Re-executar último prompt
 >>> /save <arquivo>    # Salvar conversa em arquivo Markdown
 ```
+
+Não há `/export` no chat — exportação de sessão é `miru session export`.
 
 **`/recall`** — resgata prompts de sessões anteriores do histórico:
 
@@ -300,7 +315,7 @@ miru batch gemma3:latest --prompts data.jsonl --format json
 miru batch qwen2.5:7b --prompts prompts.txt -s "Seja conciso"
 miru batch gemma3 --prompts prompts.txt --format jsonl -q > results.jsonl
 miru batch gemma3 --prompts prompts.txt --stop-on-error
-miru batch gemma3 --prompts prompts.txt -t 0.7 -m 100
+miru batch gemma3 --prompts prompts.txt --temperature 0.7 --max-tokens 100
 ```
 
 O arquivo de prompts pode ser texto simples (um prompt por linha) ou JSONL com campos `prompt`, `text` ou `question`.
@@ -544,7 +559,8 @@ miru config profile delete work
 
 ## Session Save/Restore
 
-Sessões são salvas automaticamente em `~/.miru/sessions/` durante o chat na TUI.
+Sessões são salvas em `~/.miru/sessions/`. Na TUI (`miru tui`) há autosave automático,
+além de renomear (`F2`), deletar (`Delete`), favoritar (`Ctrl+Shift+F`) e exportar (`Ctrl+E`).
 
 ### Comandos de sessão
 
@@ -706,10 +722,15 @@ pip install -e ".[dev]"
 ### Executar testes
 
 ```bash
-pytest
-pytest --cov=miru
-pytest tests/test_core_i18n.py tests/test_core_errors.py tests/test_core_config.py -v
+pytest tests/ -q --tb=short          # suíte completa: ~2 min, 1251 testes
+pytest tests/test_history.py -q      # um arquivo
+pytest tests/test_history.py::TestSearchAndClear::test_clear_history
+pytest tests/ --cov=miru             # coverage (gate: 85%)
+ruff check miru/                     # lint do pacote
 ```
+
+`ruff check miru/` passa limpo. `ruff check tests/` tem ~437 erros pré-existentes
+e `mypy miru/` tem ~104 — nenhum dos dois é usado como gate.
 
 ### Estrutura do projeto
 
@@ -727,11 +748,16 @@ miru/
 │   ├── prompts.py          # Prompts interativos
 │   └── tui/
 │       ├── app.py          # Aplicação TUI principal
+│       ├── app.tcss        # Estilos da TUI
 │       ├── config_screen.py# Tela de configurações
 │       ├── confirm_screen.py# Modal de confirmação
+│       ├── export_screen.py# Exportar sessão
+│       ├── help_screen.py  # Ajuda com atalhos
+│       ├── image_screen.py # Anexar imagem
 │       ├── preset_screen.py# Seleção de personalidades
 │       └── rename_screen.py# Renomear sessão
 ├── commands/               # Comandos CLI (batch, chat, run, …)
+│                           # run/chat/list/… também têm wrappers em cli.py
 ├── input/                  # Processamento multimodal
 │   ├── audio.py            # Transcrição com Whisper
 │   ├── file.py             # Extração de texto

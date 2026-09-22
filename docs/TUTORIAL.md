@@ -88,15 +88,19 @@ miru run gemma3:latest "Transcreva" --audio reuniao.mp3
 ### Iniciando uma Sessão
 
 ```bash
-# Iniciar chat
+# Iniciar chat (modo CLI)
 miru chat gemma3:latest
 
 # Com system prompt (comportamento definido)
 miru chat gemma3:latest --system "Você é um especialista em Python. Seja conciso."
 
-# Com imagem
-miru chat llava:latest --image diagrama.png
+# Interface full-screen (TUI)
+miru tui
+miru tui gemma3:latest
 ```
+
+Para anexar imagens em uma conversa, use `miru run` (ou `miru compare`), que aceitam
+`--image`. A TUI permite anexar imagens dentro da sessão com `Ctrl+I`.
 
 ### Comandos do Chat
 
@@ -111,9 +115,9 @@ stateDiagram-v2
     Chat --> Clear: /clear
     Chat --> Model: /model <nome>
     Chat --> System: /system <prompt>
+    Chat --> Recall: /recall [n]
     Chat --> Retry: /retry
-    Chat --> Save: /save <nome>
-    Chat --> Export: /export <formato>
+    Chat --> Save: /save <arquivo>
     Chat --> Exit: /exit
     History --> Chat
     Stats --> Chat
@@ -123,7 +127,7 @@ stateDiagram-v2
 | Comando | Descrição |
 |---------|-----------|
 | `/help` | Lista todos os comandos |
-| `/exit` | Encerra a sessão |
+| `/exit`, `/quit` | Encerra a sessão |
 | `/clear` | Limpa o histórico |
 | `/history` | Mostra contagem de turnos |
 | `/stats` | Estatísticas da sessão |
@@ -131,8 +135,9 @@ stateDiagram-v2
 | `/system <prompt>` | Altera o system prompt |
 | `/recall [n]` | Resgata prompt anterior |
 | `/retry` | Re-executa último prompt |
-| `/save <nome>` | Salva sessão |
-| `/export <fmt>` | Exporta (json/md/txt) |
+| `/save <arquivo>` | Salva conversa em arquivo Markdown |
+
+Não existe `/export` no chat — para exportar uma sessão, use `miru session export`.
 
 #### Resgatando Prompts Anteriores
 
@@ -588,6 +593,45 @@ sandbox.resolve_path("test.txt")  # OK: ./workspace/test.txt
 sandbox.resolve_path("../../../etc/passwd")  # ERRO: SecurityError
 ```
 
+## Interface TUI
+
+A TUI é um comando próprio: `miru tui`. O `miru chat` não a abre — ele opera em modo CLI.
+
+```bash
+miru tui                       # usa o modelo padrão configurado
+miru tui gemma3:latest
+miru tui --host http://localhost:11434
+```
+
+### Atalhos principais
+
+| Atalho | Ação |
+|--------|------|
+| `Enter` / `Ctrl+J` / `Ctrl+Enter` | Enviar mensagem |
+| `Ctrl+N` | Nova conversa |
+| `Ctrl+S` | Salvar sessão |
+| `Ctrl+K` | Configurações globais |
+| `Ctrl+O` | Selecionar preset (personalidade) |
+| `Ctrl+Z` | Modo Zen |
+| `Ctrl+P` | Mostrar/ocultar painel de parâmetros |
+| `Ctrl+F` | Buscar no chat |
+| `Ctrl+E` | Exportar sessão |
+| `Ctrl+X` | Cancelar geração em curso |
+| `Ctrl+I` | Anexar imagem |
+| `Ctrl+Shift+F` | Favoritar/desfavoritar sessão |
+| `Ctrl+Shift+S` | Mostrar/ocultar painel de sessões |
+| `Ctrl+Shift+R` | Regenerar última resposta |
+| `Ctrl+Y` / `Ctrl+Shift+Y` | Copiar última resposta / código |
+| `F1` | Ajuda com atalhos |
+| `F2` | Renomear sessão |
+| `Delete` | Deletar sessão |
+| `Ctrl+Q` | Sair |
+
+### Multimodal na TUI
+
+Anexe imagens com `Ctrl+I` (a tela `ImageScreen` pede o caminho do arquivo). As imagens
+ficam pendentes na interface e são codificadas e enviadas junto com a mensagem.
+
 ## Sessões
 
 ### Salvar e Restaurar
@@ -799,8 +843,8 @@ miru stop modelo:tag --force
 # Ver logs
 miru logs --latest
 
-# Modo verbose
-miru run gemma3 "Test" --verbose
+# Verbose (apenas em `status`; `run`/`chat` não têm --verbose)
+miru status --verbose
 ```
 
 ## Próximos Passos
