@@ -229,9 +229,9 @@ def setup(
         miru setup --host http://localhost:11434
         miru setup --non-interactive
     """
-    from miru.config import get_host
+    from miru.core.config import resolve_host
 
-    resolved_host = host or get_host()
+    resolved_host = resolve_host(host)
 
     try:
         asyncio.run(setup_async(resolved_host, non_interactive))

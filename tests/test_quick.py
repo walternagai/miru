@@ -30,6 +30,44 @@ class TestQuickList:
         assert result.exit_code == 0
 
 
+class TestQuickHostResolution:
+    """quick must use the full resolve_host precedence chain."""
+
+    def test_miru_default_host_is_honored(self, monkeypatch) -> None:
+        cfg = MagicMock()
+        cfg.default_model = None
+        monkeypatch.setattr("miru.commands.quick.load_config", lambda: cfg)
+        monkeypatch.delenv("OLLAMA_HOST", raising=False)
+        monkeypatch.setenv("MIRU_DEFAULT_HOST", "http://from-config:11434")
+
+        client = _make_test_client()
+        with patch("miru.commands.quick.OllamaClient", return_value=client) as MockClient:
+            result = runner.invoke(
+                app,
+                ["quick", "code", "gemma3", "--param", "language=python", "--param", "task=x"],
+            )
+
+        assert result.exit_code == 0
+        MockClient.assert_called_once_with("http://from-config:11434")
+
+    def test_cli_host_wins(self, monkeypatch) -> None:
+        monkeypatch.setenv("MIRU_DEFAULT_HOST", "http://from-config:11434")
+        client = _make_test_client()
+        with patch("miru.commands.quick.OllamaClient", return_value=client) as MockClient:
+            result = runner.invoke(
+                app,
+                [
+                    "quick", "code", "gemma3",
+                    "--host", "http://cli:11434",
+                    "--param", "language=python",
+                    "--param", "task=x",
+                ],
+            )
+
+        assert result.exit_code == 0
+        MockClient.assert_called_once_with("http://cli:11434")
+
+
 class TestQuickRun:
     def _mock_client(self, chunks=None, models=None):
         chunks = chunks or [{"message": {"content": "resposta"}, "done": True, "eval_count": 10, "eval_duration": 1_000_000_000}]

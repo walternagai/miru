@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from miru.config import get_host
+from miru.core.config import resolve_host
 from miru.core.i18n import t
 from miru.input import extract_text
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
@@ -210,7 +210,7 @@ def embed(
         render_error(t("embed.use_one_option"))
         sys.exit(1)
 
-    resolved_host = get_host(host)
+    resolved_host = resolve_host(host)
 
     try:
         if text is not None:

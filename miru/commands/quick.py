@@ -9,8 +9,8 @@ from rich.console import Console
 from rich.table import Table
 
 from miru.alias import resolve_alias
-from miru.config import get_host
 from miru.config_manager import load_config
+from miru.core.config import resolve_host
 from miru.core.i18n import t
 from miru.inference_params import build_options
 from miru.ollama.client import OllamaClient, OllamaConnectionError, OllamaModelNotFound
@@ -280,7 +280,7 @@ def quick(
                     params_dict[primary_key] = stdin_content
                     break
 
-    resolved_host = get_host(host)
+    resolved_host = resolve_host(host)
 
     try:
         asyncio.run(
