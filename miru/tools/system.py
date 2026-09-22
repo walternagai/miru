@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import fnmatch
 import os
+import re
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from miru.tools.base import Tool, create_tool
+
+# Shell metacharacters that enable injection when a shell is involved.
+# Rejected before parsing so `echo hi; rm -rf /` never reaches the whitelist
+# as a mere first-token match on `echo`.
+_SHELL_META_RE = re.compile(r"[;&|`$<>\n\r()]")
 
 
 class SystemSecurityError(Exception):
@@ -55,7 +63,14 @@ class CommandWhitelist:
         self._allowed_commands.pop(command, None)
 
     def is_allowed(self, command: str) -> bool:
-        """Check if command is in whitelist."""
+        """Check if command is in whitelist.
+
+        Rejects shell metacharacters outright so chained/redirection commands
+        (e.g. ``echo hi; rm -rf /``) never match via first-token lookup.
+        """
+        if _SHELL_META_RE.search(command):
+            return False
+
         # Check exact match
         if command in self._allowed_commands:
             return True
@@ -75,6 +90,29 @@ class CommandWhitelist:
         base_cmd = command.split()[0] if " " in command else command
         info = self._allowed_commands.get(base_cmd, {})
         return info.get("allowed_args")
+
+    def check_args(self, argv: list[str]) -> None:
+        """Validate argv against allowed_args patterns for argv[0].
+
+        Args:
+            argv: Parsed command tokens (argv[0] is the base command).
+
+        Raises:
+            SystemSecurityError: If any argument does not match allowed_args.
+        """
+        if not argv:
+            raise SystemSecurityError("Empty command")
+
+        patterns = self.get_allowed_args(argv[0])
+        if patterns is None:
+            return
+
+        for arg in argv[1:]:
+            if not any(fnmatch.fnmatch(arg, pattern) for pattern in patterns):
+                raise SystemSecurityError(
+                    f"Argument not allowed for '{argv[0]}': {arg}. "
+                    f"Allowed patterns: {', '.join(patterns)}"
+                )
 
     def list_all(self) -> dict[str, dict[str, Any]]:
         """Get all allowed commands."""
@@ -164,17 +202,18 @@ def create_system_tools(
 
     def run_command(cmd: str, timeout: int = 10) -> str:
         """
-        Execute a shell command from the whitelist.
+        Execute a whitelisted command without a shell.
 
         Args:
-            cmd: Command to execute (must be in whitelist)
+            cmd: Command to execute (must be in whitelist; no shell syntax)
             timeout: Timeout in seconds (default: 10)
 
         Returns:
             Command output (stdout)
 
         Raises:
-            SystemSecurityError: If command not in whitelist or execution fails
+            SystemSecurityError: If command not in whitelist, uses shell
+                metacharacters, fails allowed_args checks, or execution fails
         """
         if not allow_commands:
             raise SystemSecurityError("Command execution is disabled")
@@ -192,9 +231,26 @@ def create_system_tools(
             )
 
         try:
+            argv = shlex.split(cmd)
+        except ValueError as e:
+            raise SystemSecurityError(f"Invalid command quoting: {e}") from e
+
+        if not argv:
+            raise SystemSecurityError("Empty command")
+
+        # Re-check base token (is_allowed may have matched a full-string key)
+        if not cmd_whitelist.is_allowed(argv[0]):
+            raise SystemSecurityError(
+                f"Command not in whitelist: {argv[0]}. "
+                f"Allowed commands: {', '.join(cmd_whitelist.list_all().keys())}"
+            )
+
+        cmd_whitelist.check_args(argv)
+
+        try:
             result = subprocess.run(
-                cmd,
-                shell=True,
+                argv,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -210,8 +266,12 @@ def create_system_tools(
 
         except subprocess.TimeoutExpired:
             raise SystemSecurityError(f"Command timed out after {timeout} seconds")
+        except OSError as e:
+            raise SystemSecurityError(f"Command execution failed: {e}") from e
+        except SystemSecurityError:
+            raise
         except Exception as e:
-            raise SystemSecurityError(f"Command execution failed: {e}")
+            raise SystemSecurityError(f"Command execution failed: {e}") from e
 
     def get_env(var: str) -> str:
         """
@@ -269,7 +329,7 @@ def create_system_tools(
     tools = [
         create_tool(
             name="run_command",
-            description="Execute a shell command from the whitelist",
+            description="Execute a whitelisted command (no shell syntax)",
             parameters={
                 "type": "object",
                 "properties": {

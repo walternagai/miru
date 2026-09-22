@@ -234,6 +234,55 @@ class TestSystemTools:
         with pytest.raises(ToolExecutionError, match="not in whitelist"):
             registry.execute("run_command", {"cmd": "rm -rf /"})
 
+    def test_run_command_rejects_shell_injection(self) -> None:
+        """Shell metacharacters must not pass the whitelist via first token."""
+        cmd_whitelist = CommandWhitelist()
+        cmd_whitelist.allow("echo")
+
+        tools = create_system_tools(cmd_whitelist=cmd_whitelist, allow_commands=True)
+        registry = ToolRegistry()
+        for tool in tools:
+            registry.register(tool)
+
+        from miru.tools.exceptions import ToolExecutionError
+
+        with pytest.raises(ToolExecutionError, match="not in whitelist"):
+            registry.execute("run_command", {"cmd": "echo hi; rm -rf /"})
+
+        with pytest.raises(ToolExecutionError, match="not in whitelist"):
+            registry.execute("run_command", {"cmd": "echo hi && cat /etc/passwd"})
+
+        assert cmd_whitelist.is_allowed("echo hi; rm -rf /") is False
+
+    def test_run_command_rejects_disallowed_args(self) -> None:
+        """allowed_args patterns are enforced per argument token."""
+        cmd_whitelist = CommandWhitelist()
+        cmd_whitelist.allow("git", allowed_args=["status", "log"])
+
+        tools = create_system_tools(cmd_whitelist=cmd_whitelist, allow_commands=True)
+        registry = ToolRegistry()
+        for tool in tools:
+            registry.register(tool)
+
+        from miru.tools.exceptions import ToolExecutionError
+
+        with pytest.raises(ToolExecutionError, match="Argument not allowed"):
+            registry.execute("run_command", {"cmd": "git push origin main"})
+
+    def test_run_command_allows_matching_args(self) -> None:
+        """Argument matching an allowed_args pattern is accepted."""
+        cmd_whitelist = CommandWhitelist()
+        cmd_whitelist.allow("echo", allowed_args=["hello", "world"])
+
+        tools = create_system_tools(cmd_whitelist=cmd_whitelist, allow_commands=True)
+        registry = ToolRegistry()
+        for tool in tools:
+            registry.register(tool)
+
+        result = registry.execute("run_command", {"cmd": "echo hello"})
+
+        assert "hello" in result
+
     def test_run_command_dangerous(self) -> None:
         """Test running command marked as dangerous."""
         cmd_whitelist = CommandWhitelist()
